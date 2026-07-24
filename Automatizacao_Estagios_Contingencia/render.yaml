@@ -1,0 +1,10 @@
+# Deploy futuro na Render — Web Service Python
+services:
+  - type: web
+    name: estagios-poa
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:server --workers 2 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
