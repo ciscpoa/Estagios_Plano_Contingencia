@@ -1,0 +1,23 @@
+# ── Coleta ────────────────────────────────────────────────
+requests>=2.31
+selenium>=4.20
+webdriver-manager>=4.0      # gerencia o chromedriver localmente (VSCode)
+beautifulsoup4>=4.12
+lxml>=5.0
+
+# ── Processamento ─────────────────────────────────────────
+pandas>=2.1
+numpy>=1.26
+openpyxl>=3.1            # export Excel (arquivos_gerados_2026)
+
+# ── Dashboard ─────────────────────────────────────────────
+dash>=2.17
+dash-bootstrap-components>=1.6
+plotly>=5.20
+
+# ── Deploy (Render) ───────────────────────────────────────
+gunicorn>=21.2
+
+# ── Relatório PDF (Exportar PDF no servidor) ──────────────
+reportlab>=4.0
+kaleido==0.2.1        # 0.2.x embute o Chromium (não exige Chrome no sistema)
