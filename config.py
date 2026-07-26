@@ -146,6 +146,9 @@ INFO_RIOS_CARDS = [
     {"chave": "Rio_Jacui_Triunfo", "rotulo": "Rio Jacuí",
      "municipio": "Triunfo", "estacao": "ANA 85900000",
      "cota_inundacao": None},
+    {"chave": "Rio_Gravatai", "rotulo": "Rio Gravataí",
+     "municipio": "Gravataí", "estacao": "Passo das Canoas · ANA 87399000",
+     "cota_inundacao": None},
 ]
 
 # ──────────────────────────────────────────────────────────────────────────
