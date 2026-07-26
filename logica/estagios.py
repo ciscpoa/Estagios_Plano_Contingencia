@@ -625,33 +625,45 @@ def indicadores_dos_brutos(brutos: dict) -> IndicadoresNumericos:
     # Observado: estação automática do INMET em POA (pluviômetro local).
     # Previsto : Poaclima/Catavento (a mesma previsão que a DC de POA exibe).
     # O Open-Meteo (modelo global) fica como reserva quando faltarem.
+    # ── Prioridade das fontes de CHUVA (decisão de produto 26/07) ──
+    #   observada: Poaclima (Defesa Civil) → INMET → ANA → Open-Meteo
+    #   prevista : Poaclima/Catavento → Open-Meteo
+    # O Open-Meteo é um modelo global: só entra se nada local responder.
     ci = brutos.get("chuva_inmet") or {}
+    ca = brutos.get("chuva_ana") or {}
+    ep = brutos.get("estacoes_meteo_poaclima") or {}
+
     obs_24h = meteo.get("acumulado_obs_24h_mm", 0.0)
     obs_72h = meteo.get("acumulado_obs_72h_mm", 0.0)
     obs_7d = meteo.get("acumulado_obs_7d_mm", 0.0)
     fonte_obs = "Open-Meteo"
-    if config.PREFERIR_INMET_OBSERVADO and ci.get("ok"):
-        obs_24h = ci.get("acumulado_24h_mm") if ci.get("acumulado_24h_mm") is not None else obs_24h
-        obs_72h = ci.get("acumulado_72h_mm") if ci.get("acumulado_72h_mm") is not None else obs_72h
-        obs_7d = ci.get("acumulado_7d_mm") if ci.get("acumulado_7d_mm") is not None else obs_7d
-        fonte_obs = f"INMET {ci.get('estacao', '')}".strip()
-    else:
-        ca = brutos.get("chuva_ana") or {}
-        ep = brutos.get("estacoes_meteo_poaclima") or {}
-        if ca.get("ok"):
-            obs_24h = ca.get("acumulado_24h_mm", obs_24h)
+
+    if ep.get("ok") and ep.get("acumulado_max_mm") is not None:
+        # 1º Poaclima: é a leitura que a Defesa Civil de POA exibe.
+        obs_24h = ep["acumulado_max_mm"]
+        fonte_obs = "Poaclima (estações)"
+        # o Poaclima traz só o acumulado do momento; 72h/7d vêm de quem tiver série
+        if ci.get("ok"):
+            obs_72h = ci.get("acumulado_72h_mm", obs_72h)
+            obs_7d = ci.get("acumulado_7d_mm", obs_7d)
+        elif ca.get("ok"):
             obs_72h = ca.get("acumulado_72h_mm", obs_72h)
             obs_7d = ca.get("acumulado_7d_mm", obs_7d)
-            fonte_obs = f"ANA {ca.get('estacao', '')}".strip()
-        elif ep.get("ok") and ep.get("acumulado_max_mm") is not None:
-            obs_24h = ep["acumulado_max_mm"]
-            fonte_obs = "Poaclima (estações)"
+    elif ci.get("ok"):
+        obs_24h = ci.get("acumulado_24h_mm", obs_24h)
+        obs_72h = ci.get("acumulado_72h_mm", obs_72h)
+        obs_7d = ci.get("acumulado_7d_mm", obs_7d)
+        fonte_obs = f"INMET {ci.get('estacao', '')}".strip()
+    elif ca.get("ok"):
+        obs_24h = ca.get("acumulado_24h_mm", obs_24h)
+        obs_72h = ca.get("acumulado_72h_mm", obs_72h)
+        obs_7d = ca.get("acumulado_7d_mm", obs_7d)
+        fonte_obs = f"ANA {ca.get('estacao', '')}".strip()
 
     pp = brutos.get("previsao_poaclima") or {}
     previsto = meteo.get("previsto_48h_mm", 0.0)
     fonte_prev = "Open-Meteo"
-    if (config.PREFERIR_POACLIMA_PREVISAO and pp.get("ok")
-            and pp.get("previsto_48h_mm") is not None):
+    if pp.get("ok") and pp.get("previsto_48h_mm") is not None:
         previsto = pp["previsto_48h_mm"]
         fonte_prev = "Poaclima/Catavento"
     print(f"[CHUVA] observada: {fonte_obs} ({obs_24h:.0f} mm/24h) · "
