@@ -148,28 +148,42 @@ def _bloco_gatilhos(snapshot: dict) -> str:
     <section class="gatilhos">{badges}</section>"""
 
 
-def _bloco_graficos(snapshot: dict, tema: str = "dark") -> str:
-    """Gráficos Plotly interativos (o 1º embute o plotly.js via CDN)."""
-    figuras = [
-        componentes.gauge_estagio(snapshot.get("classificacao") or {}, tema),
-        componentes.grafico_guaiba(snapshot.get("serie_guaiba", []), tema),
-        componentes.grafico_afluentes(snapshot.get("series_afluentes", {}), tema),
-        componentes.grafico_precipitacao(
+def _bloco_graficos(snapshot: dict) -> str:
+    """
+    Cada gráfico é renderizado DUAS vezes (tema escuro e claro). O CSS mostra
+    a versão certa conforme o tema — e na impressão força sempre a clara,
+    senão o texto dos gráficos sai cinza-claro sobre papel branco.
+    """
+    construtores = [
+        ("gauge", lambda t: componentes.gauge_estagio(
+            snapshot.get("classificacao") or {}, t), False),
+        ("guaiba", lambda t: componentes.grafico_guaiba(
+            snapshot.get("serie_guaiba", []), t), False),
+        ("afluentes", lambda t: componentes.grafico_afluentes(
+            snapshot.get("series_afluentes", {}), t), False),
+        ("chuva", lambda t: componentes.grafico_precipitacao(
             snapshot.get("serie_precipitacao_horaria", []),
-            snapshot.get("serie_precipitacao_diaria", []), tema),
+            snapshot.get("serie_precipitacao_diaria", []), t), True),
     ]
-    partes = []
-    for i, fig in enumerate(figuras):
-        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",
-                          plot_bgcolor="rgba(0,0,0,0)")
-        partes.append(fig.to_html(
-            full_html=False,
-            include_plotlyjs="cdn" if i == 0 else False,
-            config={"displayModeBar": False, "responsive": True},
-            default_height="360px"))
-    return ("<section class='graficos'>"
-            + "".join(f"<div class='grafico'>{p}</div>" for p in partes)
-            + "</section>")
+
+    partes, primeiro = [], True
+    for nome, constroi, largo in construtores:
+        blocos = []
+        for tema in ("dark", "claro"):
+            fig = constroi(tema)
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",
+                              plot_bgcolor="rgba(0,0,0,0)", autosize=True)
+            fig.update_layout(margin=dict(l=50, r=30, t=60, b=40))
+            html_fig = fig.to_html(
+                full_html=False,
+                include_plotlyjs="cdn" if primeiro else False,
+                config={"displayModeBar": False, "responsive": True},
+                default_width="100%", default_height="340px")
+            primeiro = False
+            blocos.append(f"<div class='fig-{tema}'>{html_fig}</div>")
+        classe = "grafico largo" if largo else "grafico"
+        partes.append(f"<div class='{classe}'>{''.join(blocos)}</div>")
+    return f"<section class='graficos'>{''.join(partes)}</section>"
 
 
 _CSS = """
@@ -216,22 +230,66 @@ button:hover{border-color:var(--txt2)}
 .gatilhos{margin-bottom:20px}
 .badge{display:inline-block;color:#fff;border-radius:10px;padding:8px 14px;
        margin:4px;font-weight:700;font-size:.9rem}
-.graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px}
-.grafico{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;padding:8px}
+.graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px}
+.grafico{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;
+         padding:8px;min-width:0;overflow:hidden}
+.grafico.largo{grid-column:1/-1}
+.grafico .js-plotly-plot,.grafico .plot-container{width:100% !important}
+.fig-claro{display:none}
+body.claro .fig-dark{display:none}
+body.claro .fig-claro{display:block}
 .rodape{margin-top:26px}
 .cisc{font-weight:700;margin-bottom:6px}
 .mini{color:var(--txt2);font-size:.8rem;max-width:900px;margin:0 auto}
 @media(max-width:600px){.graficos{grid-template-columns:1fr}}
+
+/* ── IMPRESSÃO / PDF: paisagem, cores fiéis, gráficos no tema claro ── */
+@page{size:A4 landscape;margin:10mm}
+@media print{
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+  body{background:#fff !important;color:#1F2733 !important;padding:0;
+       --fundo:#fff;--cartao:#fff;--txt:#1F2733;--txt2:#5A6472;
+       --borda:#CCD2D9;--trilho:rgba(0,0,0,.10)}
+  .acoes{display:none !important}
+  .fig-dark{display:none !important}
+  .fig-claro{display:block !important}
+  .banner,.card,.tile,.grafico{break-inside:avoid;page-break-inside:avoid}
+  .banner h2{font-size:1.5rem}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .card{max-width:none}
+  .regioes{grid-template-columns:repeat(6,1fr)}
+  .graficos{grid-template-columns:repeat(2,1fr)}
+  h1{font-size:1.4rem}
+}
+"""
+
+# Aplica o tema salvo ANTES dos gráficos serem desenhados (senão o Plotly
+# desenha a versão visível com tamanho zero e o layout sai torto).
+_JS_CEDO = """
+(function(){try{if(localStorage.getItem('tema')==='claro'){
+  document.documentElement.classList.add('pre-claro');}}catch(e){}})();
 """
 
 _JS = """
 const b=document.body, bt=document.getElementById('btn-tema');
-if(localStorage.getItem('tema')==='claro'){b.classList.add('claro');}
+if(document.documentElement.classList.contains('pre-claro')){b.classList.add('claro');}
 function rotulo(){bt.textContent=b.classList.contains('claro')?'🌙 Modo escuro':'☀ Modo claro';}
 rotulo();
-bt.onclick=()=>{b.classList.toggle('claro');
-  localStorage.setItem('tema', b.classList.contains('claro')?'claro':'dark');
-  rotulo(); location.reload();};
+bt.onclick=()=>{
+  const claro=!b.classList.contains('claro');
+  localStorage.setItem('tema', claro?'claro':'dark');
+  location.reload();
+};
+document.getElementById('btn-print').onclick=()=>{
+  const eraEscuro=!b.classList.contains('claro');
+  b.classList.add('claro');                       // gráficos claros p/ o papel
+  setTimeout(()=>{
+    try{document.querySelectorAll('.fig-claro .js-plotly-plot')
+          .forEach(g=>window.Plotly && Plotly.Plots.resize(g));}catch(e){}
+    setTimeout(()=>{ window.print();
+      if(eraEscuro){b.classList.remove('claro');} }, 500);
+  }, 250);
+};
 """
 
 
@@ -249,6 +307,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
 <meta http-equiv="refresh" content="900">
 <title>Estágios Operacionais — Porto Alegre</title>
 <style>{_CSS}</style>
+<script>{_JS_CEDO}</script>
 </head>
 <body class="{'claro' if tema == 'claro' else ''}">
 <div class="wrap">
@@ -257,14 +316,14 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
     (ANA · Open-Meteo · INMET · Poaclima)</div>
   <div class="acoes">
     <button id="btn-tema">☀ Modo claro</button>
-    <button onclick="window.print()">🖨 Imprimir / PDF</button>
+    <button id="btn-print">🖨 Imprimir / PDF</button>
   </div>
   {_bloco_fontes(snapshot)}
   {_bloco_banner(snapshot)}
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
   {_bloco_gatilhos(snapshot)}
-  {_bloco_graficos(snapshot, tema)}
+  {_bloco_graficos(snapshot)}
   <div class="rodape">
     <div class="cisc">Realizado por: CISC Porto Alegre — Centro de Informações
       em Saúde e Clima</div>
