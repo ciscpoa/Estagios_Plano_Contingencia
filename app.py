@@ -291,7 +291,8 @@ def renderizar(snapshot, tema):
                           obs_inmet=snapshot.get("chuva_obs_inmet"),
                           previsao_poa=snapshot.get("previsao_poaclima"),
                           fonte_obs=snapshot.get("fonte_chuva_obs", "Open-Meteo"),
-                          fonte_prev=snapshot.get("fonte_chuva_prev", "Open-Meteo")),
+                          fonte_prev=snapshot.get("fonte_chuva_prev", "Open-Meteo"),
+                          obs_diaria=snapshot.get("serie_obs_diaria")),
                       componentes.grafico_precipitacao([], [], tema))
     return (aviso_fontes, banner, av_inmet, cards, regioes, gat, gauge,
             g_guaiba, g_afl, g_chuva)

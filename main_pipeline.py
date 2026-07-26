@@ -119,6 +119,13 @@ def executar_pipeline(usar_selenium: bool = True,
         "previsao_poaclima": [
             {**d, "data": str(d["data"])}
             for d in (brutos.get("previsao_poaclima", {}) or {}).get("dias", [])],
+        "serie_obs_diaria": (
+            (brutos.get("chuva_inmet", {}).get("diaria")
+             if brutos.get("chuva_inmet", {}).get("ok")
+             else brutos.get("chuva_ana", {}).get("diaria")
+             if brutos.get("chuva_ana", {}).get("ok") else pd.DataFrame())
+            .pipe(lambda d: d.assign(data=d["data"].astype(str)).to_dict("records")
+                  if d is not None and not d.empty else [])),
         "fonte_chuva_obs": (
             "INMET " + str(brutos.get("chuva_inmet", {}).get("estacao", ""))
             if brutos.get("chuva_inmet", {}).get("ok")
