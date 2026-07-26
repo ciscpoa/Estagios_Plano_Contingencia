@@ -436,8 +436,14 @@ def arvore_regras(classificacao: dict, tema: str = "dark") -> html.Div:
             conteudo = [html.Div([html.B("✔ " if b["ativo"] else "✖ "),
                                   html.Span(b["titulo"])])]
             if motivo:
+                # motivo é multilinha: quebra em <br> preservando os itens "•"
+                linhas_motivo = []
+                for k, ln in enumerate(motivo.split("\n")):
+                    if k:
+                        linhas_motivo.append(html.Br())
+                    linhas_motivo.append(ln)
                 conteudo.append(html.Div(
-                    motivo, style={"fontSize": "0.74rem", "fontWeight": "400",
+                    linhas_motivo, style={"fontSize": "0.74rem", "fontWeight": "400",
                                    "lineHeight": "1.35", "opacity": 0.85,
                                    "marginTop": "5px", "paddingTop": "5px",
                                    "borderTop": "1px solid rgba(255,255,255,.22)"}))

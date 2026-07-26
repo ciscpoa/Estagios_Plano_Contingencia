@@ -23,6 +23,16 @@ from dashboard import componentes
 # ──────────────────────────────────────────────────────────────────────────
 # Blocos de HTML
 # ──────────────────────────────────────────────────────────────────────────
+def _texto_html(txt: str) -> str:
+    """Escapa HTML e converte quebras de linha em <br>, preservando o
+    recuo visual dos itens '•' (o motivo agora é multilinha)."""
+    import html as _html
+    if not txt:
+        return ""
+    seguro = _html.escape(str(txt)).replace("\n\n", "<br><br>").replace("\n", "<br>")
+    return seguro.replace("• ", "&nbsp;&nbsp;• ")
+
+
 def _bloco_fontes(snapshot: dict) -> str:
     fontes = snapshot.get("fontes") or {}
     fora = [n for n, ok in fontes.items() if not ok]
@@ -43,7 +53,7 @@ def _bloco_banner(snapshot: dict) -> str:
     # O "⚑" (regra de piso) e o "⚙" (lista de gatilhos) já são mostrados
     # na seção "Gatilhos de campo confirmados" — não repetir no banner.
     justificativas = "".join(
-        f"<div class='just'>{j}</div>"
+        f"<div class='just'>{_texto_html(j)}</div>"
         for j in cls.get("justificativas", [])
         if not j.lstrip().startswith(("⚑", "⚙")))
     return f"""
@@ -218,10 +228,11 @@ def _bloco_arvore(snapshot: dict) -> str:
             motivo = (b.get("motivo") or "").strip()
             # o motivo explica POR QUE o bloco está (ou não) ativo — sem ele
             # a árvore vira um "sim/não" sem auditoria
-            html_motivo = (f"<span class='motivo-no'>{motivo}</span>"
+            html_motivo = (f"<span class='motivo-no'>{_texto_html(motivo)}</span>"
                            if motivo else "")
+            dica = motivo.replace("\n", " · ").replace("'", "&#39;")
             caixas.append(
-                f"<div class='{classe}' style='{estilo}' title='{motivo}'>"
+                f"<div class='{classe}' style='{estilo}' title='{dica}'>"
                 f"<span class='marca'>{marca}</span>"
                 f"<span class='rotulo'>{b['titulo']}</span>"
                 f"{html_motivo}</div>")
@@ -327,39 +338,26 @@ def _bloco_graficos(snapshot: dict) -> str:
 
 def _rodape_chuva(snapshot: dict) -> str:
     """
-    Procedência da chuva observada: qual fonte entrou no painel e quais
-    foram testadas e rejeitadas. Sem isso não dá para saber se o acumulado
-    exibido é de um pluviômetro em solo ou de um modelo global.
+    Procedência da chuva observada — só a fonte que ENTROU no painel.
+    As fontes testadas e descartadas continuam no CSV e no log do Actions,
+    que é onde se depura; aqui elas só poluiriam a leitura.
     """
-    testadas = snapshot.get("fontes_chuva_testadas") or []
     qualidade = snapshot.get("qualidade_chuva_obs") or {}
     fonte = snapshot.get("fonte_chuva_obs") or "—"
-    if not testadas and not qualidade:
+    if not qualidade and not snapshot.get("fontes_chuva_testadas"):
         return ""
 
-    itens = []
-    for t in testadas:
-        ok = t.get("aprovada")
-        marca = "✔" if ok else "✖"
-        cor = "#2E9E44" if ok else "#9AA6B2"
-        total = t.get("total_7d_mm")
-        motivo = str(t.get("motivo") or "")
-        # o motivo de uma série aprovada já começa com o total — não repetir
-        total_txt = ("" if ("mm/7d" in motivo or not isinstance(total, (int, float)))
-                     else f"{total:.0f} mm/7d · ")
-        itens.append(
-            f"<li style='color:{cor}'><b>{marca} {t.get('fonte','—')}</b> — "
-            f"{total_txt}{motivo}</li>")
+    detalhe = qualidade.get("motivo") or ""
+    n_testadas = len(snapshot.get("fontes_chuva_testadas") or [])
+    rodape = (f"{n_testadas} fonte(s) avaliada(s) nesta coleta · detalhes no CSV"
+              if n_testadas > 1 else "")
 
     return f"""
     <section class="procedencia">
-      <div class="titulo-proc">Procedência da chuva observada</div>
-      <div class="sub-proc">Fonte adotada: <b>{fonte}</b>
-        {(' · ' + str(qualidade.get('motivo'))) if qualidade.get('motivo') else ''}</div>
-      <ul class="lista-proc">{''.join(itens)}</ul>
-      <div class="sub-proc">A série só entra no painel se cobrir um mínimo de
-        horas e bater com uma referência independente — pluviômetro com
-        transmissão esparsa subestima o acumulado e é descartado.</div>
+      <div class="titulo-proc">Chuva observada</div>
+      <div class="fonte-proc">{fonte}</div>
+      <div class="sub-proc">{detalhe}</div>
+      <div class="sub-proc rodape-proc">{rodape}</div>
     </section>"""
 
 
@@ -445,9 +443,12 @@ button:hover{border-color:var(--txt2)}
 .nota-arvore{font-size:.82rem;color:var(--txt2);margin-top:6px}
 .procedencia{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:12px 16px;margin:10px 0}
-.titulo-proc{font-weight:700;font-size:.92rem;margin-bottom:2px}
+.titulo-proc{font-weight:700;font-size:.82rem;color:var(--txt2);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.fonte-proc{font-weight:700;font-size:1.02rem;color:#2E9E44}
 .sub-proc{color:var(--txt2);font-size:.78rem;line-height:1.4}
-.lista-proc{margin:8px 0;padding-left:18px;font-size:.78rem;line-height:1.5}
+.rodape-proc{margin-top:6px;opacity:.75;font-size:.72rem}
+.just{line-height:1.5}
 .gatilhos{margin-bottom:20px}
 .badge{display:inline-block;color:#fff;border-radius:10px;padding:8px 14px;
        margin:4px;font-weight:700;font-size:.9rem}
