@@ -85,6 +85,9 @@ def executar_pipeline(usar_selenium: bool = True,
 
     snapshot = {
         "timestamp": brutos["timestamp"].strftime("%d/%m/%Y %H:%M"),
+        # ISO para o JS medir há quanto tempo a coleta rodou e avisar
+        # quando o painel estiver velho (cron do Actions falha às vezes)
+        "timestamp_iso": brutos["timestamp"].isoformat(),
         "fontes": fontes,
         "gatilhos_ativos": [r for _, r in estagios.gatilhos_ativos(infra)],
         "avisos_inmet": {
@@ -119,7 +122,8 @@ def executar_pipeline(usar_selenium: bool = True,
             .to_dict("records")
             if (brutos.get("chuva_obs", {}).get("ok")
                 and not brutos["chuva_obs"]["diaria"].empty) else []),
-        "fonte_chuva_obs": (brutos.get("chuva_obs", {}).get("fonte")
+        "fonte_chuva_obs": (brutos.get("chuva_obs", {}).get("fonte_curta")
+                            or brutos.get("chuva_obs", {}).get("fonte")
                             or "Open-Meteo"),
         "qualidade_chuva_obs": (
             (brutos.get("chuva_obs", {}).get("qualidade") or {})),
