@@ -137,6 +137,8 @@ app.layout = dbc.Container(id="raiz", fluid=False,
     # Grid das 17 subprefeituras/regiões (risco Defesa Civil / Poaclima)
     html.Div(id="area-regioes", className="my-3"),
 
+    html.Div(id="area-arvore"),
+
     dbc.Row([
         dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id="graf-gauge",
                                                 config={"displayModeBar": False})),
@@ -202,6 +204,7 @@ def atualizar_snapshot(_n_int, _n_btn):
     Output("area-avisos-inmet", "children"),
     Output("area-cards", "children"),
     Output("area-regioes", "children"),
+    Output("area-arvore", "children"),
     Output("area-gatilhos", "children"),
     Output("graf-gauge", "figure"),
     Output("graf-guaiba", "figure"),
@@ -219,7 +222,7 @@ def renderizar(snapshot, tema):
             color="secondary")
         vazio = componentes.gauge_estagio({"indice": 0, "estagio": "—"}, tema)
         return (html.Div(), aviso, html.Div(), html.Div(), html.Div(),
-                html.Div(), vazio,
+                html.Div(), html.Div(), vazio,
                 componentes.grafico_guaiba([], tema),
                 componentes.grafico_afluentes({}, tema),
                 componentes.grafico_precipitacao([], [], tema))
@@ -248,6 +251,8 @@ def renderizar(snapshot, tema):
                            snapshot.get("avisos_inmet"), tema), html.Div())
     cards = _seguro("cards_rios",
                     lambda: componentes.cards_rios(ind, tema), html.Div())
+    arvore = _seguro("arvore_regras",
+                     lambda: componentes.arvore_regras(cls, tema), html.Div())
     fontes = snapshot.get("fontes") or {}
     indisponiveis = [n for n, ok in fontes.items() if not ok]
     if indisponiveis:
@@ -294,8 +299,8 @@ def renderizar(snapshot, tema):
                           fonte_prev=snapshot.get("fonte_chuva_prev", "Open-Meteo"),
                           obs_diaria=snapshot.get("serie_obs_diaria")),
                       componentes.grafico_precipitacao([], [], tema))
-    return (aviso_fontes, banner, av_inmet, cards, regioes, gat, gauge,
-            g_guaiba, g_afl, g_chuva)
+    return (aviso_fontes, banner, av_inmet, cards, regioes, arvore, gat,
+            gauge, g_guaiba, g_afl, g_chuva)
 
 
 @app.callback(
