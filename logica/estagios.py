@@ -621,15 +621,40 @@ def indicadores_dos_brutos(brutos: dict) -> IndicadoresNumericos:
 
     niveis_poa = (brutos.get("poaclima", {}) or {}).get("niveis") or {}
 
+    # ── Fontes preferenciais de chuva (alinham o painel com a Defesa Civil) ──
+    # Observado: estação automática do INMET em POA (pluviômetro local).
+    # Previsto : Poaclima/Catavento (a mesma previsão que a DC de POA exibe).
+    # O Open-Meteo (modelo global) fica como reserva quando faltarem.
+    ci = brutos.get("chuva_inmet") or {}
+    obs_24h = meteo.get("acumulado_obs_24h_mm", 0.0)
+    obs_72h = meteo.get("acumulado_obs_72h_mm", 0.0)
+    obs_7d = meteo.get("acumulado_obs_7d_mm", 0.0)
+    fonte_obs = "Open-Meteo"
+    if config.PREFERIR_INMET_OBSERVADO and ci.get("ok"):
+        obs_24h = ci.get("acumulado_24h_mm") if ci.get("acumulado_24h_mm") is not None else obs_24h
+        obs_72h = ci.get("acumulado_72h_mm") if ci.get("acumulado_72h_mm") is not None else obs_72h
+        obs_7d = ci.get("acumulado_7d_mm") if ci.get("acumulado_7d_mm") is not None else obs_7d
+        fonte_obs = f"INMET {ci.get('estacao', '')}".strip()
+
+    pp = brutos.get("previsao_poaclima") or {}
+    previsto = meteo.get("previsto_48h_mm", 0.0)
+    fonte_prev = "Open-Meteo"
+    if (config.PREFERIR_POACLIMA_PREVISAO and pp.get("ok")
+            and pp.get("previsto_48h_mm") is not None):
+        previsto = pp["previsto_48h_mm"]
+        fonte_prev = "Poaclima/Catavento"
+    print(f"[CHUVA] observada: {fonte_obs} ({obs_24h:.0f} mm/24h) · "
+          f"prevista: {fonte_prev} ({previsto:.0f} mm/48h)")
+
     return IndicadoresNumericos(
         nivel_guaiba_m=guaiba.get("nivel_atual_m"),
         tendencia_guaiba_48h_m=guaiba.get("tendencia_48h_m"),
         dias_guaiba_acima_inundacao=dias_acima,
         afluentes=afluentes,
-        acumulado_obs_24h_mm=meteo.get("acumulado_obs_24h_mm", 0.0),
-        acumulado_obs_72h_mm=meteo.get("acumulado_obs_72h_mm", 0.0),
-        acumulado_obs_7d_mm=meteo.get("acumulado_obs_7d_mm", 0.0),
-        previsto_48h_mm=meteo.get("previsto_48h_mm", 0.0),
+        acumulado_obs_24h_mm=obs_24h or 0.0,
+        acumulado_obs_72h_mm=obs_72h or 0.0,
+        acumulado_obs_7d_mm=obs_7d or 0.0,
+        previsto_48h_mm=previsto or 0.0,
         dias_chuva_intensa_5d=meteo.get("dias_chuva_intensa_5d", 0),
         inmet_max_severidade=brutos.get("inmet", {}).get("max_severidade"),
         poaclima_alerta=brutos.get("poaclima", {}).get("alerta_vigente"),
