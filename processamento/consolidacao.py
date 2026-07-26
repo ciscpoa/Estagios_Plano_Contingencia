@@ -68,8 +68,21 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
         print(f"[Open-Meteo] Falha: {exc}")
         meteo = {"horaria": pd.DataFrame(), "diaria": pd.DataFrame(), "resumo": {}}
 
+    # ── INMET: chuva OBSERVADA da estação automática de POA ──
+    # (pluviômetro na cidade — mais fiel que o modelo global do Open-Meteo)
+    try:
+        from coleta import inmet_estacao
+        chuva_inmet = inmet_estacao.coletar_chuva_observada(dias=7)
+    except Exception as exc:
+        print(f"[INMET-estação] falhou ({exc}); Open-Meteo assume o observado.")
+        chuva_inmet = {"ok": False, "horaria": pd.DataFrame(),
+                       "diaria": pd.DataFrame(), "acumulado_24h_mm": None,
+                       "acumulado_72h_mm": None, "acumulado_7d_mm": None}
+
     # ── INMET / Poaclima ─────────────────────────────────────
     inmet = {"alertas": [], "max_severidade": None, "fonte": None}
+    previsao_poa = {"ok": False, "dias": [], "previsto_48h_mm": None,
+                    "fonte": "Poaclima/Catavento"}
     poaclima = {"alerta_vigente": None, "chuva_acumulada_mm": None,
                 "niveis": {"usina_gasometro_m": None, "cais_maua_m": None,
                            "riacho_ipiranga_m": None},
@@ -85,6 +98,12 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
             poaclima = coletar_poaclima()
         except Exception as exc:
             print(f"[Poaclima] Falha: {exc}")
+        try:
+            # previsão oficial que a Defesa Civil de POA exibe (Catavento)
+            from coleta.poaclima_scraper import coletar_previsao_poaclima
+            previsao_poa = coletar_previsao_poaclima()
+        except Exception as exc:
+            print(f"[Poaclima-previsão] Falha: {exc}")
 
     # 3ª camada de fallback do Guaíba: medidor Cais Mauá do Poaclima
     cais_maua_poaclima = (poaclima.get("niveis") or {}).get("cais_maua_m")
@@ -99,7 +118,8 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
         }
 
     return {"timestamp": ts, "rios": rios, "resumo_rios": resumo_rios,
-            "meteo": meteo, "inmet": inmet, "poaclima": poaclima}
+            "meteo": meteo, "inmet": inmet, "poaclima": poaclima,
+            "chuva_inmet": chuva_inmet, "previsao_poaclima": previsao_poa}
 
 
 def montar_dataframe(brutos: dict) -> pd.DataFrame:
@@ -137,6 +157,21 @@ def montar_dataframe(brutos: dict) -> pd.DataFrame:
     # INMET
     add("Aviso INMET (máx severidade)", brutos["inmet"].get("max_severidade"), "-", "INMET")
     add("Qtd avisos INMET vigentes", len(brutos["inmet"].get("alertas") or []), "un", "INMET")
+
+    # Chuva observada (INMET) e previsão oficial (Poaclima/Catavento)
+    ci = brutos.get("chuva_inmet") or {}
+    if ci.get("ok"):
+        add("Chuva observada 24h (INMET)", ci.get("acumulado_24h_mm"), "mm",
+            f"INMET {ci.get('estacao', '')}")
+        add("Chuva observada 72h (INMET)", ci.get("acumulado_72h_mm"), "mm",
+            f"INMET {ci.get('estacao', '')}")
+    pp = brutos.get("previsao_poaclima") or {}
+    if pp.get("ok"):
+        add("Chuva prevista 48h (Poaclima/Catavento)",
+            pp.get("previsto_48h_mm"), "mm", "Poaclima/Catavento")
+        for d in pp.get("dias", [])[:5]:
+            add(f"Previsão {d['data']:%d/%m} — {d.get('descricao') or ''}",
+                d.get("precipitacao_total_mm"), "mm", "Poaclima/Catavento")
 
     # Poaclima — alerta, chuva e os 3 medidores de nível
     add("Alerta Poaclima vigente", brutos["poaclima"].get("alerta_vigente"), "-", "Poaclima")
