@@ -162,9 +162,11 @@ app.layout = dbc.Container(id="raiz", fluid=False,
     html.Div("Realizado por: CISC Porto Alegre — Centro de Informações "
              "em Saúde e Clima", className="text-light fw-bold mt-3 mb-1"),
     html.Footer(html.Small(
-        "Cotas de referência (Guaíba/Cais Mauá): Atenção "
-        f"{config.COTA_ATENCAO_GUAIBA} m · Alerta {config.COTA_ALERTA_GUAIBA} m · "
-        f"Inundação {config.COTA_INUNDACAO_GUAIBA} m. "
+        "Cotas de referência do Guaíba no Cais Mauá: atenção "
+        f"{config.COTA_ATENCAO_GUAIBA} m · alerta {config.COTA_ALERTA_GUAIBA} m · "
+        f"inundação {config.COTA_INUNDACAO_GUAIBA} m (Poaclima/Defesa Civil de "
+        "Porto Alegre). Cada régua tem referência própria — leituras de "
+        "estações diferentes não são comparáveis entre si. "
         "Ferramenta de apoio à decisão — não substitui os canais oficiais "
         "da Defesa Civil.", className="text-secondary"), className="text-center"),
 ])
@@ -278,7 +280,11 @@ def renderizar(snapshot, tema):
     g_chuva = _seguro("grafico_precipitacao",
                       lambda: componentes.grafico_precipitacao(
                           snapshot.get("serie_precipitacao_horaria", []),
-                          snapshot.get("serie_precipitacao_diaria", []), tema),
+                          snapshot.get("serie_precipitacao_diaria", []), tema,
+                          obs_inmet=snapshot.get("chuva_obs_inmet"),
+                          previsao_poa=snapshot.get("previsao_poaclima"),
+                          fonte_obs=snapshot.get("fonte_chuva_obs", "Open-Meteo"),
+                          fonte_prev=snapshot.get("fonte_chuva_prev", "Open-Meteo")),
                       componentes.grafico_precipitacao([], [], tema))
     return (aviso_fontes, banner, cards, regioes, gat, gauge,
             g_guaiba, g_afl, g_chuva)

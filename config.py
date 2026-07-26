@@ -226,6 +226,17 @@ COTA_INUNDACAO_RIACHO_IPIRANGA = 4.00
 
 # ── Alertas regionais do Poaclima (marcadores por subprefeitura) ─────────
 # Termos que caracterizam risco elevado no campo "Risco:" do popup
+# ── Chuva observada: estação automática do INMET em Porto Alegre ────────
+# A801 = Porto Alegre (Jardim Botânico). Fonte preferencial para a chuva
+# JÁ OCORRIDA (pluviômetro na cidade), no lugar do modelo global.
+INMET_ESTACAO_POA = "A801"
+
+# Prioridade das fontes de chuva (a 1ª disponível vence):
+#   observada → INMET estação → Open-Meteo
+#   prevista  → Poaclima/Catavento (mesma da Defesa Civil) → Open-Meteo
+PREFERIR_INMET_OBSERVADO = True
+PREFERIR_POACLIMA_PREVISAO = True
+
 RISCOS_ELEVADOS_POACLIMA = ("risco alto", "risco muito alto", "risco extremo")
 # Nº de regiões simultâneas com risco elevado de Inundação que serve de
 # evidência (proxy) de "inundações graves" no estágio de EMERGÊNCIA

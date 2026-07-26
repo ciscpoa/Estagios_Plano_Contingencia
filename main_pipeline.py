@@ -100,6 +100,20 @@ def executar_pipeline(usar_selenium: bool = True,
             datahora=serie_guaiba["datahora"].astype(str))
             .to_dict("records") if not serie_guaiba.empty else []),
         "series_afluentes": series_afluentes,
+        # chuva observada do INMET (estação de POA) e previsão do Poaclima
+        "chuva_obs_inmet": (
+            brutos.get("chuva_inmet", {}).get("horaria").assign(
+                datahora=lambda d: d["datahora"].astype(str)).to_dict("records")
+            if (brutos.get("chuva_inmet", {}).get("ok")
+                and not brutos["chuva_inmet"]["horaria"].empty) else []),
+        "previsao_poaclima": [
+            {**d, "data": str(d["data"])}
+            for d in (brutos.get("previsao_poaclima", {}) or {}).get("dias", [])],
+        "fonte_chuva_obs": ("INMET " + str(brutos.get("chuva_inmet", {}).get("estacao", ""))
+                            if brutos.get("chuva_inmet", {}).get("ok") else "Open-Meteo"),
+        "fonte_chuva_prev": ("Poaclima/Catavento"
+                             if (brutos.get("previsao_poaclima", {}) or {}).get("ok")
+                             else "Open-Meteo"),
         "serie_precipitacao_horaria": (horaria.assign(
             datahora=horaria["datahora"].astype(str))
             .to_dict("records") if not horaria.empty else []),
