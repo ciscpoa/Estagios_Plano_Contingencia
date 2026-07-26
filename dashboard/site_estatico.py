@@ -133,11 +133,14 @@ def _bloco_regioes(snapshot: dict) -> str:
                 f"<div class='status'>{status}</div>"
                 f"<div class='detalhe'>{detalhe}</div></div>")
 
-    # Formato triângulo: 8 em cima, 6 no meio, 3 embaixo
-    linhas = [range(1, 9), range(9, 15), range(15, 18)]
-    html_linhas = "".join(
-        f"<div class='linha-regioes'>{''.join(tile(n) for n in faixa)}</div>"
-        for faixa in linhas)
+    # Tela: triângulo 8 / 6 / 3 · Impressão: 7 / 6 / 4 (cabe melhor na A4)
+    def grade(faixas):
+        return "".join(
+            f"<div class='linha-regioes'>{''.join(tile(n) for n in faixa)}</div>"
+            for faixa in faixas)
+
+    html_linhas = (f"<div class='regioes-tela'>{grade([range(1, 9), range(9, 15), range(15, 18)])}</div>"
+                   f"<div class='regioes-print'>{grade([range(1, 8), range(8, 14), range(14, 18)])}</div>")
 
     return f"""
     <section class="bloco-regioes">
@@ -169,14 +172,19 @@ def _bloco_graficos(snapshot: dict) -> str:
     construtores = [
         # (constrói, largura_print, altura_print, ocupa_linha_inteira)
         (lambda t: componentes.gauge_estagio(
-            snapshot.get("classificacao") or {}, t), 470, 290, False),
+            snapshot.get("classificacao") or {}, t), 330, 250, False),
         (lambda t: componentes.grafico_guaiba(
-            snapshot.get("serie_guaiba", []), t), 470, 290, False),
+            snapshot.get("serie_guaiba", []), t), 330, 250, False),
         (lambda t: componentes.grafico_afluentes(
-            snapshot.get("series_afluentes", {}), t), 470, 290, False),
+            snapshot.get("series_afluentes", {}), t), 330, 250, False),
         (lambda t: componentes.grafico_precipitacao(
             snapshot.get("serie_precipitacao_horaria", []),
-            snapshot.get("serie_precipitacao_diaria", []), t), 960, 300, True),
+            snapshot.get("serie_precipitacao_diaria", []), t,
+            obs_inmet=snapshot.get("chuva_obs_inmet"),
+            previsao_poa=snapshot.get("previsao_poaclima"),
+            fonte_obs=snapshot.get("fonte_chuva_obs", "Open-Meteo"),
+            fonte_prev=snapshot.get("fonte_chuva_prev", "Open-Meteo")),
+         1000, 300, True),
     ]
 
     partes, primeiro = [], True
@@ -266,6 +274,7 @@ button:hover{border-color:var(--txt2)}
 .grafico.largo{grid-column:1/-1}
 .grafico .js-plotly-plot,.grafico .plot-container{width:100% !important}
 .fig-claro{display:none;max-width:100%;overflow-x:auto}
+.regioes-print{display:none}
 body.claro .fig-dark{display:none}
 body.claro .fig-claro{display:block}
 .rodape{margin-top:26px}
@@ -289,7 +298,17 @@ body.claro .fig-claro{display:block}
   .banner h2{font-size:1.5rem}
   .cards{display:grid !important;grid-template-columns:repeat(5,1fr);gap:8px}
   .card{max-width:none;flex:none !important}
-  .linha-regioes .tile{flex:0 0 calc(12.5% - 6px)}
+  .regioes-tela{display:none !important}
+  .regioes-print{display:block !important}
+  .linha-regioes{margin-bottom:6px}
+  .linha-regioes .tile{flex:0 0 calc(14.28% - 6px);min-height:0;padding:5px 4px}
+  .graficos{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+  .grafico{margin:0;padding:2px;border:none}
+  .grafico.largo{flex:0 0 100%}
+  .card{padding:7px}
+  .card .est{min-height:0}
+  .titulo-secao{margin:8px 0 2px}
+  .banner{padding:10px 14px;margin-bottom:10px}
   .graficos{display:block}
   .grafico{display:inline-block;vertical-align:top;width:auto;margin:0 4px 8px}
   .grafico.largo{display:block}
@@ -378,10 +397,13 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   <div class="rodape">
     <div class="cisc">Realizado por: CISC Porto Alegre — Centro de Informações
       em Saúde e Clima</div>
-    <div class="mini">Cotas de referência (Guaíba/Cais Mauá): Atenção
-      {config.COTA_ATENCAO_GUAIBA} m · Alerta {config.COTA_ALERTA_GUAIBA} m ·
-      Inundação {config.COTA_INUNDACAO_GUAIBA} m. Ferramenta de apoio à decisão
-      — não substitui os canais oficiais da Defesa Civil.</div>
+    <div class="mini">Cotas de referência do Guaíba no Cais Mauá: atenção
+      {config.COTA_ATENCAO_GUAIBA} m · alerta {config.COTA_ALERTA_GUAIBA} m ·
+      inundação {config.COTA_INUNDACAO_GUAIBA} m (fonte: Poaclima/Defesa Civil
+      de Porto Alegre). Cada régua tem referência de nível própria, por isso as
+      leituras de estações diferentes não são comparáveis entre si.
+      Ferramenta de apoio à decisão — não substitui os canais oficiais da
+      Defesa Civil.</div>
   </div>
 </div>
 <script>{_JS}</script>

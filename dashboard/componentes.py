@@ -135,31 +135,56 @@ def grafico_guaiba(serie: list[dict], tema: str = "dark") -> go.Figure:
     return fig
 
 
-def grafico_precipitacao(horaria: list[dict], diaria: list[dict], tema: str = "dark") -> go.Figure:
+def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
+                         tema: str = "dark",
+                         obs_inmet: list[dict] | None = None,
+                         previsao_poa: list[dict] | None = None,
+                         fonte_obs: str = "Open-Meteo",
+                         fonte_prev: str = "Open-Meteo") -> go.Figure:
     p = paleta(tema)
     fig = go.Figure()
     agora = pd.Timestamp.now()
 
+    _hover_chuva = ("<b>{titulo}</b><br>Data: %{{x|%d/%m/%Y}}<br>"
+                    "Hora: %{{x|%H:%M}}<br>Chuva: %{{y:.1f}} mm/h"
+                    "<extra></extra>")
+
+    # ── Chuva OBSERVADA: prioridade para o pluviômetro do INMET em POA ──
     dfh = pd.DataFrame(horaria)
     if not dfh.empty:
         dfh["datahora"] = pd.to_datetime(dfh["datahora"])
+
+    if obs_inmet:
+        dfi = pd.DataFrame(obs_inmet)
+        dfi["datahora"] = pd.to_datetime(dfi["datahora"])
+        fig.add_trace(go.Bar(
+            x=dfi["datahora"], y=dfi["precipitacao_mm"],
+            name=f"Observada — {fonte_obs} (mm/h)", marker_color="#4EA8DE",
+            hovertemplate=_hover_chuva.format(
+                titulo=f"Chuva observada · {fonte_obs}")))
+    elif not dfh.empty:
         obs = dfh[dfh["datahora"] <= agora]
+        fig.add_trace(go.Bar(
+            x=obs["datahora"], y=obs["precipitacao_mm"],
+            name="Observada — Open-Meteo (mm/h)", marker_color="#4EA8DE",
+            hovertemplate=_hover_chuva.format(titulo="Chuva observada")))
+
+    # ── Chuva PREVISTA horária (Open-Meteo; a diária oficial vem abaixo) ──
+    if not dfh.empty:
         prev = dfh[dfh["datahora"] > agora]
-        _hover_chuva = ("<b>{titulo}</b><br>Data: %{{x|%d/%m/%Y}}<br>"
-                        "Hora: %{{x|%H:%M}}<br>Chuva: %{{y:.1f}} mm/h"
-                        "<extra></extra>")
-        fig.add_trace(go.Bar(x=obs["datahora"], y=obs["precipitacao_mm"],
-                             name="Observada (mm/h)", marker_color="#4EA8DE",
-                             hovertemplate=_hover_chuva.format(titulo="Chuva observada")))
-        fig.add_trace(go.Bar(x=prev["datahora"], y=prev["precipitacao_mm"],
-                             name="Prevista (mm/h)", marker_color="#9B8CE0",
-                             opacity=0.7,
-                             hovertemplate=_hover_chuva.format(titulo="Chuva prevista")))
-        # linha "agora": add_shape (add_vline com datetime dispara bug no plotly)
-        fig.add_shape(type="line", x0=agora, x1=agora, y0=0, y1=1,
-                      yref="paper", line=dict(dash="dot", color=p["txt"], width=1))
-        fig.add_annotation(x=agora, y=1, yref="paper", text="agora",
-                           showarrow=False, yshift=8, font=dict(color=p["txt"], size=11))
+        if not prev.empty:
+            fig.add_trace(go.Bar(
+                x=prev["datahora"], y=prev["precipitacao_mm"],
+                name="Prevista horária — Open-Meteo (mm/h)",
+                marker_color="#9B8CE0", opacity=0.7,
+                hovertemplate=_hover_chuva.format(titulo="Chuva prevista")))
+
+    # linha "agora": add_shape (add_vline com datetime dispara bug no plotly)
+    fig.add_shape(type="line", x0=agora, x1=agora, y0=0, y1=1,
+                  yref="paper", line=dict(dash="dot", color=p["txt"], width=1))
+    fig.add_annotation(x=agora, y=1, yref="paper", text="agora",
+                       showarrow=False, yshift=8,
+                       font=dict(color=p["txt"], size=11))
 
     dfd = pd.DataFrame(diaria)
     if not dfd.empty:
@@ -173,8 +198,27 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict], tema: str = "d
                           "Acumulado: %{y:.1f} mm<extra></extra>",
         ))
 
+    if previsao_poa:
+        dfp = pd.DataFrame(previsao_poa)
+        dfp["data"] = pd.to_datetime(dfp["data"])
+        if "descricao" not in dfp:
+            dfp["descricao"] = ""
+        fig.add_trace(go.Scatter(
+            x=dfp["data"] + pd.Timedelta(hours=12),
+            y=dfp["precipitacao_total_mm"],
+            name="Previsão diária — Defesa Civil/POA (mm)",
+            mode="lines+markers", yaxis="y2",
+            line=dict(color="#C2187E", width=2.5, dash="dot"),
+            marker=dict(size=9, symbol="diamond"),
+            customdata=dfp["descricao"].fillna(""),
+            hovertemplate="<b>Previsão · Poaclima/Catavento</b><br>"
+                          "Data: %{x|%d/%m/%Y}<br>%{customdata}<br>"
+                          "Chuva prevista: %{y:.0f} mm<extra></extra>",
+        ))
+
     fig.update_layout(
-        title="Precipitação em Porto Alegre — observada e prevista (Open-Meteo)",
+        title=(f"Precipitação em Porto Alegre — observada ({fonte_obs}) "
+               f"· prevista ({fonte_prev})"),
         hoverlabel=p["hover"],
         yaxis=dict(title="mm/h", gridcolor=p["grade"]),
         yaxis2=dict(title="mm/dia", overlaying="y", side="right", showgrid=False),
