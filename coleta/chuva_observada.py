@@ -73,10 +73,12 @@ COLUNAS_HORARIA = ["datahora", "precipitacao_mm"]
 # ══════════════════════════════════════════════════════════════════════════
 def _vazio(fonte: str = "—", estacao=None) -> dict:
     return {
-        "ok": False, "fonte": fonte, "estacao": estacao,
+        "ok": False, "fonte": fonte, "fonte_curta": _curto(fonte),
+        "estacao": estacao,
         "horaria": pd.DataFrame(columns=COLUNAS_HORARIA),
         "diaria": pd.DataFrame(columns=["data", "precipitacao_total_mm"]),
         "acumulado_24h_mm": None, "acumulado_72h_mm": None,
+        "acumulado_96h_mm": None,
         "acumulado_7d_mm": None, "dias_com_chuva_5d": 0,
         "dias_chuva_intensa_5d": 0, "qualidade": {}, "tentativas": [],
     }
@@ -103,6 +105,31 @@ def _dist_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     dl = math.radians(lon2 - lon1)
     a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * r * math.asin(math.sqrt(a))
+
+
+def _curto(fonte: str) -> str:
+    """
+    Nome curto da fonte para exibição: 'ANA · Gravataí' em vez de
+    'ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)'.
+    O nome completo continua no CSV e no log, para auditoria.
+    """
+    f = (fonte or "").strip()
+    if f.startswith("INMET"):
+        resto = f.replace("INMET", "", 1).strip(" —-")
+        # "A801 — PORTO ALEGRE - JARDIM BOTANICO" → "Porto Alegre"
+        if "—" in resto:
+            resto = resto.split("—", 1)[1]
+        local = resto.split(" - ")[0].strip().title()
+        return f"INMET — {local}" if local else "INMET"
+    if f.startswith("ANA"):
+        resto = f.replace("ANA", "", 1).strip()
+        local = resto.split(" (")[0].strip()
+        return f"ANA — {local}" if local else "ANA"
+    if f.startswith("CEMADEN"):
+        return "CEMADEN — Porto Alegre"
+    if f.startswith("Open-Meteo"):
+        return "Open-Meteo (modelo global)"
+    return f or "—"
 
 
 def _fechar(horaria: pd.DataFrame, fonte: str, estacao) -> dict:
@@ -139,10 +166,13 @@ def _fechar(horaria: pd.DataFrame, fonte: str, estacao) -> dict:
             dias_intensos += 1
 
     return {
-        "ok": True, "fonte": fonte, "estacao": estacao,
+        "ok": True, "fonte": fonte, "fonte_curta": _curto(fonte), "estacao": estacao,
         "horaria": h, "diaria": diaria,
         "acumulado_24h_mm": acum(24),
         "acumulado_72h_mm": acum(72),
+        # 96h é a janela de CONVENÇÃO do painel: é o que aparece no banner
+        # e na árvore, para não poluir a leitura com três números.
+        "acumulado_96h_mm": acum(96),
         "acumulado_7d_mm": acum(24 * 7),
         "dias_com_chuva_5d": dias_com_chuva,
         "dias_chuva_intensa_5d": dias_intensos,
@@ -310,11 +340,18 @@ def _serie_inmet(codigo: str, dias: int) -> pd.DataFrame:
         ("horária até hoje", f"estacao/{inicio:%Y-%m-%d}/{fim:%Y-%m-%d}/{codigo}"),
         ("horária até ontem", f"estacao/{inicio:%Y-%m-%d}/{ontem:%Y-%m-%d}/{codigo}"),
     ]
+    ultimo_status = None
     for rotulo, caminho in janelas:
         try:
             r = requests.get(_url_inmet(caminho), headers=_CABECALHOS,
                              timeout=(10, 30))
+            ultimo_status = r.status_code
             if r.status_code == 204 or not (r.text or "").strip():
+                print(f"[INMET] {codigo} ({rotulo}): HTTP {r.status_code} sem conteúdo")
+                continue
+            if r.status_code in (401, 403):
+                print(f"[INMET] {codigo} ({rotulo}): HTTP {r.status_code} — "
+                      "endpoint exige chave (defina o secret INMET_TOKEN)")
                 continue
             r.raise_for_status()
             registros = r.json() or []
@@ -339,7 +376,11 @@ def _serie_inmet(codigo: str, dias: int) -> pd.DataFrame:
                            "precipitacao_mm": chuva if chuva is not None else 0.0})
         if linhas:
             return pd.DataFrame(linhas)
+    _ULTIMO_STATUS_INMET["codigo"] = ultimo_status
     return pd.DataFrame(columns=COLUNAS_HORARIA)
+
+
+_ULTIMO_STATUS_INMET: dict = {"codigo": None}
 
 
 def fonte_inmet(dias: int = 7, referencia_7d_mm: float | None = None) -> list[dict]:
@@ -353,6 +394,15 @@ def fonte_inmet(dias: int = 7, referencia_7d_mm: float | None = None) -> list[di
         rotulo = f"INMET {est['codigo']} — {est['nome']}"
         cand = _fechar(df, rotulo, est["codigo"])
         cand["qualidade"] = _avaliar(cand, referencia_7d_mm, dias)
+        if not cand["qualidade"]["aprovada"] and df.empty:
+            st = _ULTIMO_STATUS_INMET.get("codigo")
+            if st in (401, 403):
+                cand["qualidade"]["motivo"] = (
+                    f"HTTP {st} — endpoint exige chave (secret INMET_TOKEN)")
+            elif st == 204:
+                cand["qualidade"]["motivo"] = "HTTP 204 — estação sem transmitir"
+            elif st:
+                cand["qualidade"]["motivo"] = f"HTTP {st} — sem dados"
         cand["dist_km"] = est["dist_km"]
         saidas.append(cand)
         if cand["qualidade"]["aprovada"]:
