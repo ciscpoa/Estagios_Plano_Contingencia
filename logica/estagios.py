@@ -363,8 +363,10 @@ def _avaliar_regras(
                            and ind.poaclima_riacho_ipiranga_m >= config.COTA_ATENCAO_RIACHO_IPIRANGA)
     cond_atencao = ((nivel is not None and nivel >= config.COTA_ATENCAO_GUAIBA)
                     or _afluente_atingiu(ind, "atencao") or cond_riacho_atencao)
-    b2 = (subindo and cond_atencao) or cond_atencao or subindo or _afluente_subindo(ind) \
-         or ind.metropole_em_alerta
+    cond_alerta_inundacao = reg["n_inundacao_risco_elevado"] >= 1
+    b2 = ((subindo and cond_atencao) or cond_atencao or subindo
+          or _afluente_subindo(ind) or ind.metropole_em_alerta
+          or cond_alerta_inundacao)
     if cond_atencao:
         quais = []
         if nivel is not None and nivel >= config.COTA_ATENCAO_GUAIBA:
@@ -381,6 +383,10 @@ def _avaliar_regras(
         motivos.append(f"Tendência de aumento dos rios que deságuam no Guaíba (+{tend:.2f} m/48h)")
     elif ind.metropole_em_alerta:
         motivos.append("Cidade(s) da Região Metropolitana já em estágio de alerta")
+    elif cond_alerta_inundacao:
+        regs = ", ".join(reg.get("regioes_inundacao", [])[:5])
+        motivos.append("Região(ões) da cidade já em alerta de risco de "
+                       f"inundação pela Defesa Civil: {regs}")
     disparou_mob = b1 and b2
     detalhes["MOBILIZAÇÃO"] = {"disparou": disparou_mob, "motivos": motivos}
     if disparou_mob:
@@ -413,8 +419,19 @@ def _avaliar_regras(
             "(bloco de previsão) não fecha.")
     else:
         motivos.append("Elevação das bacias próximas não configura risco ou ameaça")
+    # Sem NENHUM dado de nível de rio não é possível afirmar que "a elevação
+    # das águas não configura risco" (exigência da coluna NORMALIDADE).
+    sem_dados_rios = (not ind.afluentes) and nivel is None
+    hidro_incompleta = (not ind.afluentes) or nivel is None
+    if hidro_incompleta:
+        motivos.insert(0,
+            "⚠ Dados de nível dos rios incompletos nesta coleta — "
+            "não é possível confirmar a normalidade hidrológica. "
+            "Consulte os canais oficiais da Defesa Civil.")
+
     detalhes["NORMALIDADE"] = {"disparou": True, "motivos": motivos}
-    return _montar_saida("NORMALIDADE", motivos, detalhes)
+    return _montar_saida("NORMALIDADE", motivos, detalhes,
+                         dados_insuficientes=hidro_incompleta or sem_dados_rios)
 
 
 def gatilhos_ativos(infra: InputsInfraestrutura | None) -> list[tuple[str, str]]:
@@ -561,14 +578,22 @@ def criar_modelo_gatilhos_txt(caminho=None):
     print(f"[Gatilhos] Modelo criado: {caminho}")
 
 
-def _montar_saida(estagio: str, motivos: list[str], detalhes: dict) -> dict:
-    return {
+def _montar_saida(estagio: str, motivos: list[str], detalhes: dict,
+                  dados_insuficientes: bool = False) -> dict:
+    saida = {
         "estagio": estagio,
         "indice": config.ESTAGIOS.index(estagio),
         "cor": config.CORES_ESTAGIOS[estagio],
         "justificativas": motivos,
         "detalhes": detalhes,
     }
+    if dados_insuficientes:
+        # Nunca exibir "verde tranquilo" quando faltam dados essenciais:
+        # o painel passa a mostrar um estado neutro e explícito.
+        saida["dados_insuficientes"] = True
+        saida["rotulo"] = "DADOS INSUFICIENTES"
+        saida["cor"] = "#4A5561"
+    return saida
 
 
 # ──────────────────────────────────────────────────────────────────────────
