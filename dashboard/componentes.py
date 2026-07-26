@@ -87,7 +87,8 @@ def banner_estagio(classificacao: dict, timestamp: str) -> dbc.Alert:
                     className="mb-1 fw-bold"),
             html.Div(f"Última atualização: {timestamp}", className="small opacity-75 mb-2"),
             html.Div([html.Div(j, className="mb-1")
-                      for j in classificacao.get("justificativas", [])],
+                      for j in classificacao.get("justificativas", [])
+                      if not j.lstrip().startswith(("⚑", "⚙"))],
                      className="mb-0"),
         ],
         style={"backgroundColor": cor, "color": "white", "border": "none",
