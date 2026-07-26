@@ -49,6 +49,7 @@ app.index_string = """<!DOCTYPE html>
 .tema-claro .form-check-label{color:#1F2733 !important}
 .tema-claro .btn-outline-info{color:#0B7285;border-color:#0B7285}
 @page{size:A4 landscape;margin:10mm}
+@media(min-width:1200px){.cards-rios>div{flex:0 0 20%;max-width:20%}}
 @media print{
   *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
   .no-print{display:none !important}
