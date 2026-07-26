@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import re
 import time
+from datetime import datetime
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -352,6 +353,127 @@ def coletar_poaclima() -> dict:
           f"{len(resultado['outros_medidores'])} outra(s) estação(ões) | "
           f"{len(resultado['alertas_regionais'])} alerta(s) regional(is)")
     return resultado
+
+
+_RE_DIA = re.compile(r"(\d{1,2})[./](\d{1,2})")
+_RE_MM = re.compile(r"(\d{1,3})\s*mm", re.I)
+_RE_TEMP = re.compile(r"(-?\d{1,2})\s*°\s*C", re.I)  # o ° é obrigatório:
+# sem ele, "28.07\nChuva" casava como "07 C" (temperatura fantasma)
+_RE_UMID = re.compile(r"(\d{1,3})\s*%")
+_RE_VENTO = re.compile(r"(\d{1,3})\s*km/h", re.I)
+
+
+def _parse_previsao(texto: str) -> list[dict]:
+    """
+    Interpreta a tabela "Previsão do tempo" do Poaclima (dados da Catavento).
+    Cada dia aparece como um bloco:
+        Dom 26.07 | Pancadas de chuva isoladas | 15 mm |
+        23 °C 13 °C | 98 % 84 % | 30 km/h | NO
+    """
+    ano = datetime.now().year
+    dias: list[dict] = []
+    for bloco in re.split(r"(?=(?:Dom|Seg|Ter|Qua|Qui|Sex|S[áa]b)\s*\d{1,2}[./])",
+                          texto):
+        m_dia = _RE_DIA.search(bloco or "")
+        if not m_dia:
+            continue
+        chuva = _RE_MM.search(bloco)
+        if not chuva:
+            continue        # sem coluna de chuva → não é linha de previsão
+        temps = [int(t) for t in _RE_TEMP.findall(bloco)[:2]]
+        umid = [int(u) for u in _RE_UMID.findall(bloco)[:2]]
+        vento = _RE_VENTO.search(bloco)
+
+        # descrição = primeira linha textual sem números
+        descricao = None
+        for linha in (bloco.splitlines()):
+            limpa = linha.strip()
+            if (limpa and not _RE_DIA.search(limpa) and "mm" not in limpa
+                    and "°" not in limpa and "%" not in limpa
+                    and "km/h" not in limpa and len(limpa) > 3):
+                descricao = limpa
+                break
+        try:
+            data = datetime(ano, int(m_dia.group(2)), int(m_dia.group(1)))
+        except ValueError:
+            continue
+        dias.append({
+            "data": data,
+            "descricao": descricao,
+            "precipitacao_total_mm": float(chuva.group(1)),
+            "temp_max_c": temps[0] if temps else None,
+            "temp_min_c": temps[1] if len(temps) > 1 else None,
+            "umidade_max_pct": umid[0] if umid else None,
+            "umidade_min_pct": umid[1] if len(umid) > 1 else None,
+            "vento_kmh": int(vento.group(1)) if vento else None,
+        })
+    # remove duplicatas mantendo a ordem
+    vistos, unicos = set(), []
+    for d in dias:
+        if d["data"] not in vistos:
+            vistos.add(d["data"])
+            unicos.append(d)
+    return unicos
+
+
+def coletar_previsao_poaclima() -> dict:
+    """
+    Abre a aba "Previsão do tempo" do Poaclima e lê a tabela de previsão
+    (fonte: Catavento Meteorologia — a mesma que a Defesa Civil de POA usa).
+
+    Retorna {"dias": [...], "previsto_48h_mm": float|None, "fonte", "ok"}
+    """
+    vazio = {"dias": [], "previsto_48h_mm": None,
+             "fonte": "Poaclima/Catavento", "ok": False}
+    try:
+        driver = criar_driver()
+    except Exception as exc:
+        print(f"[Poaclima-previsão] Selenium indisponível: {exc}")
+        return vazio
+
+    try:
+        driver.get(config.URL_POACLIMA)
+        WebDriverWait(driver, config.SELENIUM_TIMEOUT_S).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body")))
+        _entrar_no_conteudo(driver, espera_s=20)
+
+        # clica no botão "Previsão do tempo"
+        clicou = False
+        for xp in ("//*[contains(text(),'Previsão do tempo')]",
+                   "//*[contains(text(),'Previsao do tempo')]"):
+            for el in driver.find_elements(By.XPATH, xp)[:3]:
+                try:
+                    driver.execute_script("arguments[0].click();", el)
+                    clicou = True
+                    break
+                except Exception:
+                    continue
+            if clicou:
+                break
+        if not clicou:
+            print("[Poaclima-previsão] botão 'Previsão do tempo' não encontrado.")
+        time.sleep(2.5)
+
+        texto = _corpo(driver)
+        dias = _parse_previsao(texto)
+        if not dias:
+            print("[Poaclima-previsão] tabela não interpretada "
+                  f"({len(texto)} chars lidos).")
+            return vazio
+
+        hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        proximos = [d for d in dias if d["data"] >= hoje][:2]
+        previsto_48h = sum(d["precipitacao_total_mm"] for d in proximos) or 0.0
+
+        print(f"[Poaclima-previsão] {len(dias)} dia(s) lidos | "
+              f"próximas 48h: {previsto_48h:.0f} mm (Catavento)")
+        return {"dias": dias, "previsto_48h_mm": previsto_48h,
+                "fonte": "Poaclima/Catavento", "ok": True}
+    except Exception as exc:
+        print(f"[Poaclima-previsão] falha: {exc}")
+        return vazio
+    finally:
+        driver.quit()
 
 
 def coletar_nivel_guaiba_fallback() -> dict:
