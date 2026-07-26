@@ -40,8 +40,12 @@ def _bloco_fontes(snapshot: dict) -> str:
 def _bloco_banner(snapshot: dict) -> str:
     cls = snapshot.get("classificacao") or {}
     cor = cls.get("cor", "#2E9E44")
+    # O "⚑" (regra de piso) e o "⚙" (lista de gatilhos) já são mostrados
+    # na seção "Gatilhos de campo confirmados" — não repetir no banner.
     justificativas = "".join(
-        f"<div class='just'>{j}</div>" for j in cls.get("justificativas", []))
+        f"<div class='just'>{j}</div>"
+        for j in cls.get("justificativas", [])
+        if not j.lstrip().startswith(("⚑", "⚙")))
     return f"""
     <section class="banner" style="background:{cor}">
       <h2>ESTÁGIO OPERACIONAL: {cls.get('rotulo') or cls.get('estagio', '—')}</h2>
@@ -155,30 +159,43 @@ def _bloco_graficos(snapshot: dict) -> str:
     senão o texto dos gráficos sai cinza-claro sobre papel branco.
     """
     construtores = [
-        ("gauge", lambda t: componentes.gauge_estagio(
-            snapshot.get("classificacao") or {}, t), False),
-        ("guaiba", lambda t: componentes.grafico_guaiba(
-            snapshot.get("serie_guaiba", []), t), False),
-        ("afluentes", lambda t: componentes.grafico_afluentes(
-            snapshot.get("series_afluentes", {}), t), False),
-        ("chuva", lambda t: componentes.grafico_precipitacao(
+        # (constrói, largura_print, altura_print, ocupa_linha_inteira)
+        (lambda t: componentes.gauge_estagio(
+            snapshot.get("classificacao") or {}, t), 470, 290, False),
+        (lambda t: componentes.grafico_guaiba(
+            snapshot.get("serie_guaiba", []), t), 470, 290, False),
+        (lambda t: componentes.grafico_afluentes(
+            snapshot.get("series_afluentes", {}), t), 470, 290, False),
+        (lambda t: componentes.grafico_precipitacao(
             snapshot.get("serie_precipitacao_horaria", []),
-            snapshot.get("serie_precipitacao_diaria", []), t), True),
+            snapshot.get("serie_precipitacao_diaria", []), t), 960, 300, True),
     ]
 
     partes, primeiro = [], True
-    for nome, constroi, largo in construtores:
+    for constroi, larg_print, alt_print, largo in construtores:
         blocos = []
         for tema in ("dark", "claro"):
             fig = constroi(tema)
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",
-                              plot_bgcolor="rgba(0,0,0,0)", autosize=True)
-            fig.update_layout(margin=dict(l=50, r=30, t=60, b=40))
-            html_fig = fig.to_html(
-                full_html=False,
-                include_plotlyjs="cdn" if primeiro else False,
-                config={"displayModeBar": False, "responsive": True},
-                default_width="100%", default_height="340px")
+                              plot_bgcolor="rgba(0,0,0,0)", autosize=True,
+                              margin=dict(l=50, r=30, t=60, b=40))
+            if tema == "dark":
+                # tela: acompanha a largura do cartão
+                html_fig = fig.to_html(
+                    full_html=False,
+                    include_plotlyjs="cdn" if primeiro else False,
+                    config={"displayModeBar": False, "responsive": True},
+                    default_width="100%", default_height="340px")
+            else:
+                # papel/modo claro: tamanho FIXO, do tamanho de uma A4 paisagem
+                # (assim a impressão não corta nem joga o gráfico p/ outra página)
+                # autosize=False é essencial: com autosize o Plotly ignora
+                # a largura fixa e volta a preencher o container.
+                fig.update_layout(width=larg_print, height=alt_print,
+                                  autosize=False)
+                html_fig = fig.to_html(
+                    full_html=False, include_plotlyjs=False,
+                    config={"displayModeBar": False, "responsive": False})
             primeiro = False
             blocos.append(f"<div class='fig-{tema}'>{html_fig}</div>")
         classe = "grafico largo" if largo else "grafico"
@@ -210,7 +227,9 @@ button:hover{border-color:var(--txt2)}
 .banner .just{font-size:.95rem;margin:3px 0}
 .cards{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:22px}
 .card{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;
-      padding:12px;min-width:165px;flex:1 1 165px;max-width:230px}
+      padding:12px;flex:0 0 calc(20% - 12px);min-width:0}
+@media(max-width:1100px){.card{flex:0 0 calc(33.33% - 12px)}}
+@media(max-width:700px){.card{flex:0 0 calc(50% - 12px)}}
 .card .rio{font-weight:700}
 .card .est{color:var(--txt2);font-size:.76rem;margin-bottom:8px;min-height:30px}
 .card .valor{font-size:1.6rem;font-weight:700}
@@ -235,7 +254,7 @@ button:hover{border-color:var(--txt2)}
          padding:8px;min-width:0;overflow:hidden}
 .grafico.largo{grid-column:1/-1}
 .grafico .js-plotly-plot,.grafico .plot-container{width:100% !important}
-.fig-claro{display:none}
+.fig-claro{display:none;max-width:100%;overflow-x:auto}
 body.claro .fig-dark{display:none}
 body.claro .fig-claro{display:block}
 .rodape{margin-top:26px}
@@ -255,10 +274,13 @@ body.claro .fig-claro{display:block}
   .fig-claro{display:block !important}
   .banner,.card,.tile,.grafico{break-inside:avoid;page-break-inside:avoid}
   .banner h2{font-size:1.5rem}
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-  .card{max-width:none}
+  .cards{display:grid !important;grid-template-columns:repeat(5,1fr);gap:8px}
+  .card{max-width:none;flex:none !important}
   .regioes{grid-template-columns:repeat(6,1fr)}
-  .graficos{grid-template-columns:repeat(2,1fr)}
+  .graficos{display:block}
+  .grafico{display:inline-block;vertical-align:top;width:auto;margin:0 4px 8px}
+  .grafico.largo{display:block}
+  .grafico .fig-claro{overflow:visible}
   h1{font-size:1.4rem}
 }
 """
@@ -280,16 +302,16 @@ bt.onclick=()=>{
   localStorage.setItem('tema', claro?'claro':'dark');
   location.reload();
 };
-document.getElementById('btn-print').onclick=()=>{
-  const eraEscuro=!b.classList.contains('claro');
-  b.classList.add('claro');                       // gráficos claros p/ o papel
-  setTimeout(()=>{
-    try{document.querySelectorAll('.fig-claro .js-plotly-plot')
-          .forEach(g=>window.Plotly && Plotly.Plots.resize(g));}catch(e){}
-    setTimeout(()=>{ window.print();
-      if(eraEscuro){b.classList.remove('claro');} }, 500);
-  }, 250);
-};
+function ajustarGraficos(){
+  document.querySelectorAll('.fig-dark .js-plotly-plot').forEach(function(g){
+    if(g.offsetParent!==null){try{Plotly.Plots.resize(g);}catch(e){}}
+  });
+}
+window.addEventListener('load', function(){setTimeout(ajustarGraficos, 120);
+                                           setTimeout(ajustarGraficos, 600);});
+window.addEventListener('resize', ajustarGraficos);
+
+document.getElementById('btn-print').onclick=()=>{ window.print(); };
 """
 
 
