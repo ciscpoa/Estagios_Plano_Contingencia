@@ -422,7 +422,7 @@ def arvore_regras(classificacao: dict, tema: str = "dark") -> html.Div:
             return None
         nos = []
         for i, b in enumerate(bl):
-            estilo = {"flex": "1 1 220px", "maxWidth": "340px",
+            estilo = {"flex": "1 1 240px", "maxWidth": "360px",
                       "borderRadius": "10px", "padding": "8px 10px",
                       "border": "1px solid rgba(127,127,127,.4)",
                       "textAlign": "left", "fontSize": "0.84rem"}
@@ -430,9 +430,18 @@ def arvore_regras(classificacao: dict, tema: str = "dark") -> html.Div:
                 estilo |= {"backgroundColor": cor_linha, "color": "white",
                            "fontWeight": "600", "borderColor": cor_linha}
             else:
-                estilo |= {"opacity": 0.38}
-            nos.append(html.Div([html.B("✔ " if b["ativo"] else "✖ "),
-                                 html.Span(b["titulo"])], style=estilo))
+                estilo |= {"opacity": 0.45}
+            # o motivo explica POR QUE o bloco está (ou não) ativo
+            motivo = (b.get("motivo") or "").strip()
+            conteudo = [html.Div([html.B("✔ " if b["ativo"] else "✖ "),
+                                  html.Span(b["titulo"])])]
+            if motivo:
+                conteudo.append(html.Div(
+                    motivo, style={"fontSize": "0.74rem", "fontWeight": "400",
+                                   "lineHeight": "1.35", "opacity": 0.85,
+                                   "marginTop": "5px", "paddingTop": "5px",
+                                   "borderTop": "1px solid rgba(255,255,255,.22)"}))
+            nos.append(html.Div(conteudo, style=estilo, title=motivo))
             if i < len(bl) - 1:
                 nos.append(html.Div("E", className="fw-bold text-secondary px-1",
                                     style={"alignSelf": "center"}))

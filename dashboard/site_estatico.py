@@ -215,10 +215,16 @@ def _bloco_arvore(snapshot: dict) -> str:
             estilo = (f"background:{cor_linha};border-color:{cor_linha}"
                       if b["ativo"] else "")
             marca = "✔" if b["ativo"] else "✖"
+            motivo = (b.get("motivo") or "").strip()
+            # o motivo explica POR QUE o bloco está (ou não) ativo — sem ele
+            # a árvore vira um "sim/não" sem auditoria
+            html_motivo = (f"<span class='motivo-no'>{motivo}</span>"
+                           if motivo else "")
             caixas.append(
-                f"<div class='{classe}' style='{estilo}'>"
+                f"<div class='{classe}' style='{estilo}' title='{motivo}'>"
                 f"<span class='marca'>{marca}</span>"
-                f"<span class='rotulo'>{b['titulo']}</span></div>")
+                f"<span class='rotulo'>{b['titulo']}</span>"
+                f"{html_motivo}</div>")
             if i < len(bl) - 1:
                 caixas.append("<div class='conector'>E</div>")
         subtitulo = ("estágio atual — todos os blocos precisam estar ativos"
@@ -315,7 +321,46 @@ def _bloco_graficos(snapshot: dict) -> str:
         classe = "grafico largo" if largo else "grafico"
         partes.append(f"<div class='{classe}' data-w='{larg_print}' "
                       f"data-h='{alt_print}'>{''.join(blocos)}</div>")
-    return f"<section class='graficos'>{''.join(partes)}</section>"
+    return (f"<section class='graficos'>{''.join(partes)}</section>"
+            + _rodape_chuva(snapshot))
+
+
+def _rodape_chuva(snapshot: dict) -> str:
+    """
+    Procedência da chuva observada: qual fonte entrou no painel e quais
+    foram testadas e rejeitadas. Sem isso não dá para saber se o acumulado
+    exibido é de um pluviômetro em solo ou de um modelo global.
+    """
+    testadas = snapshot.get("fontes_chuva_testadas") or []
+    qualidade = snapshot.get("qualidade_chuva_obs") or {}
+    fonte = snapshot.get("fonte_chuva_obs") or "—"
+    if not testadas and not qualidade:
+        return ""
+
+    itens = []
+    for t in testadas:
+        ok = t.get("aprovada")
+        marca = "✔" if ok else "✖"
+        cor = "#2E9E44" if ok else "#9AA6B2"
+        total = t.get("total_7d_mm")
+        motivo = str(t.get("motivo") or "")
+        # o motivo de uma série aprovada já começa com o total — não repetir
+        total_txt = ("" if ("mm/7d" in motivo or not isinstance(total, (int, float)))
+                     else f"{total:.0f} mm/7d · ")
+        itens.append(
+            f"<li style='color:{cor}'><b>{marca} {t.get('fonte','—')}</b> — "
+            f"{total_txt}{motivo}</li>")
+
+    return f"""
+    <section class="procedencia">
+      <div class="titulo-proc">Procedência da chuva observada</div>
+      <div class="sub-proc">Fonte adotada: <b>{fonte}</b>
+        {(' · ' + str(qualidade.get('motivo'))) if qualidade.get('motivo') else ''}</div>
+      <ul class="lista-proc">{''.join(itens)}</ul>
+      <div class="sub-proc">A série só entra no painel se cobrir um mínimo de
+        horas e bater com uma referência independente — pluviômetro com
+        transmissão esparsa subestima o acumulado e é descartado.</div>
+    </section>"""
 
 
 _CSS = """
@@ -384,14 +429,25 @@ button:hover{border-color:var(--txt2)}
 .rotulo-linha{font-weight:800;letter-spacing:.4px}
 .sub-arvore{color:var(--txt2);font-size:.78rem;margin-bottom:8px}
 .nos{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:6px}
-.no-arvore{flex:1 1 220px;max-width:340px;border:1px solid var(--borda);
-  border-radius:10px;padding:8px 10px;display:flex;gap:8px;align-items:flex-start;
+.no-arvore{flex:1 1 240px;max-width:360px;border:1px solid var(--borda);
+  border-radius:10px;padding:8px 10px;display:grid;
+  grid-template-columns:auto 1fr;gap:4px 8px;align-items:start;
   text-align:left;font-size:.84rem}
 .no-arvore.ativo{color:#fff;font-weight:600}
-.no-arvore.inativo{opacity:.38}
+.no-arvore.inativo{opacity:.45}
 .no-arvore .marca{font-weight:800}
+.no-arvore .rotulo{grid-column:2}
+.motivo-no{grid-column:2;font-size:.74rem;font-weight:400;line-height:1.35;
+  opacity:.85;border-top:1px solid rgba(255,255,255,.22);padding-top:5px;
+  margin-top:2px}
+.no-arvore.inativo .motivo-no{border-top-color:var(--borda)}
 .conector{align-self:center;font-weight:800;color:var(--txt2);padding:0 2px}
 .nota-arvore{font-size:.82rem;color:var(--txt2);margin-top:6px}
+.procedencia{background:var(--cartao);border:1px solid var(--borda);
+  border-radius:12px;padding:12px 16px;margin:10px 0}
+.titulo-proc{font-weight:700;font-size:.92rem;margin-bottom:2px}
+.sub-proc{color:var(--txt2);font-size:.78rem;line-height:1.4}
+.lista-proc{margin:8px 0;padding-left:18px;font-size:.78rem;line-height:1.5}
 .gatilhos{margin-bottom:20px}
 .badge{display:inline-block;color:#fff;border-radius:10px;padding:8px 14px;
        margin:4px;font-weight:700;font-size:.9rem}
