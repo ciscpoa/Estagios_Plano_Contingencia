@@ -635,6 +635,11 @@ def indicadores_dos_brutos(brutos: dict) -> IndicadoresNumericos:
         obs_72h = ci.get("acumulado_72h_mm") if ci.get("acumulado_72h_mm") is not None else obs_72h
         obs_7d = ci.get("acumulado_7d_mm") if ci.get("acumulado_7d_mm") is not None else obs_7d
         fonte_obs = f"INMET {ci.get('estacao', '')}".strip()
+    else:
+        ep = brutos.get("estacoes_meteo_poaclima") or {}
+        if ep.get("ok") and ep.get("acumulado_max_mm") is not None:
+            obs_24h = ep["acumulado_max_mm"]
+            fonte_obs = "Poaclima (estações)"
 
     pp = brutos.get("previsao_poaclima") or {}
     previsto = meteo.get("previsto_48h_mm", 0.0)
