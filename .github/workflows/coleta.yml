@@ -44,6 +44,15 @@ jobs:
         run: |
           echo "ANA_IDENTIFICADOR definido: ${{ secrets.ANA_IDENTIFICADOR != '' }}"
           echo "ANA_SENHA definido: ${{ secrets.ANA_SENHA != '' }}"
+      - name: Diagnóstico de rede (ANA e INMET)
+        continue-on-error: true
+        run: |
+          for host in www.ana.gov.br apitempo.inmet.gov.br apiprevmet3.inmet.gov.br; do
+            echo "── $host"
+            getent ahostsv4 $host | head -1 || echo "  (sem IPv4)"
+            curl -s -o /dev/null -w "  IPv4 HTTP %{http_code} em %{time_total}s\n" \
+                 --ipv4 --max-time 20 "https://$host/" || echo "  IPv4 FALHOU"
+          done      
       - name: Executar o pipeline
         env:
           ANA_IDENTIFICADOR: ${{ secrets.ANA_IDENTIFICADOR }}
