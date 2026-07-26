@@ -78,7 +78,7 @@ def _vazio(fonte: str = "—", estacao=None) -> dict:
         "horaria": pd.DataFrame(columns=COLUNAS_HORARIA),
         "diaria": pd.DataFrame(columns=["data", "precipitacao_total_mm"]),
         "acumulado_24h_mm": None, "acumulado_72h_mm": None,
-        "acumulado_96h_mm": None,
+        "acumulado_96h_mm": None, "acumulado_5d_mm": None,
         "acumulado_7d_mm": None, "dias_com_chuva_5d": 0,
         "dias_chuva_intensa_5d": 0, "qualidade": {}, "tentativas": [],
     }
@@ -173,6 +173,8 @@ def _fechar(horaria: pd.DataFrame, fonte: str, estacao) -> dict:
         # 96h é a janela de CONVENÇÃO do painel: é o que aparece no banner
         # e na árvore, para não poluir a leitura com três números.
         "acumulado_96h_mm": acum(96),
+        # 5 dias: janela do card do painel, simétrica à previsão de 5 dias
+        "acumulado_5d_mm": acum(24 * 5),
         "acumulado_7d_mm": acum(24 * 7),
         "dias_com_chuva_5d": dias_com_chuva,
         "dias_chuva_intensa_5d": dias_intensos,
