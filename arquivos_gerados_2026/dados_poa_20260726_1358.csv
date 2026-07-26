@@ -1,0 +1,42 @@
+﻿datahora_extracao,indicador,valor,unidade,fonte
+26/07/2026 13:58,Nível Guaiba_PortoAlegre_CaisMaua,0.98,m,ANA / fallback
+26/07/2026 13:58,Tendência 48h Guaiba_PortoAlegre_CaisMaua,,m/48h,ANA
+26/07/2026 13:58,Nível Rio_Gravatai,,m,ANA / fallback
+26/07/2026 13:58,Tendência 48h Rio_Gravatai,,m/48h,ANA
+26/07/2026 13:58,Nível Rio_dos_Sinos_SaoLeopoldo,,m,ANA / fallback
+26/07/2026 13:58,Tendência 48h Rio_dos_Sinos_SaoLeopoldo,,m/48h,ANA
+26/07/2026 13:58,Nível Rio_Cai,,m,ANA / fallback
+26/07/2026 13:58,Tendência 48h Rio_Cai,,m/48h,ANA
+26/07/2026 13:58,Nível Rio_Cai_Montenegro,,m,ANA / fallback
+26/07/2026 13:58,Tendência 48h Rio_Cai_Montenegro,,m/48h,ANA
+26/07/2026 13:58,Nível Rio_Cai_NovaPalmira,,m,ANA / fallback
+26/07/2026 13:58,Tendência 48h Rio_Cai_NovaPalmira,,m/48h,ANA
+26/07/2026 13:58,Nível Rio_Jacui_Triunfo,,m,ANA / fallback
+26/07/2026 13:58,Tendência 48h Rio_Jacui_Triunfo,,m/48h,ANA
+26/07/2026 13:58,Cota de Atenção (Guaíba),2.05,m,Plano Contingência
+26/07/2026 13:58,Cota de Alerta (Guaíba),2.5,m,Plano Contingência
+26/07/2026 13:58,Cota de Inundação (Guaíba),3.0,m,Plano Contingência
+26/07/2026 13:58,acumulado_obs_24h_mm,5.4,mm,Open-Meteo
+26/07/2026 13:58,acumulado_obs_72h_mm,7.1,mm,Open-Meteo
+26/07/2026 13:58,acumulado_obs_7d_mm,126.5,mm,Open-Meteo
+26/07/2026 13:58,previsto_24h_mm,1.9,mm,Open-Meteo
+26/07/2026 13:58,previsto_48h_mm,15.1,mm,Open-Meteo
+26/07/2026 13:58,previsto_72h_mm,58.8,mm,Open-Meteo
+26/07/2026 13:58,dias_chuva_intensa_5d,0,dias,Open-Meteo
+26/07/2026 13:58,Aviso INMET (máx severidade),,-,INMET
+26/07/2026 13:58,Qtd avisos INMET vigentes,0,un,INMET
+26/07/2026 13:58,Chuva prevista 48h (Poaclima/Catavento),30.0,mm,Poaclima/Catavento
+26/07/2026 13:58,Previsão 26/07 — Pancadas de chuva isoladas,15.0,mm,Poaclima/Catavento
+26/07/2026 13:58,Previsão 27/07 — Pancadas de chuva isoladas,15.0,mm,Poaclima/Catavento
+26/07/2026 13:58,Previsão 28/07 — Chuva e raios,25.0,mm,Poaclima/Catavento
+26/07/2026 13:58,Previsão 29/07 — Encoberto e chuva,40.0,mm,Poaclima/Catavento
+26/07/2026 13:58,Previsão 30/07 — Sol entre nuvens,0.0,mm,Poaclima/Catavento
+26/07/2026 13:58,Alerta Poaclima vigente,,-,Poaclima
+26/07/2026 13:58,Chuva acumulada Poaclima,,mm,Poaclima
+26/07/2026 13:58,Nível Usina do Gasômetro (Poaclima),1.28,m,Poaclima
+26/07/2026 13:58,Nível Cais Mauá (Poaclima),1.82,m,Poaclima
+26/07/2026 13:58,Nível Riacho Ipiranga (Poaclima),0.38,m,Poaclima
+26/07/2026 13:58,Alertas regionais vigentes (Defesa Civil),3,un,Poaclima
+26/07/2026 13:58,Alerta regional — (17) Ilhas,Alerta de risco alto · Inundação · até 27/07/2026 12:00,-,Poaclima/Defesa Civil
+26/07/2026 13:58,Alerta regional — (15) Sul,Alerta de risco alto · Inundação · até 27/07/2026 12:00,-,Poaclima/Defesa Civil
+26/07/2026 13:58,Alerta regional — (13) Extremo sul,Alerta de risco alto · Inundação · até 27/07/2026 12:00,-,Poaclima/Defesa Civil
