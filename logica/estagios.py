@@ -249,7 +249,13 @@ def _avaliar_regras(
     b5 = (infra.sobrecarga_sistema_saude or infra.necessidade_apoio_federal_estadual
           or (not modo_estrito and b1 and proxy_b2))
     disparou_crise = b1 and b2 and b3 and b4 and b5
-    detalhes["CRISE"] = {"disparou": disparou_crise, "motivos": motivos}
+    detalhes["CRISE"] = {"disparou": disparou_crise, "motivos": motivos,
+        "blocos": [
+            {"n": 1, "titulo": "Chuvas muito acima da média histórica", "ativo": bool(b1)},
+            {"n": 2, "titulo": "Colapso (ou risco) da drenagem urbana", "ativo": bool(b2)},
+            {"n": 3, "titulo": "Interrupção de infraestrutura em grande escala", "ativo": bool(b3)},
+            {"n": 4, "titulo": "Isolamento de áreas/comunidades ou óbitos", "ativo": bool(b4)},
+            {"n": 5, "titulo": "Impacto severo no sistema de saúde", "ativo": bool(b5)}]}
     if disparou_crise:
         return _montar_saida("CRISE", motivos, detalhes)
 
@@ -291,7 +297,12 @@ def _avaliar_regras(
     disparou_emerg = b1 and b2 and b3 and b4
     if disparou_emerg and len(motivos) == 1:
         motivos.append("Gatilhos de infraestrutura satisfeitos por proxy (transbordamento do Guaíba)")
-    detalhes["SITUAÇÃO DE EMERGÊNCIA"] = {"disparou": disparou_emerg, "motivos": motivos}
+    detalhes["SITUAÇÃO DE EMERGÊNCIA"] = {"disparou": disparou_emerg, "motivos": motivos,
+        "blocos": [
+            {"n": 1, "titulo": "Chuvas intensas persistentes / inundações graves", "ativo": bool(b1)},
+            {"n": 2, "titulo": "Vias ou pontes danificadas · serviços essenciais interrompidos", "ativo": bool(b2)},
+            {"n": 3, "titulo": "Desabrigados/desalojados ou óbitos", "ativo": bool(b3)},
+            {"n": 4, "titulo": "Saúde afetada ou risco de desabastecimento", "ativo": bool(b4)}]}
     if disparou_emerg:
         return _montar_saida("SITUAÇÃO DE EMERGÊNCIA", motivos, detalhes)
 
@@ -332,7 +343,11 @@ def _avaliar_regras(
           or infra.aumento_demanda_saude_clima
           or (not modo_estrito and b1 and b2))
     disparou_alerta = b1 and b2 and b3
-    detalhes["ALERTA"] = {"disparou": disparou_alerta, "motivos": motivos}
+    detalhes["ALERTA"] = {"disparou": disparou_alerta, "motivos": motivos,
+        "blocos": [
+            {"n": 1, "titulo": "Chuva intensa por horas/dias com previsão de continuidade", "ativo": bool(b1)},
+            {"n": 2, "titulo": "Guaíba em cota de alerta · afluentes/córregos subindo · risco de inundação", "ativo": bool(b2)},
+            {"n": 3, "titulo": "Efeitos no território: famílias, abrigos, vias, saúde", "ativo": bool(b3)}]}
     if disparou_alerta:
         return _montar_saida("ALERTA", motivos, detalhes)
 
@@ -388,7 +403,10 @@ def _avaliar_regras(
         motivos.append("Região(ões) da cidade já em alerta de risco de "
                        f"inundação pela Defesa Civil: {regs}")
     disparou_mob = b1 and b2
-    detalhes["MOBILIZAÇÃO"] = {"disparou": disparou_mob, "motivos": motivos}
+    detalhes["MOBILIZAÇÃO"] = {"disparou": disparou_mob, "motivos": motivos,
+        "blocos": [
+            {"n": 1, "titulo": "Previsão de chuvas mais intensas ou avisos vigentes", "ativo": bool(b1)},
+            {"n": 2, "titulo": "Rios em cota de atenção, em elevação, ou região já em alerta", "ativo": bool(b2)}]}
     if disparou_mob:
         return _montar_saida("MOBILIZAÇÃO", motivos, detalhes)
 
@@ -582,6 +600,9 @@ def _montar_saida(estagio: str, motivos: list[str], detalhes: dict,
                   dados_insuficientes: bool = False) -> dict:
     saida = {
         "estagio": estagio,
+        "blocos_por_estagio": {e: d.get("blocos", [])
+                               for e, d in (detalhes or {}).items()
+                               if isinstance(d, dict)},
         "indice": config.ESTAGIOS.index(estagio),
         "cor": config.CORES_ESTAGIOS[estagio],
         "justificativas": motivos,
