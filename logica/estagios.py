@@ -76,6 +76,7 @@ class IndicadoresNumericos:
     acumulado_obs_24h_mm: float = 0.0
     acumulado_obs_72h_mm: float = 0.0
     acumulado_obs_96h_mm: float = 0.0     # janela de CONVENÇÃO exibida no painel
+    acumulado_obs_5d_mm: float = 0.0      # 5 dias: card, simétrico à previsão
     acumulado_obs_7d_mm: float = 0.0
     previsto_48h_mm: float = 0.0
     dias_chuva_intensa_5d: int = 0
@@ -829,6 +830,7 @@ def indicadores_dos_brutos(brutos: dict) -> IndicadoresNumericos:
         obs_24h = co.get("acumulado_24h_mm") or 0.0
         obs_72h = co.get("acumulado_72h_mm") or 0.0
         obs_96h = co.get("acumulado_96h_mm") or obs_72h
+        obs_5d = co.get("acumulado_5d_mm") or obs_96h
         obs_7d = co.get("acumulado_7d_mm") or 0.0
         fonte_obs = co.get("fonte_curta") or co.get("fonte") or "—"
         dias_obs = co.get("dias_com_chuva_5d", 0)
@@ -838,6 +840,7 @@ def indicadores_dos_brutos(brutos: dict) -> IndicadoresNumericos:
         obs_24h = meteo.get("acumulado_obs_24h_mm", 0.0)
         obs_72h = meteo.get("acumulado_obs_72h_mm", 0.0)
         obs_96h = obs_72h
+        obs_5d = meteo.get("acumulado_obs_7d_mm", 0.0)
         obs_7d = meteo.get("acumulado_obs_7d_mm", 0.0)
         fonte_obs, dias_obs, qualidade = "Open-Meteo (modelo global)", 0, None
         dias_int = meteo.get("dias_chuva_intensa_5d", 0)
@@ -888,6 +891,7 @@ def indicadores_dos_brutos(brutos: dict) -> IndicadoresNumericos:
         acumulado_obs_24h_mm=obs_24h or 0.0,
         acumulado_obs_72h_mm=obs_72h or 0.0,
         acumulado_obs_96h_mm=obs_96h or 0.0,
+        acumulado_obs_5d_mm=obs_5d or 0.0,
         acumulado_obs_7d_mm=obs_7d or 0.0,
         previsto_48h_mm=previsto or 0.0,
         previsto_72h_mm=previsto72 or 0.0,
