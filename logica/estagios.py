@@ -79,6 +79,18 @@ class IndicadoresNumericos:
     previsto_48h_mm: float = 0.0
     dias_chuva_intensa_5d: int = 0
 
+    # ── Previsão estendida: "as previsões indicam CONTINUIDADE do padrão" ──
+    # O Plano fala em continuidade, não só em volume nas próximas 48h. Uma
+    # semana com 15+15+25+40 mm/dia é continuidade, mesmo sem pico em 48h.
+    previsto_72h_mm: float = 0.0
+    previsto_5d_mm: float = 0.0
+    dias_previsao_chuva: int = 0          # dias com chuva relevante previstos
+    dias_com_chuva_obs_5d: int = 0        # dias com chuva relevante já ocorridos
+
+    # Procedência da chuva observada (auditoria no painel)
+    fonte_chuva_obs: str | None = None
+    qualidade_chuva_obs: str | None = None
+
     inmet_max_severidade: str | None = None           # Amarelo/Laranja/Vermelho
     poaclima_alerta: str | None = None
     metropole_em_alerta: bool = False                 # cidade da RM já em alerta
@@ -186,6 +198,100 @@ def _resumo_alertas_regionais(ind: IndicadoresNumericos) -> dict:
     }
 
 
+def _perfil_chuva(ind: IndicadoresNumericos) -> dict:
+    """
+    Traduz os números de chuva em categorias, e decide o bloco
+    "chove intensamente por horas/dias E as previsões indicam continuidade"
+    do ALERTA por CAMINHOS ALTERNATIVOS — não por um limiar único.
+
+    Caminhos (basta um):
+      A) Já choveu MUITO  +  previsão de continuidade (mesmo moderada).
+      B) Já choveu MÉDIO  +  previsão FORTE para os próximos dias.
+      C) Previsão MUITO FORTE isolada (evento a caminho, ainda sem chuva).
+      D) Aviso VERMELHO do INMET (grande perigo) — dispensa aritmética.
+
+    Devolve as categorias e (ativo, motivo) já formatados para a árvore.
+    """
+    L = config.LIMIARES_CHUVA
+    obs24 = ind.acumulado_obs_24h_mm or 0.0
+    obs72 = ind.acumulado_obs_72h_mm or 0.0
+    prev48 = ind.previsto_48h_mm or 0.0
+    prev5d = max(ind.previsto_5d_mm or 0.0, ind.previsto_72h_mm or 0.0, prev48)
+    aviso = ind.inmet_max_severidade
+
+    # ── categorias da chuva JÁ OCORRIDA ──────────────────────
+    ja_muito = (obs24 >= L["acumulado_24h_intensa"]
+                or obs72 >= L["acumulado_72h_persistente"]
+                or ind.dias_chuva_intensa_5d >= 2)
+    ja_medio = (ja_muito
+                or obs24 >= L["acumulado_24h_moderada"]
+                or obs72 >= L["acumulado_72h_moderado"]
+                or ind.dias_com_chuva_obs_5d >= 2)
+
+    # ── categorias da chuva PREVISTA ─────────────────────────
+    prev_forte = (prev48 >= L["previsao_48h_alerta"]
+                  or prev5d >= L["previsao_5d_alerta"]
+                  or aviso in ("Laranja", "Vermelho"))
+    prev_continua = (prev_forte
+                     or prev48 >= L["previsao_48h_mobilizacao"]
+                     or prev5d >= L["previsao_5d_continuidade"]
+                     or ind.dias_previsao_chuva >= L["dias_previsao_continuidade"]
+                     or aviso is not None)
+
+    def _obs_txt() -> str:
+        partes = [f"{obs24:.0f} mm/24h", f"{obs72:.0f} mm/72h"]
+        if ind.dias_com_chuva_obs_5d:
+            partes.append(f"{ind.dias_com_chuva_obs_5d} dia(s) de chuva nos últimos 5")
+        base = " · ".join(partes)
+        return base + (f" [{ind.fonte_chuva_obs}]" if ind.fonte_chuva_obs else "")
+
+    def _prev_txt() -> str:
+        partes = [f"{prev48:.0f} mm previstos em 48h"]
+        if prev5d > prev48:
+            partes.append(f"{prev5d:.0f} mm em 5 dias")
+        if ind.dias_previsao_chuva:
+            partes.append(f"chuva prevista em {ind.dias_previsao_chuva} dia(s)")
+        if aviso:
+            partes.append(f"aviso INMET {aviso}")
+        return " · ".join(partes)
+
+    ativo, caminho, motivo = False, None, ""
+    if aviso == "Vermelho":
+        ativo, caminho = True, "D"
+        motivo = ("Aviso VERMELHO do INMET (grande perigo de chuvas intensas) — "
+                  f"observado: {_obs_txt()}")
+    elif ja_muito and prev_continua:
+        ativo, caminho = True, "A"
+        motivo = (f"Choveu intensamente por horas/dias ({_obs_txt()}) "
+                  f"E a previsão indica continuidade ({_prev_txt()})")
+    elif ja_medio and prev_forte:
+        ativo, caminho = True, "B"
+        motivo = (f"Chuva acumulada relevante ({_obs_txt()}) "
+                  f"E previsão forte para os próximos dias ({_prev_txt()})")
+    elif prev48 >= L["previsao_48h_alerta"] and prev5d >= L["previsao_5d_alerta"]:
+        ativo, caminho = True, "C"
+        motivo = (f"Previsão de chuva forte e continuada ({_prev_txt()}) — "
+                  f"observado até agora: {_obs_txt()}")
+    else:
+        faltou = []
+        if not ja_medio:
+            faltou.append(f"chuva já ocorrida abaixo do limiar ({_obs_txt()})")
+        if not prev_continua:
+            faltou.append(f"previsão sem continuidade ({_prev_txt()})")
+        if ja_muito and not prev_continua:
+            faltou = [f"choveu muito ({_obs_txt()}), mas a previsão não "
+                      f"indica continuidade ({_prev_txt()})"]
+        motivo = "; ".join(faltou) or "sem gatilho de chuva"
+
+    return {
+        "ja_muito": ja_muito, "ja_medio": ja_medio,
+        "prev_forte": prev_forte, "prev_continua": prev_continua,
+        "alerta_ativo": ativo, "alerta_caminho": caminho,
+        "alerta_motivo": motivo,
+        "obs_txt": _obs_txt(), "prev_txt": _prev_txt(),
+    }
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # CLASSIFICADOR
 # ──────────────────────────────────────────────────────────────────────────
@@ -214,9 +320,9 @@ def _avaliar_regras(
     detalhes: dict = {}
 
     subindo = tend >= config.TENDENCIA_SUBIDA_RELEVANTE_M
+    chuva = _perfil_chuva(ind)           # categorias + caminhos do bloco de chuva
     chuva_intensa_24h = ind.acumulado_obs_24h_mm >= L["acumulado_24h_intensa"]
-    chuva_persistente = (ind.acumulado_obs_72h_mm >= L["acumulado_72h_persistente"]
-                         or ind.dias_chuva_intensa_5d >= 2)
+    chuva_persistente = chuva["ja_muito"]
     chuva_extrema = (
         ind.acumulado_obs_72h_mm >= L["acumulado_72h_extrema"]
         or ind.acumulado_obs_7d_mm >= L["media_mensal_historica"] * L["fator_acima_media_crise"]
@@ -279,13 +385,26 @@ def _avaliar_regras(
                 f"Chuvas intensas persistentes ({ind.acumulado_obs_72h_mm:.0f} mm/72h) "
                 f"causando inundações (Guaíba {nivel:.2f} m ≥ cota de inundação)"
                 if nivel is not None else "Chuvas intensas persistentes com inundações graves")
-    # Bloco 2 (E): vias/infra danificadas OU interrupção parcial de serviços
-    b2 = (infra.vias_ou_pontes_danificadas or infra.interrupcao_parcial_servicos_essenciais
-          or infra.bloqueio_vias_principais
+    # Bloco 2 (E): vias/infra DANIFICADAS OU interrupção parcial de serviços.
+    # ATENÇÃO: "bloqueio de vias principais" NÃO entra aqui. No Plano ele é
+    # gatilho da coluna ALERTA ("há bloqueio de vias principais e/ou
+    # estratégicas"); a coluna EMERGÊNCIA exige DANO à infraestrutura
+    # ("pontes e estradas podem estar danificadas"). Misturar os dois fazia
+    # o painel marcar "vias ou pontes danificadas" com o Guaíba longe da
+    # cota de inundação e sem nenhum dano registrado em campo.
+    b2 = (infra.vias_ou_pontes_danificadas
+          or infra.interrupcao_parcial_servicos_essenciais
           or (not modo_estrito and nivel is not None
               and nivel >= config.COTA_INUNDACAO_GUAIBA))
-    if b2 and (infra.vias_ou_pontes_danificadas or infra.interrupcao_parcial_servicos_essenciais):
-        motivos.append("Interrupção em vias/infraestrutura OU serviços essenciais")
+    if infra.vias_ou_pontes_danificadas or infra.interrupcao_parcial_servicos_essenciais:
+        motivo_e2 = "Dano em vias/infraestrutura OU interrupção de serviços essenciais (confirmado em campo)"
+        motivos.append(motivo_e2)
+    elif b2:
+        motivo_e2 = (f"proxy: Guaíba a {nivel:.2f} m, acima da cota de inundação "
+                     f"({config.COTA_INUNDACAO_GUAIBA} m)")
+    else:
+        motivo_e2 = ("sem dano de infraestrutura confirmado e Guaíba abaixo da "
+                     "cota de inundação")
     # Bloco 3 (E): desabrigados OU óbitos — proxy: transbordamento
     b3 = (infra.aumento_significativo_desabrigados or infra.obitos_pelo_evento
           or (not modo_estrito and nivel is not None
@@ -299,25 +418,37 @@ def _avaliar_regras(
         motivos.append("Gatilhos de infraestrutura satisfeitos por proxy (transbordamento do Guaíba)")
     detalhes["SITUAÇÃO DE EMERGÊNCIA"] = {"disparou": disparou_emerg, "motivos": motivos,
         "blocos": [
-            {"n": 1, "titulo": "Chuvas intensas persistentes / inundações graves", "ativo": bool(b1)},
-            {"n": 2, "titulo": "Vias ou pontes danificadas · serviços essenciais interrompidos", "ativo": bool(b2)},
-            {"n": 3, "titulo": "Desabrigados/desalojados ou óbitos", "ativo": bool(b3)},
-            {"n": 4, "titulo": "Saúde afetada ou risco de desabastecimento", "ativo": bool(b4)}]}
+            {"n": 1, "titulo": "Chuvas intensas persistentes / inundações graves",
+             "ativo": bool(b1),
+             "motivo": (motivos[0] if b1 and motivos else
+                        f"chuva persistente: {'sim' if chuva_persistente else 'não'} "
+                        f"({chuva['obs_txt']}); sem inundação grave registrada")},
+            {"n": 2, "titulo": "Vias ou pontes danificadas · serviços essenciais interrompidos",
+             "ativo": bool(b2), "motivo": motivo_e2},
+            {"n": 3, "titulo": "Desabrigados/desalojados ou óbitos",
+             "ativo": bool(b3),
+             "motivo": ("confirmado em campo" if (infra.aumento_significativo_desabrigados
+                                                  or infra.obitos_pelo_evento)
+                        else ("proxy: Guaíba acima da cota de inundação" if b3
+                              else "nenhum registro confirmado"))},
+            {"n": 4, "titulo": "Saúde afetada ou risco de desabastecimento",
+             "ativo": bool(b4),
+             "motivo": ("confirmado em campo" if (infra.servicos_saude_interrompidos
+                                                  or infra.risco_alto_desabastecimento)
+                        else ("proxy: Guaíba acima da cota de inundação" if b4
+                              else "nenhum registro confirmado"))}]}
     if disparou_emerg:
         return _montar_saida("SITUAÇÃO DE EMERGÊNCIA", motivos, detalhes)
 
     # ══════════════════════════════════════ 3) ALERTA (laranja)
     motivos = []
     # Bloco 1 (E): chove intensamente por horas/dias na RM e previsão de continuidade
-    b1 = ((chuva_intensa_24h or chuva_persistente
-           or ind.inmet_max_severidade in ("Laranja", "Vermelho"))
-          and (ind.previsto_48h_mm >= L["previsao_48h_mobilizacao"]
-               or ind.inmet_max_severidade in ("Laranja", "Vermelho")))
+    # → agora por CAMINHOS ALTERNATIVOS (ver _perfil_chuva), e não por um
+    #   limiar único que só fechava em evento recordista.
+    b1 = chuva["alerta_ativo"]
+    motivo_b1 = chuva["alerta_motivo"]
     if b1:
-        motivos.append(
-            f"Chuva intensa na RM ({ind.acumulado_obs_24h_mm:.0f} mm/24h; "
-            f"aviso INMET: {ind.inmet_max_severidade or '—'}) com previsão de continuidade "
-            f"({ind.previsto_48h_mm:.0f} mm/48h)")
+        motivos.append(motivo_b1)
     # Bloco 2 (E): Guaíba em cota de ALERTA  OU afluentes em alerta subindo
     #              OU córregos/encostas  OU Defesa Civil c/ risco elevado de inundação
     cond_guaiba = nivel is not None and nivel >= config.COTA_ALERTA_GUAIBA
@@ -343,26 +474,40 @@ def _avaliar_regras(
           or infra.aumento_demanda_saude_clima
           or (not modo_estrito and b1 and b2))
     disparou_alerta = b1 and b2 and b3
+    motivo_b2 = next((m for m in motivos if m is not motivo_b1), "") if b2 else \
+        "nenhum rio atingiu cota de alerta e não há risco regional de inundação"
+    motivo_b3 = ("gatilho de campo confirmado"
+                 if any([infra.familias_deixando_casas, infra.aumento_demanda_abrigo,
+                         infra.abrigos_temporarios_instalados,
+                         infra.bloqueio_vias_principais,
+                         infra.aumento_demanda_saude_clima])
+                 else ("satisfeito por proxy (blocos 1 e 2 ativos)" if b3
+                       else "sem gatilho de campo confirmado"))
     detalhes["ALERTA"] = {"disparou": disparou_alerta, "motivos": motivos,
         "blocos": [
-            {"n": 1, "titulo": "Chuva intensa por horas/dias com previsão de continuidade", "ativo": bool(b1)},
-            {"n": 2, "titulo": "Guaíba em cota de alerta · afluentes/córregos subindo · risco de inundação", "ativo": bool(b2)},
-            {"n": 3, "titulo": "Efeitos no território: famílias, abrigos, vias, saúde", "ativo": bool(b3)}]}
+            {"n": 1, "titulo": "Chuva intensa por horas/dias com previsão de continuidade",
+             "ativo": bool(b1), "motivo": motivo_b1,
+             "caminho": chuva["alerta_caminho"]},
+            {"n": 2, "titulo": "Guaíba em cota de alerta · afluentes/córregos subindo · risco de inundação",
+             "ativo": bool(b2), "motivo": motivo_b2},
+            {"n": 3, "titulo": "Efeitos no território: famílias, abrigos, vias, saúde",
+             "ativo": bool(b3), "motivo": motivo_b3}]}
     if disparou_alerta:
         return _montar_saida("ALERTA", motivos, detalhes)
 
     # ══════════════════════════════════════ 2) MOBILIZAÇÃO (amarelo)
     motivos = []
     # Bloco 1: previsão de chuvas mais intensas / avisos vigentes
-    b1 = (ind.previsto_48h_mm >= L["previsao_48h_mobilizacao"]
+    b1 = (chuva["prev_continua"] or chuva["ja_muito"]
           or ind.inmet_max_severidade is not None
           or ind.poaclima_alerta is not None
           or reg["n_total"] >= 1)
     if b1:
         fatores = []
-        if ind.previsto_48h_mm >= L["previsao_48h_mobilizacao"]:
-            fatores.append(f"previsão de chuvas mais intensas "
-                           f"({ind.previsto_48h_mm:.0f} mm/48h)")
+        if chuva["prev_continua"]:
+            fatores.append(f"previsão de chuvas mais intensas ({chuva['prev_txt']})")
+        if chuva["ja_muito"]:
+            fatores.append(f"chuva forte já registrada ({chuva['obs_txt']})")
         if ind.inmet_max_severidade:
             fatores.append(f"aviso INMET vigente ({ind.inmet_max_severidade})")
         if reg["n_total"]:
@@ -405,8 +550,14 @@ def _avaliar_regras(
     disparou_mob = b1 and b2
     detalhes["MOBILIZAÇÃO"] = {"disparou": disparou_mob, "motivos": motivos,
         "blocos": [
-            {"n": 1, "titulo": "Previsão de chuvas mais intensas ou avisos vigentes", "ativo": bool(b1)},
-            {"n": 2, "titulo": "Rios em cota de atenção, em elevação, ou região já em alerta", "ativo": bool(b2)}]}
+            {"n": 1, "titulo": "Previsão de chuvas mais intensas ou avisos vigentes",
+             "ativo": bool(b1),
+             "motivo": (motivos[0] if b1 and motivos
+                        else f"sem previsão relevante ({chuva['prev_txt']})")},
+            {"n": 2, "titulo": "Rios em cota de atenção, em elevação, ou região já em alerta",
+             "ativo": bool(b2),
+             "motivo": (motivos[-1] if b2 and motivos
+                        else "rios abaixo da cota de atenção e sem tendência de subida")}]}
     if disparou_mob:
         return _montar_saida("MOBILIZAÇÃO", motivos, detalhes)
 
@@ -650,45 +801,60 @@ def indicadores_dos_brutos(brutos: dict) -> IndicadoresNumericos:
     #   observada: Poaclima (Defesa Civil) → INMET → ANA → Open-Meteo
     #   prevista : Poaclima/Catavento → Open-Meteo
     # O Open-Meteo é um modelo global: só entra se nada local responder.
-    ci = brutos.get("chuva_inmet") or {}
-    ca = brutos.get("chuva_ana") or {}
-    ep = brutos.get("estacoes_meteo_poaclima") or {}
+    # ── OBSERVADA: vem pronta e já auditada de coleta/chuva_observada.py ──
+    co = brutos.get("chuva_obs") or {}
+    if co.get("ok"):
+        obs_24h = co.get("acumulado_24h_mm") or 0.0
+        obs_72h = co.get("acumulado_72h_mm") or 0.0
+        obs_7d = co.get("acumulado_7d_mm") or 0.0
+        fonte_obs = co.get("fonte") or "—"
+        dias_obs = co.get("dias_com_chuva_5d", 0)
+        dias_int = co.get("dias_chuva_intensa_5d", 0)
+        qualidade = (co.get("qualidade") or {}).get("motivo")
+    else:
+        obs_24h = meteo.get("acumulado_obs_24h_mm", 0.0)
+        obs_72h = meteo.get("acumulado_obs_72h_mm", 0.0)
+        obs_7d = meteo.get("acumulado_obs_7d_mm", 0.0)
+        fonte_obs, dias_obs, qualidade = "Open-Meteo", 0, None
+        dias_int = meteo.get("dias_chuva_intensa_5d", 0)
 
-    obs_24h = meteo.get("acumulado_obs_24h_mm", 0.0)
-    obs_72h = meteo.get("acumulado_obs_72h_mm", 0.0)
-    obs_7d = meteo.get("acumulado_obs_7d_mm", 0.0)
-    fonte_obs = "Open-Meteo"
-
-    if ep.get("ok") and ep.get("acumulado_max_mm") is not None:
-        # 1º Poaclima: é a leitura que a Defesa Civil de POA exibe.
-        obs_24h = ep["acumulado_max_mm"]
-        fonte_obs = "Poaclima (estações)"
-        # o Poaclima traz só o acumulado do momento; 72h/7d vêm de quem tiver série
-        if ci.get("ok"):
-            obs_72h = ci.get("acumulado_72h_mm", obs_72h)
-            obs_7d = ci.get("acumulado_7d_mm", obs_7d)
-        elif ca.get("ok"):
-            obs_72h = ca.get("acumulado_72h_mm", obs_72h)
-            obs_7d = ca.get("acumulado_7d_mm", obs_7d)
-    elif ci.get("ok"):
-        obs_24h = ci.get("acumulado_24h_mm", obs_24h)
-        obs_72h = ci.get("acumulado_72h_mm", obs_72h)
-        obs_7d = ci.get("acumulado_7d_mm", obs_7d)
-        fonte_obs = f"INMET {ci.get('estacao', '')}".strip()
-    elif ca.get("ok"):
-        obs_24h = ca.get("acumulado_24h_mm", obs_24h)
-        obs_72h = ca.get("acumulado_72h_mm", obs_72h)
-        obs_7d = ca.get("acumulado_7d_mm", obs_7d)
-        fonte_obs = f"ANA {ca.get('estacao', '')}".strip()
-
+    # ── PREVISTA: Poaclima/Catavento (a mesma da Defesa Civil) → Open-Meteo ──
+    # O Plano exige "previsões indicam CONTINUIDADE do padrão", então além do
+    # volume de 48h calculamos 72h, 5 dias e quantos dias terão chuva.
     pp = brutos.get("previsao_poaclima") or {}
-    previsto = meteo.get("previsto_48h_mm", 0.0)
+    previsto48 = meteo.get("previsto_48h_mm", 0.0) or 0.0
+    previsto72 = meteo.get("previsto_72h_mm", 0.0) or 0.0
+    previsto5d = 0.0
+    dias_prev = 0
     fonte_prev = "Open-Meteo"
-    if pp.get("ok") and pp.get("previsto_48h_mm") is not None:
-        previsto = pp["previsto_48h_mm"]
+
+    limiar_dia = config.LIMIARES_CHUVA["dia_com_chuva_relevante"]
+    if pp.get("ok") and pp.get("dias"):
+        import datetime as _dt
+        hoje = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        futuros = sorted((d for d in pp["dias"] if d.get("data") and d["data"] >= hoje),
+                         key=lambda d: d["data"])
+        vals = [float(d.get("precipitacao_total_mm") or 0.0) for d in futuros]
+        previsto48 = sum(vals[:2])
+        previsto72 = sum(vals[:3])
+        previsto5d = sum(vals[:5])
+        dias_prev = sum(1 for v in vals[:5] if v >= limiar_dia)
         fonte_prev = "Poaclima/Catavento"
-    print(f"[CHUVA] observada: {fonte_obs} ({obs_24h:.0f} mm/24h) · "
-          f"prevista: {fonte_prev} ({previsto:.0f} mm/48h)")
+    else:
+        diaria = brutos.get("meteo", {}).get("diaria")
+        if diaria is not None and not diaria.empty:
+            import pandas as _pd
+            hoje = _pd.Timestamp.now().normalize()
+            fut = diaria[diaria["data"] >= hoje].head(5)
+            previsto5d = float(fut["precipitacao_total_mm"].sum())
+            dias_prev = int((fut["precipitacao_total_mm"] >= limiar_dia).sum())
+
+    print(f"[CHUVA] observada: {fonte_obs} "
+          f"({obs_24h:.0f} mm/24h · {obs_72h:.0f} mm/72h · {obs_7d:.0f} mm/7d)")
+    print(f"[CHUVA] prevista : {fonte_prev} "
+          f"({previsto48:.0f} mm/48h · {previsto5d:.0f} mm/5d · "
+          f"{dias_prev} dia(s) com chuva)")
+    previsto = previsto48
 
     return IndicadoresNumericos(
         nivel_guaiba_m=guaiba.get("nivel_atual_m"),
@@ -699,7 +865,13 @@ def indicadores_dos_brutos(brutos: dict) -> IndicadoresNumericos:
         acumulado_obs_72h_mm=obs_72h or 0.0,
         acumulado_obs_7d_mm=obs_7d or 0.0,
         previsto_48h_mm=previsto or 0.0,
-        dias_chuva_intensa_5d=meteo.get("dias_chuva_intensa_5d", 0),
+        previsto_72h_mm=previsto72 or 0.0,
+        previsto_5d_mm=previsto5d or 0.0,
+        dias_previsao_chuva=dias_prev,
+        dias_com_chuva_obs_5d=dias_obs,
+        fonte_chuva_obs=fonte_obs,
+        qualidade_chuva_obs=qualidade,
+        dias_chuva_intensa_5d=dias_int,
         inmet_max_severidade=brutos.get("inmet", {}).get("max_severidade"),
         poaclima_alerta=brutos.get("poaclima", {}).get("alerta_vigente"),
         poaclima_gasometro_m=niveis_poa.get("usina_gasometro_m"),
