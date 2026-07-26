@@ -97,22 +97,26 @@ ESTACOES_ANA = {
 #    AJUSTE AQUI se as referências mudarem.
 # ──────────────────────────────────────────────────────────────────────────
 # ── COTAS DO GUAÍBA — atenção ao REFERENCIAL (datum) de cada régua! ──────
+# FONTE: painel Poaclima da Prefeitura de Porto Alegre (Monitoramento
+# Hidrometeorológico da Defesa Civil de POA), réguas conferidas em
+# 26/07/2026 — responsáveis técnicos SEMA-RS (Cais Mauá) e ANA (Gasômetro).
+#
 # O nível que o pipeline usa na classificação vem da estação da ANA
-# 87450004 (Cais Mauá), cujo zero é referenciado ao marégrafo de Imbituba.
-# Portanto as cotas abaixo são as do CAIS MAUÁ (fonte: SEMA/RS, 29/05/2024;
-# Defesa Civil RS — "a cota de Inundação da estação é 3,00 m").
-COTA_ATENCAO_GUAIBA   = 2.50   # m — faixa de atenção
-COTA_ALERTA_GUAIBA    = 2.55   # m — "Cota de Alerta" (oficial SEMA)
-COTA_INUNDACAO_GUAIBA = 3.00   # m — "Cota de Inundação" (oficial SEMA)
+# 87450004 (CAIS MAUÁ), cujo zero é referenciado ao marégrafo de Imbituba.
+# Portanto as constantes abaixo são as do Cais Mauá.
+COTA_ATENCAO_GUAIBA   = 2.05   # m
+COTA_ALERTA_GUAIBA    = 2.50   # m
+COTA_INUNDACAO_GUAIBA = 3.00   # m
 
-# A régua da USINA DO GASÔMETRO (instalada em 03/05/2024) tem referência de
-# nível LOCAL E ARBITRÁRIA, diferente do Cais Mauá — por isso as leituras
-# não são comparáveis entre si. Cotas oficiais da SEMA/RS (28/05/2024):
-# alerta 3,15 m e inundação 3,60 m.
-# OBS.: o valor de 2,60 m que circula é do site privado nivelguaiba.com.br,
-# NÃO é oficial. Se a SEMA publicar nova nota técnica, ajuste aqui.
-COTA_ALERTA_GASOMETRO    = 3.15
-COTA_INUNDACAO_GASOMETRO = 3.60
+# A régua da USINA DO GASÔMETRO tem referência de nível PRÓPRIA — as
+# leituras não são comparáveis com as do Cais Mauá (por isso os valores
+# diferem no mesmo instante). Cotas do painel Poaclima/Defesa Civil POA:
+# (obs.: a nota da SEMA de 28/05/2024 citava 3,15/3,60 para a estação
+#  emergencial instalada naquele mês; o painel operacional atual usa os
+#  valores abaixo, que são os vigentes.)
+COTA_ATENCAO_GASOMETRO   = 1.70
+COTA_ALERTA_GASOMETRO    = 2.10
+COTA_INUNDACAO_GASOMETRO = 2.60
 
 # Cotas de referência dos afluentes (m). None = sem referência cadastrada,
 # nesse caso a lógica usa apenas a TENDÊNCIA de subida.
@@ -143,13 +147,13 @@ INFO_RIOS_CARDS = [
     # Cards sem cota oficial mostram "cota de inundação: não informada".
     {"chave": "Guaiba_PortoAlegre_CaisMaua", "rotulo": "Guaíba",
      "municipio": "Porto Alegre", "estacao": "Cais Mauá · ANA 87450004",
-     "cota_inundacao": 3.00},          # oficial SEMA/RS (datum Imbituba)
+     "cota_inundacao": 3.00},          # Poaclima/SEMA-RS (datum Imbituba)
     {"chave": "poaclima_gasometro", "rotulo": "Guaíba",
      "municipio": "Porto Alegre", "estacao": "Usina do Gasômetro · Poaclima",
-     "cota_inundacao": 3.60},          # oficial SEMA/RS (datum local próprio)
+     "cota_inundacao": 2.60},          # Poaclima/DC-POA (datum local próprio)
     {"chave": "poaclima_riacho_ipiranga", "rotulo": "Riacho Ipiranga",
      "municipio": "Porto Alegre", "estacao": "Arroio Dilúvio · Poaclima",
-     "cota_inundacao": None},          # sem cota oficial publicada
+     "cota_inundacao": 4.00},          # Poaclima/DC-POA (alerta 3,00)
     {"chave": "Rio_dos_Sinos_SaoLeopoldo", "rotulo": "Rio dos Sinos",
      "municipio": "São Leopoldo", "estacao": "ANA 87382000",
      "cota_inundacao": 4.50},          # Defesa Civil de São Leopoldo
@@ -214,11 +218,11 @@ MEDIDORES_POACLIMA = {
 # Cotas de referência do Riacho Ipiranga/Arroio Dilúvio (m) — AJUSTE conforme
 # a régua oficial; usadas no gatilho "córregos da cidade começam a subir"
 # do estágio de ALERTA. None desativa o gatilho por cota (fica só tendência).
-# Arroio Dilúvio/Riacho Ipiranga: NÃO há cota de inundação oficial publicada
-# (o risco é dominado pelo remanso do Guaíba, conforme o DMAE). Sem valor
-# oficial, não usamos gatilho por cota — apenas exibimos o nível observado.
-COTA_ATENCAO_RIACHO_IPIRANGA = None
-COTA_ALERTA_RIACHO_IPIRANGA  = 2.20
+# Riacho Ipiranga / Arroio Dilúvio — cotas do painel Poaclima (Defesa Civil
+# de POA; responsável técnico ANA), conferidas em 26/07/2026.
+COTA_ATENCAO_RIACHO_IPIRANGA   = 2.55
+COTA_ALERTA_RIACHO_IPIRANGA    = 3.00
+COTA_INUNDACAO_RIACHO_IPIRANGA = 4.00
 
 # ── Alertas regionais do Poaclima (marcadores por subprefeitura) ─────────
 # Termos que caracterizam risco elevado no campo "Risco:" do popup
