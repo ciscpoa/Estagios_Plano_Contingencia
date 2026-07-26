@@ -96,23 +96,42 @@ ESTACOES_ANA = {
 #    Valores oficiais podem ser revisados pela prefeitura/ANA após 2024.
 #    AJUSTE AQUI se as referências mudarem.
 # ──────────────────────────────────────────────────────────────────────────
-COTA_ATENCAO_GUAIBA   = 2.50   # m — "Cota de Atenção"
-COTA_ALERTA_GUAIBA    = 3.15   # m — "Cota de Alerta de Inundação"
-COTA_INUNDACAO_GUAIBA = 3.60   # m — "Cota de Inundação" (transbordamento)
+# ── COTAS DO GUAÍBA — atenção ao REFERENCIAL (datum) de cada régua! ──────
+# O nível que o pipeline usa na classificação vem da estação da ANA
+# 87450004 (Cais Mauá), cujo zero é referenciado ao marégrafo de Imbituba.
+# Portanto as cotas abaixo são as do CAIS MAUÁ (fonte: SEMA/RS, 29/05/2024;
+# Defesa Civil RS — "a cota de Inundação da estação é 3,00 m").
+COTA_ATENCAO_GUAIBA   = 2.50   # m — faixa de atenção
+COTA_ALERTA_GUAIBA    = 2.55   # m — "Cota de Alerta" (oficial SEMA)
+COTA_INUNDACAO_GUAIBA = 3.00   # m — "Cota de Inundação" (oficial SEMA)
+
+# A régua da USINA DO GASÔMETRO (instalada em 03/05/2024) tem referência de
+# nível LOCAL E ARBITRÁRIA, diferente do Cais Mauá — por isso as leituras
+# não são comparáveis entre si. Cotas oficiais da SEMA/RS (28/05/2024):
+# alerta 3,15 m e inundação 3,60 m.
+# OBS.: o valor de 2,60 m que circula é do site privado nivelguaiba.com.br,
+# NÃO é oficial. Se a SEMA publicar nova nota técnica, ajuste aqui.
+COTA_ALERTA_GASOMETRO    = 3.15
+COTA_INUNDACAO_GASOMETRO = 3.60
 
 # Cotas de referência dos afluentes (m). None = sem referência cadastrada,
 # nesse caso a lógica usa apenas a TENDÊNCIA de subida.
 COTAS_AFLUENTES = {
-    # VERIFICADAS no SACE/SGB (boletim 24/07/2026, valores oficiais):
-    "Rio_Cai":            {"atencao": 5.00, "alerta": 7.00, "inundacao": 10.50},  # Barca do Caí
+    # ═══ VERIFICADAS — SGB/CPRM, Boletim do SAH Rio Caí ═══
+    "Rio_Cai":            {"atencao": 5.00, "alerta": 7.00, "inundacao": 10.50},
     "Rio_Cai_Montenegro": {"atencao": 3.00, "alerta": 4.00, "inundacao": 6.00},
     "Rio_Cai_NovaPalmira":{"atencao": 2.00, "alerta": 3.00, "inundacao": 4.70},
-    # Inundação VERIFICADA (4,50 m — Defesa Civil de São Leopoldo/SGB);
-    # atenção/alerta são parâmetros operacionais do sistema (ajustáveis):
-    "Rio_dos_Sinos_SaoLeopoldo": {"atencao": 3.50, "alerta": 4.15, "inundacao": 4.50},
-    # SEM cota oficial publicada (parâmetros operacionais p/ a lógica E/OU;
-    # NÃO aparecem nos cards até haver cota oficial):
-    "Rio_Gravatai":       {"atencao": 4.00, "alerta": 4.80, "inundacao": None},
+    # ═══ Sinos — Plano de Contingência de São Leopoldo / Defesa Civil ═══
+    # (inundação 4,50 m confirmada; 4,30 m = risco de transbordamento)
+    "Rio_dos_Sinos_SaoLeopoldo": {"atencao": 3.50, "alerta": 4.30, "inundacao": 4.50},
+    # ═══ Gravataí (Passo das Canoas) — ANA/estação, via Defesa Civil ═══
+    # Cota de ATENÇÃO não localizada em fonte oficial → None (não inventar).
+    "Rio_Gravatai":       {"atencao": None, "alerta": 4.25, "inundacao": 4.75},
+    # ═══ Jacuí — ATENÇÃO: o código 85900000 é a estação RIO PARDO, ═══
+    # NÃO Triunfo (fonte: SGB, relatório da inundação de maio/2024).
+    # A cota de inundação do Jacuí em TRIUNFO é 4,67 m (Defesa Civil de
+    # Triunfo), mas o código ANA de Triunfo ainda precisa ser confirmado no
+    # HidroWeb/SNIRH. Enquanto isso, sem cota para a estação lida.
     "Rio_Jacui_Triunfo":  {"atencao": None, "alerta": None, "inundacao": None},
 }
 
@@ -120,35 +139,35 @@ COTAS_AFLUENTES = {
 # rotulo / municipio / estacao — AJUSTE as cotas de inundação conforme as
 # réguas oficiais da Defesa Civil de cada município.
 INFO_RIOS_CARDS = [
-    # Cards SEM cota verificada são exibidos com "cota de inundação: não
-    # informada" (decisão de produto 25/07) — atualize quando obtiver a cota.
+    # Cada card usa a cota da SUA régua (os referenciais são diferentes!).
+    # Cards sem cota oficial mostram "cota de inundação: não informada".
     {"chave": "Guaiba_PortoAlegre_CaisMaua", "rotulo": "Guaíba",
      "municipio": "Porto Alegre", "estacao": "Cais Mauá · ANA 87450004",
-     "cota_inundacao": 3.60},
+     "cota_inundacao": 3.00},          # oficial SEMA/RS (datum Imbituba)
     {"chave": "poaclima_gasometro", "rotulo": "Guaíba",
      "municipio": "Porto Alegre", "estacao": "Usina do Gasômetro · Poaclima",
-     "cota_inundacao": 3.60},
+     "cota_inundacao": 3.60},          # oficial SEMA/RS (datum local próprio)
     {"chave": "poaclima_riacho_ipiranga", "rotulo": "Riacho Ipiranga",
      "municipio": "Porto Alegre", "estacao": "Arroio Dilúvio · Poaclima",
-     "cota_inundacao": None},
+     "cota_inundacao": None},          # sem cota oficial publicada
     {"chave": "Rio_dos_Sinos_SaoLeopoldo", "rotulo": "Rio dos Sinos",
      "municipio": "São Leopoldo", "estacao": "ANA 87382000",
-     "cota_inundacao": 4.50},
+     "cota_inundacao": 4.50},          # Defesa Civil de São Leopoldo
     {"chave": "Rio_Cai", "rotulo": "Rio Caí",
      "municipio": "São Sebastião do Caí", "estacao": "Barca do Caí · 87170000",
-     "cota_inundacao": 10.50},
+     "cota_inundacao": 10.50},         # SGB/CPRM — SAH Rio Caí
     {"chave": "Rio_Cai_Montenegro", "rotulo": "Rio Caí",
      "municipio": "Montenegro", "estacao": "Passo Montenegro · 87270000",
-     "cota_inundacao": 6.00},
+     "cota_inundacao": 6.00},          # SGB/CPRM — SAH Rio Caí
     {"chave": "Rio_Cai_NovaPalmira", "rotulo": "Rio Caí",
      "municipio": "Caxias do Sul", "estacao": "Nova Palmira · 87160000",
-     "cota_inundacao": 4.70},
+     "cota_inundacao": 4.70},          # SGB/CPRM — SAH Rio Caí
     {"chave": "Rio_Jacui_Triunfo", "rotulo": "Rio Jacuí",
-     "municipio": "Triunfo", "estacao": "ANA 85900000",
-     "cota_inundacao": None},
+     "municipio": "Rio Pardo", "estacao": "ANA 85900000",
+     "cota_inundacao": None},          # 85900000 = Rio Pardo (não Triunfo)
     {"chave": "Rio_Gravatai", "rotulo": "Rio Gravataí",
      "municipio": "Gravataí", "estacao": "Passo das Canoas · ANA 87399000",
-     "cota_inundacao": None},
+     "cota_inundacao": 4.75},          # ANA/Defesa Civil (alerta 4,25 m)
 ]
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -195,7 +214,10 @@ MEDIDORES_POACLIMA = {
 # Cotas de referência do Riacho Ipiranga/Arroio Dilúvio (m) — AJUSTE conforme
 # a régua oficial; usadas no gatilho "córregos da cidade começam a subir"
 # do estágio de ALERTA. None desativa o gatilho por cota (fica só tendência).
-COTA_ATENCAO_RIACHO_IPIRANGA = 1.50
+# Arroio Dilúvio/Riacho Ipiranga: NÃO há cota de inundação oficial publicada
+# (o risco é dominado pelo remanso do Guaíba, conforme o DMAE). Sem valor
+# oficial, não usamos gatilho por cota — apenas exibimos o nível observado.
+COTA_ATENCAO_RIACHO_IPIRANGA = None
 COTA_ALERTA_RIACHO_IPIRANGA  = 2.20
 
 # ── Alertas regionais do Poaclima (marcadores por subprefeitura) ─────────
@@ -272,13 +294,13 @@ PISO_GATILHOS = {
 # Nomes de exibição das estações (usados nas justificativas e gráficos)
 NOMES_EXIBICAO = {
     "Guaiba_PortoAlegre_CaisMaua": "Guaíba (Cais Mauá)",
-    "Rio_Gravatai":                "Gravataí",
+    "Rio_Gravatai":                "Gravataí (Passo das Canoas)",
     "Rio_dos_Sinos_SaoLeopoldo":   "Sinos (São Leopoldo)",
     "Rio_Cai":                     "Caí (Barca do Caí)",
     "Rio_Cai_Montenegro":          "Caí (Montenegro)",
     "Rio_Cai_NovaPalmira":         "Caí (Nova Palmira)",
-    "Rio_Jacui_Triunfo":           "Jacuí (Triunfo)",
-    "Rio_Jacui_TriunfoAmarop":     "Jacuí (Triunfo)",
+    "Rio_Jacui_Triunfo":           "Jacuí (Rio Pardo)",
+    "Rio_Jacui_TriunfoAmarop":     "Jacuí (Rio Pardo)",
 }
 
 # Cores da legenda oficial do Poaclima (risco por região)
