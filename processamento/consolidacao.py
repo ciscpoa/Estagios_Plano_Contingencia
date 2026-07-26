@@ -45,21 +45,11 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
 
     resumo_rios = {nome: ana_api.resumo_estacao(df) for nome, df in rios.items()}
 
-    # Fallback do Guaíba via scraping, se a ANA não trouxe nada
+    # ── Fallback do nível do Guaíba (ordem importa: MESMO referencial!) ──
+    # 1º ANA 87450004 (Cais Mauá) · 2º Poaclima "Cais Mauá C6" (mesma régua,
+    # datum de Imbituba) · 3º nivelguaiba.com (último recurso: régua e datum
+    # não confirmados — misturar referenciais falseia o % da cota).
     chave_guaiba = "Guaiba_PortoAlegre_CaisMaua"
-    if usar_selenium and resumo_rios.get(chave_guaiba, {}).get("nivel_atual_m") is None:
-        try:
-            from coleta.poaclima_scraper import coletar_nivel_guaiba_fallback
-            fb = coletar_nivel_guaiba_fallback()
-        except Exception as exc:
-            print(f"[Fallback NivelGuaiba] Falha (seguindo sem): {exc}")
-            fb = {"nivel_m": None}
-        if fb["nivel_m"] is not None:
-            resumo_rios[chave_guaiba] = {
-                "nivel_atual_m": fb["nivel_m"],
-                "tendencia_48h_m": None,
-                "ultima_leitura": ts,
-            }
 
     # ── Open-Meteo ───────────────────────────────────────────
     try:
@@ -105,17 +95,29 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
         except Exception as exc:
             print(f"[Poaclima-previsão] Falha: {exc}")
 
-    # 3ª camada de fallback do Guaíba: medidor Cais Mauá do Poaclima
-    cais_maua_poaclima = (poaclima.get("niveis") or {}).get("cais_maua_m")
-    if (resumo_rios.get(chave_guaiba, {}).get("nivel_atual_m") is None
-            and cais_maua_poaclima is not None):
-        print(f"[Fallback] Usando Cais Mauá do Poaclima como nível do Guaíba "
-              f"({cais_maua_poaclima} m)")
-        resumo_rios[chave_guaiba] = {
-            "nivel_atual_m": cais_maua_poaclima,
-            "tendencia_48h_m": None,
-            "ultima_leitura": ts,
-        }
+    # ── Fallbacks do Guaíba, na ordem correta de referencial ──
+    if resumo_rios.get(chave_guaiba, {}).get("nivel_atual_m") is None:
+        cais_maua_poaclima = (poaclima.get("niveis") or {}).get("cais_maua_m")
+        if cais_maua_poaclima is not None:
+            print(f"[Fallback] Nível do Guaíba do Poaclima — Cais Mauá C6 "
+                  f"({cais_maua_poaclima} m; mesma régua da ANA).")
+            resumo_rios[chave_guaiba] = {"nivel_atual_m": cais_maua_poaclima,
+                                         "tendencia_48h_m": None,
+                                         "ultima_leitura": ts}
+        elif usar_selenium:
+            # último recurso — datum não confirmado, então avisamos no log
+            try:
+                from coleta.poaclima_scraper import coletar_nivel_guaiba_fallback
+                fb = coletar_nivel_guaiba_fallback()
+                if fb.get("nivel_m") is not None:
+                    print("[Fallback] ATENÇÃO: usando nivelguaiba.com "
+                          f"({fb['nivel_m']} m) — referencial não confirmado; "
+                          "o % da cota pode não ser comparável.")
+                    resumo_rios[chave_guaiba] = {"nivel_atual_m": fb["nivel_m"],
+                                                 "tendencia_48h_m": None,
+                                                 "ultima_leitura": ts}
+            except Exception as exc:
+                print(f"[Fallback] nivelguaiba.com falhou: {exc}")
 
     return {"timestamp": ts, "rios": rios, "resumo_rios": resumo_rios,
             "meteo": meteo, "inmet": inmet, "poaclima": poaclima,
