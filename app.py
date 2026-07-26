@@ -129,6 +129,8 @@ app.layout = dbc.Container(id="raiz", fluid=False,
 
     html.Div(id="area-banner", className="text-center"),
 
+    html.Div(id="area-avisos-inmet", className="my-2"),
+
     # Cards: Nível × Cota de Inundação por rio (ponto 6)
     html.Div(id="area-cards", className="my-3"),
 
@@ -197,6 +199,7 @@ def atualizar_snapshot(_n_int, _n_btn):
 @app.callback(
     Output("area-fontes", "children"),
     Output("area-banner", "children"),
+    Output("area-avisos-inmet", "children"),
     Output("area-cards", "children"),
     Output("area-regioes", "children"),
     Output("area-gatilhos", "children"),
@@ -215,7 +218,8 @@ def renderizar(snapshot, tema):
             "ou clique em “Atualizar dados agora”.",
             color="secondary")
         vazio = componentes.gauge_estagio({"indice": 0, "estagio": "—"}, tema)
-        return (html.Div(), aviso, html.Div(), html.Div(), html.Div(), vazio,
+        return (html.Div(), aviso, html.Div(), html.Div(), html.Div(),
+                html.Div(), vazio,
                 componentes.grafico_guaiba([], tema),
                 componentes.grafico_afluentes({}, tema),
                 componentes.grafico_precipitacao([], [], tema))
@@ -239,6 +243,9 @@ def renderizar(snapshot, tema):
     banner = _seguro("banner",
                      lambda: componentes.banner_estagio(cls, ts_txt),
                      dbc.Alert("Falha ao montar o banner (ver log).", color="warning"))
+    av_inmet = _seguro("avisos_inmet",
+                       lambda: componentes.avisos_inmet(
+                           snapshot.get("avisos_inmet"), tema), html.Div())
     cards = _seguro("cards_rios",
                     lambda: componentes.cards_rios(ind, tema), html.Div())
     fontes = snapshot.get("fontes") or {}
@@ -286,7 +293,7 @@ def renderizar(snapshot, tema):
                           fonte_obs=snapshot.get("fonte_chuva_obs", "Open-Meteo"),
                           fonte_prev=snapshot.get("fonte_chuva_prev", "Open-Meteo")),
                       componentes.grafico_precipitacao([], [], tema))
-    return (aviso_fontes, banner, cards, regioes, gat, gauge,
+    return (aviso_fontes, banner, av_inmet, cards, regioes, gat, gauge,
             g_guaiba, g_afl, g_chuva)
 
 

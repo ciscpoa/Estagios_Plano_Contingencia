@@ -1,73 +1,159 @@
-# 🌊 Automatização dos Estágios Operacionais — Porto Alegre/RS
+# Estágios Operacionais — Plano de Contingência de Porto Alegre
 
-Sistema automatizado que cruza dados **hidrológicos (ANA)** e **meteorológicos
-(Open-Meteo, INMET, Poaclima)** para classificar Porto Alegre em um dos
-**5 Estágios Operacionais** do Plano de Contingência (item 5.1 — SMS/PMPA)
-e exibir tudo em um **dashboard Dash/Plotly**.
+Painel automatizado que cruza dados hidrológicos e meteorológicos e
+classifica Porto Alegre em um dos **5 estágios operacionais** do Plano de
+Contingência (item 5.1): **NORMALIDADE · MOBILIZAÇÃO · ALERTA · SITUAÇÃO DE
+EMERGÊNCIA · CRISE**.
 
-## Estrutura de pastas
+**Realizado por: CISC Porto Alegre — Centro de Informações em Saúde e Clima**
+
+🔗 Painel no ar: `https://ciscpoa.github.io/Estagios_Plano_Contingencia/`
+
+> Ferramenta de apoio à decisão — **não substitui os canais oficiais da
+> Defesa Civil**.
+
+---
+
+## O que o painel mostra
+
+- **Banner do estágio atual**, na cor do Plano, com as justificativas
+- **Avisos meteorológicos vigentes do INMET** (ou aviso de que não há nenhum)
+- **9 cards Nível × Cota de Inundação** (Guaíba em duas réguas, Riacho
+  Ipiranga, Sinos, Caí em três estações, Jacuí e Gravataí)
+- **Risco por região** — as 17 regiões da cidade, com o status da Defesa
+  Civil capturado do mapa do Poaclima
+- **Gatilhos de campo confirmados** (SMS/Defesa Civil/CISC)
+- **Gráficos**: gauge do estágio, nível do Guaíba com as três cotas, nível
+  dos afluentes e precipitação observada × prevista
+- **Tema claro/escuro** e botão de **impressão/PDF** (A4 paisagem)
+
+---
+
+## Fontes de dados
+
+| Fonte | O que traz | Como |
+|---|---|---|
+| **ANA HidroWebService** | nível dos rios (7 estações telemétricas) | API com credenciais |
+| **Poaclima** (Defesa Civil de POA) | alertas por região, réguas do Guaíba e do Dilúvio, previsão do tempo (Catavento) | Selenium |
+| **INMET** | avisos meteorológicos vigentes; chuva observada da estação automática | API (+ Selenium para os avisos) |
+| **Open-Meteo** | chuva observada e prevista — **reserva** | API pública |
+| **nivelguaiba.com** | nível do Guaíba — último recurso | Selenium |
+| **`gatilhos_manuais.txt`** | eventos confirmados em campo | arquivo no repositório |
+
+**Prioridade da chuva:** observada → INMET (estação) → estações do Poaclima
+→ Open-Meteo. Prevista → Poaclima/Catavento → Open-Meteo. O objetivo é usar
+as mesmas fontes que a Defesa Civil de POA, evitando divergência.
+
+⚠️ **Cotas e referenciais:** cada régua tem referência de nível própria —
+leituras de estações diferentes **não são comparáveis entre si**. Por isso
+cada card usa a cota da sua própria régua (ver comentários no `config.py`,
+que citam a fonte de cada valor).
+
+---
+
+## Como a classificação funciona
+
+1. **Regras E/OU do Plano** (`logica/estagios.py`): cada estágio tem blocos
+   ligados por E, avaliados de CRISE para NORMALIDADE. O primeiro que fecha
+   define o estágio.
+2. **Regra de piso**: um gatilho confirmado em campo eleva o estágio, no
+   mínimo, até a coluna do Plano onde ele aparece (ex.: "bloqueio de vias
+   principais" → piso ALERTA; "óbitos" → piso EMERGÊNCIA).
+3. **Transparência**: se uma fonte falhar, o painel avisa; e sem dados de
+   rios ele mostra **DADOS INSUFICIENTES** em vez de pintar verde.
+
+### Confirmar um gatilho de campo
+
+Edite o **`gatilhos_manuais.txt`** direto pelo GitHub (ícone do lápis) e
+troque `nao` por `ok`. O commit dispara o workflow e o painel se atualiza.
+Alternativa sem commit: variável `GATILHOS_ATIVOS` (ver abaixo).
+
+---
+
+## Estrutura do projeto
 
 ```
-Automatizacao_Estagios_Contingencia/
-├── app.py                      # Dashboard Dash (expõe `server` p/ gunicorn/Render)
-├── main_pipeline.py            # Orquestrador: coleta → CSV → classificação
-├── config.py                   # Cotas do Guaíba, limiares de chuva, estações, caminhos
-├── requirements.txt
-├── Procfile / render.yaml      # Deploy Render
-├── ANA_API_ID_SENHA.txt        # (VOCÊ cria) credenciais da ANA — fora do git
-├── ANA_API_ID_SENHA_EXEMPLO.txt
-├── Automatizacao_Estagios_Contingencia.ipynb   # Notebook pronto p/ Colab
-├── coleta/
-│   ├── ana_api.py              # API HidroWebService da ANA (token OAuth)
-│   ├── open_meteo.py           # Previsão/observação de precipitação
-│   ├── inmet_scraper.py        # Avisos INMET (API → fallback Selenium)
-│   ├── poaclima_scraper.py     # Poaclima + fallback nível do Guaíba
-│   └── webdriver_utils.py      # Chrome headless adaptável (local ↔ Colab)
-├── processamento/
-│   └── consolidacao.py         # DataFrame único + export dados_poa_YYYYMMDD_HHMM.csv
-├── logica/
-│   └── estagios.py             # Regras E/OU dos 5 estágios + inputs booleanos
-├── dashboard/
-│   └── componentes.py          # Gauge, banner, gráficos, DataTable
-└── dados/                      # CSVs e ultimo_snapshot.json
+config.py                     parâmetros, cotas (com fonte) e limiares
+main_pipeline.py              coleta → consolida → exporta → classifica
+app.py                        dashboard Dash (interativo)
+coleta/
+  ana_api.py                  API da ANA (token OAuth, retries, fail-fast)
+  open_meteo.py               chuva observada e prevista (reserva)
+  inmet_scraper.py            avisos meteorológicos vigentes
+  inmet_estacao.py            chuva observada da estação automática
+  poaclima_scraper.py         mapa, previsão e estações do Poaclima
+  webdriver_utils.py          Chrome headless (Colab, local, container)
+  rede.py                     IPv4 forçado e headers de navegador
+processamento/consolidacao.py DataFrame único + CSV/Excel
+logica/estagios.py            regras E/OU, regra de piso, indicadores
+dashboard/
+  componentes.py              cards, gauge, gráficos, grid das regiões
+  site_estatico.py            gera a página publicada no GitHub Pages
+  relatorio_pdf.py            relatório PDF gerado no servidor
+.github/workflows/coleta.yml  coleta automática + publicação (gratuito)
 ```
 
-## Como rodar — VSCode local
+---
+
+## Como rodar
+
+### GitHub Actions + Pages (produção, gratuito)
+
+Já configurado: o workflow roda a cada 30 min, grava os dados no
+repositório e publica a página. Passo a passo em **`HOSPEDAGEM_GRATIS.md`**.
+
+Secrets necessários (`Settings → Secrets and variables → Actions`):
+
+| Secret | Obrigatório | Para quê |
+|---|---|---|
+| `ANA_IDENTIFICADOR` | sim | API da ANA |
+| `ANA_SENHA` | sim | API da ANA |
+| `INMET_TOKEN` | não | chuva observada da estação do INMET (o endpoint aberto pode exigir chave) |
+
+Variáveis opcionais: `GATILHOS_ATIVOS`, `USAR_SELENIUM`, `AGENDADOR`,
+`INTERVALO_COLETA_MIN`, `DIRETORIO_DADOS`, `SNAPSHOT_URL`.
+
+### Local (VSCode)
 
 ```bash
 pip install -r requirements.txt
-# crie ANA_API_ID_SENHA.txt (ID na 1ª linha, senha na 2ª)
-python main_pipeline.py            # coleta + CSV + classificação
-python app.py                      # dashboard em http://127.0.0.1:8050
+python main_pipeline.py             # coleta e classifica
+python -m dashboard.site_estatico   # gera site/index.html
+python app.py                       # dashboard interativo em :8050
 ```
 
-Sem chrome instalado? `python main_pipeline.py --sem-selenium` roda só as APIs.
+Credenciais: variáveis de ambiente `ANA_IDENTIFICADOR`/`ANA_SENHA` ou o
+arquivo `ANA_API_ID_SENHA.txt` (nunca versionado).
 
-## Como rodar — Google Colab
+### Google Colab
 
-Copie a pasta inteira para
-`/content/drive/MyDrive/Colab Notebooks/Automatizacao_Estagios_Contingencia`
-e abra o notebook `Automatizacao_Estagios_Contingencia.ipynb`. As células já:
-montam o Drive, instalam dependências + chromium-chromedriver, rodam o
-pipeline e abrem o dashboard inline.
+Abra o `Automatizacao_Estagios_Contingencia.ipynb` e rode as células na
+ordem (montar Drive → instalar Chrome → conferir credenciais → pipeline →
+dashboard inline).
 
-## Deploy futuro — Render
+### Servidor (Render, Docker)
 
-O `app.py` expõe `server = app.server`; o `Procfile`/`render.yaml` já apontam
-para `gunicorn app:server`. Suba o repositório e crie um Web Service Python.
-(No Render não há Chrome: agende o pipeline com `--sem-selenium` via Cron Job
-ou alimente o `dados/ultimo_snapshot.json` externamente.)
+`Dockerfile` e `render.yaml` prontos — ver **`README_RENDER.md`**.
 
-## Lógica dos 5 estágios (resumo)
+---
 
-A função `logica/estagios.classificar_estagio()` avalia de **CRISE → NORMALIDADE**
-e retorna o estágio mais grave disparado, com justificativas auditáveis.
-Gatilhos matemáticos: cotas do Guaíba (Atenção 2,50 m · Alerta 3,15 m ·
-Inundação 3,60 m — ajustáveis no `config.py`), tendência de subida em 48 h,
-acumulados de chuva 24 h/72 h/7 d e previsão 48 h. Gatilhos qualitativos
-(bloqueio de vias, interrupção de serviços, óbitos, colapso da drenagem…)
-entram como **booleanos** no dataclass `InputsInfraestrutura`, marcáveis
-direto no dashboard (painel "Gatilhos qualitativos" + botão Reclassificar).
+## Arquivos gerados
 
-> Ferramenta de apoio à decisão. Não substitui os canais oficiais da
-> Defesa Civil e da Prefeitura de Porto Alegre.
+Em `arquivos_gerados_2026/`, a cada coleta:
+`dados_poa_AAAAMMDD_HHMM.csv`, `.xlsx` (abas Consolidado, Guaiba,
+Afluentes, Precipitação) e o relatório PDF quando solicitado. O estado atual
+fica em `dados/ultimo_snapshot.json`, que alimenta o painel.
+
+---
+
+## Limitações conhecidas
+
+- O código ANA **85900000** é a estação **Rio Pardo**, não Triunfo; a cota
+  de Triunfo (4,67 m) só entra quando o código correto for confirmado no
+  HidroWeb.
+- Sem cota oficial publicada: Jacuí (na estação lida) e cota de atenção do
+  Gravataí.
+- O `cron` do GitHub pode atrasar de 5 a 20 min — o painel não serve como
+  alarme em tempo real.
+- O scraping do Poaclima depende do layout do site; mudanças lá podem exigir
+  ajuste nos seletores.

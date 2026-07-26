@@ -318,6 +318,13 @@ NOMES_EXIBICAO = {
     "Rio_Jacui_TriunfoAmarop":     "Jacuí (Rio Pardo)",
 }
 
+# Cores dos avisos do INMET (padrão oficial de severidade)
+CORES_AVISO_INMET = {
+    "Amarelo":  "#E3B505",   # Perigo potencial
+    "Laranja":  "#F2830B",   # Perigo
+    "Vermelho": "#CE1B22",   # Grande perigo
+}
+
 # Cores da legenda oficial do Poaclima (risco por região)
 CORES_RISCO_POACLIMA = {
     "sem risco":  "#2E9E44",   # verde
