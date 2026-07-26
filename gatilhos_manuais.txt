@@ -12,13 +12,13 @@
 familias_deixando_casas = nao
 
 # Aumento na demanda por abrigo
-aumento_demanda_abrigo = nao
+aumento_demanda_abrigo = ok
 
 # Abrigos temporários instalados
 abrigos_temporarios_instalados = nao
 
 # Bloqueio de vias principais
-bloqueio_vias_principais = nao
+bloqueio_vias_principais = ok
 
 # Aumento de demanda na saúde (evento climático)
 aumento_demanda_saude_clima = nao
