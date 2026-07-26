@@ -330,6 +330,8 @@ CORES_RISCO_POACLIMA = {
 
 # Selenium
 SELENIUM_TIMEOUT_S = 25
+# teto p/ carregar uma página (o alertas2.inmet travou 2×120s em 26/07)
+SELENIUM_PAGELOAD_TIMEOUT_S = 45
 SELENIUM_HEADLESS = True
 
 # ──────────────────────────────────────────────────────────────────────────
