@@ -151,6 +151,43 @@ def _bloco_regioes(snapshot: dict) -> str:
     </section>"""
 
 
+def _bloco_avisos_inmet(snapshot: dict) -> str:
+    """Retângulo com os avisos meteorológicos vigentes do INMET para POA."""
+    av = snapshot.get("avisos_inmet") or {}
+    alertas = av.get("alertas") or []
+
+    if not av.get("consultado", True):
+        return ("<section class='avisos-inmet indisponivel'>"
+                "<div class='titulo-aviso'>Avisos do INMET</div>"
+                "<div class='texto-aviso'>Não foi possível consultar o INMET "
+                "nesta atualização — verifique em alertas2.inmet.gov.br</div>"
+                "</section>")
+
+    if not alertas:
+        return ("<section class='avisos-inmet sem-aviso'>"
+                "<div class='titulo-aviso'>Avisos do INMET</div>"
+                "<div class='texto-aviso'><b>Nenhum aviso meteorológico "
+                "vigente</b> para Porto Alegre no momento.</div>"
+                "</section>")
+
+    itens = []
+    for a in alertas[:4]:
+        sev = a.get("severidade") or "Amarelo"
+        cor = config.CORES_AVISO_INMET.get(sev, "#E3B505")
+        periodo = " · ".join(p for p in (
+            f"de {a['inicio']}" if a.get("inicio") else None,
+            f"até {a['fim']}" if a.get("fim") else None) if p)
+        itens.append(
+            f"<div class='item-aviso' style='border-left:6px solid {cor}'>"
+            f"<span class='sev' style='background:{cor}'>{sev}</span>"
+            f"<span class='desc'>{(a.get('descricao') or '').strip()[:220]}</span>"
+            + (f"<div class='periodo'>{periodo}</div>" if periodo else "")
+            + "</div>")
+    return (f"<section class='avisos-inmet'>"
+            f"<div class='titulo-aviso'>Avisos meteorológicos vigentes — INMET"
+            f" ({len(alertas)})</div>{''.join(itens)}</section>")
+
+
 def _bloco_gatilhos(snapshot: dict) -> str:
     ativos = snapshot.get("gatilhos_ativos") or []
     if not ativos:
@@ -265,6 +302,19 @@ button:hover{border-color:var(--txt2)}
 .tile .nome{font-weight:700;font-size:.82rem;line-height:1.15}
 .tile .status{font-size:.78rem}
 .tile .detalhe{font-size:.68rem;opacity:.85}
+.avisos-inmet{background:var(--cartao);border:1px solid var(--borda);
+  border-radius:12px;padding:10px 14px;margin-bottom:16px;text-align:left}
+.avisos-inmet.sem-aviso{border-color:#2E9E44}
+.avisos-inmet.indisponivel{border-color:#8B95A1}
+.titulo-aviso{font-weight:700;text-align:center;margin-bottom:6px}
+.texto-aviso{text-align:center;font-size:.92rem;color:var(--txt2)}
+.avisos-inmet.sem-aviso .texto-aviso{color:var(--txt)}
+.item-aviso{padding:6px 10px;margin:6px 0;background:rgba(127,127,127,.08);
+  border-radius:8px}
+.item-aviso .sev{display:inline-block;color:#fff;font-weight:700;font-size:.78rem;
+  border-radius:6px;padding:2px 8px;margin-right:8px}
+.item-aviso .desc{font-size:.9rem}
+.item-aviso .periodo{font-size:.78rem;color:var(--txt2);margin-top:3px}
 .gatilhos{margin-bottom:20px}
 .badge{display:inline-block;color:#fff;border-radius:10px;padding:8px 14px;
        margin:4px;font-weight:700;font-size:.9rem}
@@ -292,7 +342,7 @@ body.claro .fig-claro{display:block}
   .acoes{display:none !important}
   .fig-dark{display:none !important}
   .fig-claro{display:block !important}
-  .banner,.card,.tile,.grafico,.bloco-regioes,.linha-regioes{
+  .banner,.card,.tile,.grafico,.bloco-regioes,.linha-regioes,.avisos-inmet{
       break-inside:avoid;page-break-inside:avoid}
   .bloco-regioes{page-break-before:auto}
   .banner h2{font-size:1.5rem}
@@ -390,6 +440,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   </div>
   {_bloco_fontes(snapshot)}
   {_bloco_banner(snapshot)}
+  {_bloco_avisos_inmet(snapshot)}
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
   {_bloco_gatilhos(snapshot)}

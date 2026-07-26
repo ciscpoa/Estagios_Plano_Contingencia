@@ -296,6 +296,52 @@ def _nivel_do_indicador(indicadores: dict, chave: str) -> float | None:
     return v if v is not None else dados.get("nivel_m")
 
 
+def avisos_inmet(av: dict | None, tema: str = "dark"):
+    """Retângulo com os avisos meteorológicos vigentes do INMET para POA."""
+    av = av or {}
+    alertas = av.get("alertas") or []
+
+    if not av.get("consultado", True):
+        corpo = html.Div("Não foi possível consultar o INMET nesta "
+                         "atualização — verifique em alertas2.inmet.gov.br",
+                         className="text-secondary small")
+        borda = "#8B95A1"
+    elif not alertas:
+        corpo = html.Div([html.B("Nenhum aviso meteorológico vigente"),
+                          " para Porto Alegre no momento."],
+                         className="small")
+        borda = config.CORES_ESTAGIOS["NORMALIDADE"]
+    else:
+        itens = []
+        for a in alertas[:4]:
+            sev = a.get("severidade") or "Amarelo"
+            cor = config.CORES_AVISO_INMET.get(sev, "#E3B505")
+            periodo = " · ".join(p for p in (
+                f"de {a['inicio']}" if a.get("inicio") else None,
+                f"até {a['fim']}" if a.get("fim") else None) if p)
+            itens.append(html.Div([
+                html.Span(sev, className="badge me-2",
+                          style={"backgroundColor": cor, "color": "white"}),
+                html.Span((a.get("descricao") or "").strip()[:220],
+                          className="small"),
+                html.Div(periodo, className="text-secondary",
+                         style={"fontSize": "0.78rem"}) if periodo else None,
+            ], className="p-2 mb-2 text-start",
+                style={"borderLeft": f"6px solid {cor}",
+                       "backgroundColor": "rgba(127,127,127,0.08)",
+                       "borderRadius": "8px"}))
+        corpo = html.Div(itens)
+        borda = config.CORES_AVISO_INMET.get(av.get("max_severidade"), "#E3B505")
+
+    titulo = ("Avisos meteorológicos vigentes — INMET"
+              + (f" ({len(alertas)})" if alertas else ""))
+    return dbc.Card(dbc.CardBody([
+        html.H6(titulo, className="text-light text-center mb-2"),
+        corpo,
+    ]), className="bg-transparent mb-3",
+        style={"border": f"1px solid {borda}", "borderRadius": "12px"})
+
+
 def cards_rios(indicadores: dict, tema: str = "dark") -> dbc.Row:
     p = paleta(tema)
     """Cards centralizados: Nível — Cota de Inundação — Município — Estação."""
