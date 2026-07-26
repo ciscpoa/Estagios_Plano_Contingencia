@@ -178,21 +178,65 @@ INFO_RIOS_CARDS = [
 # 5. LIMIARES DE CHUVA (mm) — base para os gatilhos dos estágios
 #    Calibrados a partir de práticas INMET/Defesa Civil; ajuste livremente.
 # ──────────────────────────────────────────────────────────────────────────
+# Referência: escala oficial de AVISOS DE CHUVAS INTENSAS do INMET —
+#   Amarelo (perigo potencial): 20-30 mm/h  ou  30-50 mm/dia
+#   Laranja (perigo)          : 30-60 mm/h  ou  50-100 mm/dia
+#   Vermelho (grande perigo)  : > 60 mm/h   ou  > 100 mm/dia
+# Os limiares antigos (60 mm/24h para "intensa") ficavam ACIMA do laranja do
+# INMET: só disparavam em evento excepcional, e por isso o bloco de chuva do
+# ALERTA nunca fechava numa semana de chuva forte porém não recordista.
 LIMIARES_CHUVA = {
-    # Previsão (Open-Meteo)
-    "previsao_48h_mobilizacao": 50.0,    # mm previstos em 48h → possibilidade de chuvas intensas
-    "previsao_48h_alerta":      100.0,   # mm previstos em 48h → padrão de chuva persistente
+    # ── Chuva JÁ OCORRIDA ────────────────────────────────────
+    "dia_com_chuva_relevante":   5.0,    # mm/dia → conta como "dia de chuva"
+    "acumulado_24h_moderada":   30.0,    # mm/24h → piso do amarelo INMET
+    "acumulado_24h_intensa":    50.0,    # mm/24h → piso do laranja INMET
+    "acumulado_72h_moderado":   50.0,    # mm/72h → chuva relevante acumulada
+    "acumulado_72h_persistente":80.0,    # mm/72h → chove há dias
+    "acumulado_72h_extrema":    200.0,   # mm/72h → muito acima da média (CRISE)
 
-    # Acumulados observados
-    "acumulado_24h_intensa":    60.0,    # mm/24h → chuva intensa
-    "acumulado_72h_persistente":120.0,   # mm/72h → chuva intensa persistente
-    "acumulado_72h_extrema":    250.0,   # mm/72h → muito acima da média histórica (CRISE)
+    # ── Chuva PREVISTA ───────────────────────────────────────
+    "previsao_48h_mobilizacao": 25.0,    # mm/48h → previsão de chuvas mais intensas
+    "previsao_48h_alerta":      50.0,    # mm/48h → previsão forte
+    "previsao_5d_continuidade": 40.0,    # mm/5d  → o padrão de chuva continua
+    "previsao_5d_alerta":       80.0,    # mm/5d  → continuidade forte
+    "dias_previsao_continuidade": 2,     # nº de dias com chuva previstos
 
     # Média histórica mensal aproximada de POA (~110-140 mm/mês).
-    # "Muito acima da média" ≈ acumulado do evento > fator x média mensal.
     "media_mensal_historica":   130.0,
     "fator_acima_media_crise":  2.0,
 }
+
+# ── Controle de qualidade da chuva OBSERVADA ─────────────────────────────
+# Uma série de pluviômetro só vira a chuva oficial do painel se passar aqui.
+# Foi o que faltava quando o painel exibiu ~2 mm/dia numa semana de chuva
+# forte: a estação fluviométrica do Cais Mauá transmitia de forma esparsa.
+QUALIDADE_CHUVA = {
+    # Exigência PREFERENCIAL: uma estação que transmite de hora em hora deve
+    # entregar quase todas as horas da janela. 80% deixa margem só para
+    # manutenção e falhas curtas de transmissão.
+    "cobertura_minima_pct":         80.0,
+    # Rede de segurança: se NENHUMA fonte em solo alcançar os 80%, o coletor
+    # roda uma 2ª passada com este piso antes de cair no modelo global.
+    # Um pluviômetro com 60% de cobertura ainda é melhor que o Open-Meteo.
+    "cobertura_minima_absoluta_pct": 45.0,
+    "referencia_minima_mm":         15.0,  # abaixo disso não dá p/ comparar
+    "razao_minima_vs_referencia":   0.45,  # < 45% da referência → subestimando
+    "razao_maxima_vs_referencia":   3.00,  # > 300% → série acumulada/duplicada
+}
+
+# Ordem de preferência dos pluviômetros da ANA. O Cais Mauá é estação
+# FLUVIOMÉTRICA (existe para medir nível) — vai para o fim da fila.
+ANA_ORDEM_PLUVIOMETROS = [
+    "Rio_Gravatai", "Rio_dos_Sinos_SaoLeopoldo", "Rio_Cai_Montenegro",
+    "Rio_Cai", "Rio_Cai_NovaPalmira", "Guaiba_PortoAlegre_CaisMaua",
+]
+
+# ── CEMADEN — pluviômetros automáticos da rede federal ───────────────────
+# Endpoint do Mapa Interativo (não é API documentada: confira se parar).
+CEMADEN_ATIVO = _env_bool("CEMADEN_ATIVO", True)
+CEMADEN_URL_JSON = os.environ.get(
+    "CEMADEN_URL_JSON",
+    "https://sjc.salvar.cemaden.gov.br/resources/graficos/interativo/getJson2.php?uf=RS")
 
 # Tendência: subida do nível considerada relevante (m em 48h)
 TENDENCIA_SUBIDA_RELEVANTE_M = 0.30

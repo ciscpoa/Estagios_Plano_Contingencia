@@ -106,31 +106,28 @@ def executar_pipeline(usar_selenium: bool = True,
             datahora=serie_guaiba["datahora"].astype(str))
             .to_dict("records") if not serie_guaiba.empty else []),
         "series_afluentes": series_afluentes,
-        # chuva observada do INMET (estação de POA) e previsão do Poaclima
+        # ── CHUVA OBSERVADA (fonte única, já auditada) ──
         "chuva_obs_inmet": (
-            brutos.get("chuva_ana", {}).get("horaria").assign(
-                datahora=lambda d: d["datahora"].astype(str)).to_dict("records")
-            if (not brutos.get("chuva_inmet", {}).get("ok")
-                and brutos.get("chuva_ana", {}).get("ok")) else
-            brutos.get("chuva_inmet", {}).get("horaria").assign(
-                datahora=lambda d: d["datahora"].astype(str)).to_dict("records")
-            if (brutos.get("chuva_inmet", {}).get("ok")
-                and not brutos["chuva_inmet"]["horaria"].empty) else []),
+            brutos["chuva_obs"]["horaria"]
+            .assign(datahora=lambda d: d["datahora"].astype(str))
+            .to_dict("records")
+            if (brutos.get("chuva_obs", {}).get("ok")
+                and not brutos["chuva_obs"]["horaria"].empty) else []),
+        "serie_obs_diaria": (
+            brutos["chuva_obs"]["diaria"]
+            .assign(data=lambda d: d["data"].astype(str))
+            .to_dict("records")
+            if (brutos.get("chuva_obs", {}).get("ok")
+                and not brutos["chuva_obs"]["diaria"].empty) else []),
+        "fonte_chuva_obs": (brutos.get("chuva_obs", {}).get("fonte")
+                            or "Open-Meteo"),
+        "qualidade_chuva_obs": (
+            (brutos.get("chuva_obs", {}).get("qualidade") or {})),
+        "fontes_chuva_testadas": (
+            brutos.get("chuva_obs", {}).get("tentativas") or []),
         "previsao_poaclima": [
             {**d, "data": str(d["data"])}
             for d in (brutos.get("previsao_poaclima", {}) or {}).get("dias", [])],
-        "serie_obs_diaria": (
-            (brutos.get("chuva_inmet", {}).get("diaria")
-             if brutos.get("chuva_inmet", {}).get("ok")
-             else brutos.get("chuva_ana", {}).get("diaria")
-             if brutos.get("chuva_ana", {}).get("ok") else pd.DataFrame())
-            .pipe(lambda d: d.assign(data=d["data"].astype(str)).to_dict("records")
-                  if d is not None and not d.empty else [])),
-        "fonte_chuva_obs": (
-            "INMET " + str(brutos.get("chuva_inmet", {}).get("estacao", ""))
-            if brutos.get("chuva_inmet", {}).get("ok")
-            else ("ANA " + str(brutos.get("chuva_ana", {}).get("estacao", ""))
-                  if brutos.get("chuva_ana", {}).get("ok") else "Open-Meteo")),
         "fonte_chuva_prev": ("Poaclima/Catavento"
                              if (brutos.get("previsao_poaclima", {}) or {}).get("ok")
                              else "Open-Meteo"),
