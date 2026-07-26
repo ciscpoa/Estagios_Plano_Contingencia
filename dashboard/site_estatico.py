@@ -114,8 +114,8 @@ def _bloco_regioes(snapshot: dict) -> str:
             por_regiao[num] = al
 
     ordem = ["sem risco", "atenção", "alto", "muito alto", "extremo"]
-    tiles = []
-    for num in range(1, 18):
+
+    def tile(num: int) -> str:
         al = por_regiao.get(num)
         nome = (al or {}).get("regiao_nome") or config.REGIOES_POACLIMA.get(num, "")
         if al is None:
@@ -128,16 +128,24 @@ def _bloco_regioes(snapshot: dict) -> str:
             partes = [p for p in (al.get("tipo"),
                                   f"até {al.get('fim')}" if al.get("fim") else None) if p]
             detalhe = " · ".join(partes)
-        tiles.append(
-            f"<div class='tile' style='background:{cor}'>"
-            f"<div class='num'>{num}</div><div class='nome'>{nome}</div>"
-            f"<div class='status'>{status}</div>"
-            f"<div class='detalhe'>{detalhe}</div></div>")
+        return (f"<div class='tile' style='background:{cor}'>"
+                f"<div class='num'>{num}</div><div class='nome'>{nome}</div>"
+                f"<div class='status'>{status}</div>"
+                f"<div class='detalhe'>{detalhe}</div></div>")
+
+    # Formato triângulo: 8 em cima, 6 no meio, 3 embaixo
+    linhas = [range(1, 9), range(9, 15), range(15, 18)]
+    html_linhas = "".join(
+        f"<div class='linha-regioes'>{''.join(tile(n) for n in faixa)}</div>"
+        for faixa in linhas)
+
     return f"""
-    <h3 class="titulo-secao">Risco por região — Defesa Civil (Poaclima)</h3>
-    <div class="sub">Status capturado dos marcadores do mapa oficial ·
-      cinza = região sem dado nesta coleta</div>
-    <section class="regioes">{''.join(tiles)}</section>"""
+    <section class="bloco-regioes">
+      <h3 class="titulo-secao">Risco por região — Defesa Civil (Poaclima)</h3>
+      <div class="sub">Status capturado dos marcadores do mapa oficial ·
+        cinza = região sem dado nesta coleta</div>
+      <div class="regioes">{html_linhas}</div>
+    </section>"""
 
 
 def _bloco_gatilhos(snapshot: dict) -> str:
@@ -187,19 +195,18 @@ def _bloco_graficos(snapshot: dict) -> str:
                     config={"displayModeBar": False, "responsive": True},
                     default_width="100%", default_height="340px")
             else:
-                # papel/modo claro: tamanho FIXO, do tamanho de uma A4 paisagem
-                # (assim a impressão não corta nem joga o gráfico p/ outra página)
-                # autosize=False é essencial: com autosize o Plotly ignora
-                # a largura fixa e volta a preencher o container.
-                fig.update_layout(width=larg_print, height=alt_print,
-                                  autosize=False)
+                # Modo claro na TELA: responsivo, igual ao escuro (antes ficava
+                # com largura fixa e "estourava" o cartão). O tamanho fixo de
+                # impressão é aplicado por JS no evento beforeprint.
                 html_fig = fig.to_html(
                     full_html=False, include_plotlyjs=False,
-                    config={"displayModeBar": False, "responsive": False})
+                    config={"displayModeBar": False, "responsive": True},
+                    default_width="100%", default_height="340px")
             primeiro = False
             blocos.append(f"<div class='fig-{tema}'>{html_fig}</div>")
         classe = "grafico largo" if largo else "grafico"
-        partes.append(f"<div class='{classe}'>{''.join(blocos)}</div>")
+        partes.append(f"<div class='{classe}' data-w='{larg_print}' "
+                      f"data-h='{alt_print}'>{''.join(blocos)}</div>")
     return f"<section class='graficos'>{''.join(partes)}</section>"
 
 
@@ -239,8 +246,12 @@ button:hover{border-color:var(--txt2)}
 .trilho .barra{height:100%;border-radius:4px}
 .card .pct{color:var(--txt2);font-size:.76rem}
 .titulo-secao{margin:22px 0 2px;font-size:1.05rem}
-.regioes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-         gap:8px;margin-bottom:22px}
+.regioes{margin-bottom:22px}
+.linha-regioes{display:flex;gap:8px;justify-content:center;margin-bottom:8px}
+.linha-regioes .tile{flex:0 0 calc(12.5% - 8px);min-width:0}
+@media(max-width:900px){.linha-regioes{flex-wrap:wrap}
+  .linha-regioes .tile{flex:0 0 calc(25% - 8px)}}
+@media(max-width:560px){.linha-regioes .tile{flex:0 0 calc(50% - 8px)}}
 .tile{border-radius:10px;padding:8px 6px;color:#fff;min-height:74px}
 .tile .num{font-weight:700;font-size:.85rem;opacity:.9}
 .tile .nome{font-weight:700;font-size:.82rem;line-height:1.15}
@@ -272,11 +283,13 @@ body.claro .fig-claro{display:block}
   .acoes{display:none !important}
   .fig-dark{display:none !important}
   .fig-claro{display:block !important}
-  .banner,.card,.tile,.grafico{break-inside:avoid;page-break-inside:avoid}
+  .banner,.card,.tile,.grafico,.bloco-regioes,.linha-regioes{
+      break-inside:avoid;page-break-inside:avoid}
+  .bloco-regioes{page-break-before:auto}
   .banner h2{font-size:1.5rem}
   .cards{display:grid !important;grid-template-columns:repeat(5,1fr);gap:8px}
   .card{max-width:none;flex:none !important}
-  .regioes{grid-template-columns:repeat(6,1fr)}
+  .linha-regioes .tile{flex:0 0 calc(12.5% - 6px)}
   .graficos{display:block}
   .grafico{display:inline-block;vertical-align:top;width:auto;margin:0 4px 8px}
   .grafico.largo{display:block}
@@ -302,11 +315,27 @@ bt.onclick=()=>{
   localStorage.setItem('tema', claro?'claro':'dark');
   location.reload();
 };
-function ajustarGraficos(){
-  document.querySelectorAll('.fig-dark .js-plotly-plot').forEach(function(g){
+function ajustarGraficos(){   // ajusta o tema que estiver visível
+  document.querySelectorAll('.js-plotly-plot').forEach(function(g){
     if(g.offsetParent!==null){try{Plotly.Plots.resize(g);}catch(e){}}
   });
 }
+function medidasDeImpressao(){   // A4 paisagem: tamanho fixo e previsível
+  document.querySelectorAll('.grafico').forEach(function(box){
+    var w=+box.dataset.w, h=+box.dataset.h;
+    box.querySelectorAll('.fig-claro .js-plotly-plot').forEach(function(g){
+      try{Plotly.relayout(g,{width:w,height:h,autosize:false});}catch(e){}
+    });
+  });
+}
+function medidasDeTela(){
+  document.querySelectorAll('.fig-claro .js-plotly-plot').forEach(function(g){
+    try{Plotly.relayout(g,{autosize:true,width:null,height:340});}catch(e){}
+  });
+  ajustarGraficos();
+}
+window.addEventListener('beforeprint', medidasDeImpressao);
+window.addEventListener('afterprint', medidasDeTela);
 window.addEventListener('load', function(){setTimeout(ajustarGraficos, 120);
                                            setTimeout(ajustarGraficos, 600);});
 window.addEventListener('resize', ajustarGraficos);

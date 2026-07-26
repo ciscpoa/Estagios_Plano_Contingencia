@@ -337,10 +337,10 @@ def grid_subprefeituras(alertas_regionais: list[dict], tema: str = "dark") -> ht
         if atual is None or _grau(al.get("risco")) > _grau(atual.get("risco")):
             capturados[num] = al
 
-    tiles = []
-    for num in range(1, 18):
+    def _tile(num: int):
         al = capturados.get(num)
-        nome = (al or {}).get("regiao_nome") or config.REGIOES_POACLIMA.get(num, f"Região {num}")
+        nome = (al or {}).get("regiao_nome") or config.REGIOES_POACLIMA.get(
+            num, f"Região {num}")
         if al is None:
             cor = config.CORES_RISCO_POACLIMA["sem dado"]
             status, detalhe = "sem dado", ""
@@ -351,20 +351,21 @@ def grid_subprefeituras(alertas_regionais: list[dict], tema: str = "dark") -> ht
             partes = [p for p in (al.get("tipo"),
                                   f"até {al.get('fim')}" if al.get("fim") else None) if p]
             detalhe = " · ".join(partes)
-
-        tiles.append(dbc.Col(html.Div([
+        return html.Div([
             html.Div(f"{num}", className="fw-bold",
                      style={"fontSize": "0.9rem", "opacity": 0.85}),
-            html.Div(nome, className="small fw-bold",
-                     style={"lineHeight": "1.1"}),
+            html.Div(nome, className="small fw-bold", style={"lineHeight": "1.1"}),
             html.Div(status, className="small", style={"opacity": 0.9}),
             html.Div(detalhe, className="small",
                      style={"opacity": 0.75, "fontSize": "0.68rem"}) if detalhe else None,
-        ], className="text-center text-white p-2 h-100",
+        ], className="text-center text-white p-2 mx-1 mb-2",
             style={"backgroundColor": cor, "borderRadius": "10px",
-                   "minHeight": "78px"}),
-            xl=2, lg=2, md=3, sm=4, xs=6, className="mb-2",
-            style={"minWidth": "150px"}))
+                   "minHeight": "78px", "flex": "0 0 11.5%", "minWidth": "120px"})
+
+    # Formato triângulo: 8 em cima, 6 no meio, 3 embaixo
+    linhas = [html.Div([_tile(n) for n in faixa],
+                       className="d-flex justify-content-center flex-wrap")
+              for faixa in (range(1, 9), range(9, 15), range(15, 18))]
 
     return html.Div([
         html.H6("Risco por região — Defesa Civil (Poaclima)",
@@ -372,7 +373,7 @@ def grid_subprefeituras(alertas_regionais: list[dict], tema: str = "dark") -> ht
         html.Small("Status capturado dos marcadores do mapa oficial · "
                    "cinza = região sem popup capturado nesta coleta",
                    className="text-secondary d-block text-center mb-2"),
-        dbc.Row(tiles, className="g-2 justify-content-center grid-regioes"),
+        html.Div(linhas, className="grid-regioes"),
     ])
 
 
