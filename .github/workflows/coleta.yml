@@ -1,16 +1,37 @@
+# ==========================================================================
+# Coleta automática + publicação do painel (100% gratuito)
+#
+#   • Roda o pipeline (ANA, Open-Meteo, INMET, Poaclima com Selenium) em um
+#     runner do GitHub — que tem Chrome instalado, 4 vCPU e 16 GB de RAM.
+#   • Salva snapshot/CSV/Excel de volta no repositório (histórico).
+#   • Publica a página estática no GitHub Pages.
+#
+# Repositório PÚBLICO = minutos ilimitados. Privado = 2.000 min/mês grátis
+# (a cada 60 min, o consumo fica dentro da cota).
+#
+# ANTES DE USAR:
+#   1) Settings → Secrets and variables → Actions → New repository secret:
+#        ANA_IDENTIFICADOR  e  ANA_SENHA  (obrigatórios)
+#        INMET_TOKEN (opcional — chuva observada da estação do INMET)
+#   2) Settings → Pages → Source: "GitHub Actions"
+# ==========================================================================
 name: Coleta e publicação do painel
 
 on:
   schedule:
-    - cron: "0,30 * * * *"
-  workflow_dispatch:
+    # ATENÇÃO aos minutos: :00 e :30 são os horários mais disputados do
+    # agendador do GitHub e os que mais sofrem atraso/descarte. Minutos
+    # "quebrados" saem na frente da fila. Duas execuções por hora dão
+    # redundância: se a das :07 for descartada, a das :37 costuma passar.
+    - cron: "7,37 * * * *"
+  workflow_dispatch:             # permite rodar na hora, pelo botão "Run workflow"
   push:
     paths:
-      - "gatilhos_manuais.txt"
+      - "gatilhos_manuais.txt"   # confirmou um gatilho? republica na hora
 
 permissions:
-  contents: write
-  pages: write
+  contents: write                # commitar os dados coletados
+  pages: write                   # publicar no GitHub Pages
   id-token: write
 
 concurrency:
@@ -20,7 +41,7 @@ concurrency:
 jobs:
   coletar:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 32          # a coleta com Selenium leva ~14 min; 20 era pouco
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +53,7 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
-      - name: Localizar o Chrome do runner
+      - name: Localizar o Chrome do runner (para o Selenium)
         run: |
           CHROME=$(command -v google-chrome || command -v chromium-browser || true)
           echo "CHROME_BIN=$CHROME" >> $GITHUB_ENV
@@ -45,9 +66,21 @@ jobs:
         run: |
           echo "ANA_IDENTIFICADOR definido: ${{ secrets.ANA_IDENTIFICADOR != '' }}"
           echo "ANA_SENHA definido: ${{ secrets.ANA_SENHA != '' }}"
-          echo "INMET_TOKEN definido: ${{ secrets.INMET_TOKEN != '' }}"
 
-      - name: Executar o pipeline
+      - name: Diagnóstico de rede (ANA e INMET)
+        continue-on-error: true
+        run: |
+          for host in www.ana.gov.br apitempo.inmet.gov.br apiprevmet3.inmet.gov.br; do
+            echo "── $host"
+            getent ahostsv4 $host | head -1 || echo "  (sem IPv4)"
+            curl -s -o /dev/null -w "  IPv4 HTTP %{http_code} em %{time_total}s\n" \
+                 --ipv4 --max-time 20 "https://$host/" || echo "  IPv4 FALHOU"
+          done
+
+      - name: Executar o pipeline (coleta + classificação)
+        timeout-minutes: 18
+        continue-on-error: true   # falha parcial não pode impedir a publicação
+        id: pipeline
         env:
           ANA_IDENTIFICADOR: ${{ secrets.ANA_IDENTIFICADOR }}
           ANA_SENHA: ${{ secrets.ANA_SENHA }}
@@ -56,13 +89,21 @@ jobs:
         run: python main_pipeline.py
 
       - name: Gerar a página estática
+        if: always()
         run: python -m dashboard.site_estatico
 
+      # A página é publicada ANTES do commit: assim um problema no git
+      # nunca impede a atualização do painel.
       - uses: actions/upload-pages-artifact@v3
+        if: always()
         with:
           path: site
 
+      # Commit dos dados coletados. Sem rebase (que dava CONFLITO no
+      # ultimo_snapshot.json): pegamos o estado do remoto e regravamos os
+      # arquivos gerados por cima — a coleta mais recente sempre vence.
       - name: Publicar os dados no repositório
+        if: always()
         continue-on-error: true
         run: |
           git config user.name  "github-actions[bot]"
@@ -86,9 +127,17 @@ jobs:
             git push origin HEAD:${{ github.ref_name }}
           fi
 
+      - name: Sinalizar falha do pipeline (após publicar)
+        if: always() && steps.pipeline.outcome == 'failure'
+        run: |
+          echo "::warning::O pipeline falhou; o painel foi publicado com o "\
+               "último snapshot disponível. Veja o log acima."
+
   publicar:
     needs: coletar
+    if: always() && needs.coletar.result != 'cancelled'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
