@@ -73,6 +73,7 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
     inmet = {"alertas": [], "max_severidade": None, "fonte": None}
     previsao_poa = {"ok": False, "dias": [], "previsto_48h_mm": None,
                     "fonte": "Poaclima/Catavento"}
+    estacoes_poa = {"ok": False, "estacoes": {}, "acumulado_max_mm": None}
     poaclima = {"alerta_vigente": None, "chuva_acumulada_mm": None,
                 "niveis": {"usina_gasometro_m": None, "cais_maua_m": None,
                            "riacho_ipiranga_m": None},
@@ -94,6 +95,13 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
             previsao_poa = coletar_previsao_poaclima()
         except Exception as exc:
             print(f"[Poaclima-previsão] Falha: {exc}")
+        # chuva observada nas estações do Poaclima (reserva do INMET)
+        if not chuva_inmet.get("ok"):
+            try:
+                from coleta.poaclima_scraper import coletar_estacoes_meteo_poaclima
+                estacoes_poa = coletar_estacoes_meteo_poaclima()
+            except Exception as exc:
+                print(f"[Poaclima-estações] Falha: {exc}")
 
     # ── Fallbacks do Guaíba, na ordem correta de referencial ──
     if resumo_rios.get(chave_guaiba, {}).get("nivel_atual_m") is None:
@@ -121,7 +129,8 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
 
     return {"timestamp": ts, "rios": rios, "resumo_rios": resumo_rios,
             "meteo": meteo, "inmet": inmet, "poaclima": poaclima,
-            "chuva_inmet": chuva_inmet, "previsao_poaclima": previsao_poa}
+            "chuva_inmet": chuva_inmet, "previsao_poaclima": previsao_poa,
+            "estacoes_meteo_poaclima": estacoes_poa}
 
 
 def montar_dataframe(brutos: dict) -> pd.DataFrame:
