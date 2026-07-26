@@ -76,11 +76,25 @@ def coletar_chuva_observada(dias: int = 7, codigo: str | None = None) -> dict:
     # o endpoint aberto; havendo INMET_TOKEN definido, tentamos também o
     # endpoint autenticado. Peça a chave em: https://portal.inmet.gov.br
     token = (os.environ.get("INMET_TOKEN") or "").strip()
-    urls = [f"https://apitempo.inmet.gov.br/estacao/"
-            f"{inicio:%Y-%m-%d}/{fim:%Y-%m-%d}/{codigo}"]
-    if token:
-        urls.insert(0, f"https://apitempo.inmet.gov.br/token/estacao/"
-                       f"{inicio:%Y-%m-%d}/{fim:%Y-%m-%d}/{codigo}/{token}")
+
+    # O INMET devolveu HTTP 204 (sem conteúdo) para a janela terminando hoje.
+    # Tentamos algumas combinações antes de desistir:
+    #   • janela terminando ONTEM (o dado do dia corrente às vezes não existe)
+    #   • janela curta (3 dias)
+    #   • endpoint /estacao/diaria (agregado por dia)
+    ontem = fim - timedelta(days=1)
+    janelas = [
+        ("horária, últimos dias", "estacao", inicio, fim),
+        ("horária, até ontem", "estacao", inicio, ontem),
+        ("horária, 3 dias", "estacao", fim - timedelta(days=3), ontem),
+        ("diária, últimos dias", "estacao/diaria", inicio, ontem),
+    ]
+
+    def _url(prefixo: str, ini, f) -> str:
+        base = "https://apitempo.inmet.gov.br"
+        if token:
+            return f"{base}/token/{prefixo}/{ini:%Y-%m-%d}/{f:%Y-%m-%d}/{codigo}/{token}"
+        return f"{base}/{prefixo}/{ini:%Y-%m-%d}/{f:%Y-%m-%d}/{codigo}"
 
     vazio = {
         "horaria": pd.DataFrame(columns=["datahora", "precipitacao_mm"]),
@@ -92,31 +106,38 @@ def coletar_chuva_observada(dias: int = 7, codigo: str | None = None) -> dict:
 
     forcar_ipv4()      # sem isso, apitempo.inmet.gov.br dá timeout em CI
     registros = None
-    for url in urls:
-        rotulo = "com token" if "/token/" in url else "aberto"
+    for rotulo, prefixo, ini, f in janelas:
+        url = _url(prefixo, ini, f)
         try:
             r = requests.get(url, headers=_CABECALHOS, timeout=(10, 25))
-            r.raise_for_status()
             corpo = (r.text or "").strip()
-            if not corpo:
-                print(f"[INMET-estação] endpoint {rotulo}: resposta VAZIA "
-                      f"(HTTP {r.status_code}).")
+            if r.status_code == 204 or not corpo:
+                print(f"[INMET-estação] {rotulo}: HTTP {r.status_code} sem conteúdo.")
                 continue
-            registros = r.json()
-            print(f"[INMET-estação] endpoint {rotulo}: OK "
-                  f"({len(registros)} registros).")
+            r.raise_for_status()
+            dados = r.json()
+            if not dados:
+                print(f"[INMET-estação] {rotulo}: lista vazia.")
+                continue
+            registros = dados
+            print(f"[INMET-estação] {rotulo}: OK ({len(dados)} registros)"
+                  + (" [com token]" if token else ""))
             break
         except ValueError:
-            print(f"[INMET-estação] endpoint {rotulo}: resposta não é JSON "
-                  f"(início: {corpo[:80]!r}).")
+            print(f"[INMET-estação] {rotulo}: resposta não é JSON "
+                  f"({corpo[:60]!r}).")
         except Exception as exc:
-            print(f"[INMET-estação] endpoint {rotulo} falhou ({exc}).")
+            print(f"[INMET-estação] {rotulo}: falhou ({str(exc)[:90]}).")
 
     if registros is None:
         if not token:
-            print("[INMET-estação] Sem dados. O endpoint aberto do INMET pode "
-                  "exigir chave: defina o secret INMET_TOKEN quando tiver. "
-                  "Usando as estações do Poaclima / Open-Meteo como reserva.")
+            print(f"[INMET-estação] Nenhuma janela retornou dados para "
+                  f"{codigo}. O endpoint pode exigir chave (secret "
+                  "INMET_TOKEN) ou a estação pode estar sem transmitir. "
+                  "Seguindo com as estações do Poaclima / Open-Meteo.")
+        else:
+            print(f"[INMET-estação] Nenhuma janela retornou dados para "
+                  f"{codigo}, mesmo com token.")
         return vazio
 
     if not registros:
