@@ -46,11 +46,13 @@ def _tentar_api() -> dict | None:
         "Accept": "application/json",
         "Referer": "https://alertas2.inmet.gov.br/",
     }
+    from coleta.rede import forcar_ipv4
+    forcar_ipv4()
     avisos = None
     for tentativa in (1, 2):
         try:
             r = requests.get("https://apiprevmet3.inmet.gov.br/avisos/ativos",
-                             headers=headers, timeout=20)
+                             headers=headers, timeout=(8, 15))
             r.raise_for_status()
             avisos = r.json()
             break

@@ -26,6 +26,7 @@ import pandas as pd
 import requests
 
 import config
+from coleta.rede import cabecalhos_navegador, forcar_ipv4
 
 _CABECALHOS = {
     "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -79,10 +80,11 @@ def coletar_chuva_observada(dias: int = 7, codigo: str | None = None) -> dict:
         "fonte": "INMET (estação automática)", "ok": False,
     }
 
+    forcar_ipv4()      # sem isso, apitempo.inmet.gov.br dá timeout em CI
     registros = None
     for tentativa in (1, 2):
         try:
-            r = requests.get(url, headers=_CABECALHOS, timeout=30)
+            r = requests.get(url, headers=_CABECALHOS, timeout=(10, 25))
             r.raise_for_status()
             registros = r.json()
             break

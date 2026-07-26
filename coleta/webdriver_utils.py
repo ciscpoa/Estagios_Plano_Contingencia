@@ -66,6 +66,16 @@ def _chrome_for_testing() -> tuple[str, str]:
     return str(chrome_bin), str(driver_bin)
 
 
+def _com_limites(driver):
+    """Impede que uma página lenta trave a coleta inteira."""
+    try:
+        driver.set_page_load_timeout(config.SELENIUM_PAGELOAD_TIMEOUT_S)
+        driver.set_script_timeout(30)
+    except Exception:
+        pass
+    return driver
+
+
 def criar_driver(headless: bool | None = None) -> webdriver.Chrome:
     """Retorna um Chrome WebDriver pronto para uso em qualquer ambiente."""
     if headless is None:
@@ -106,9 +116,9 @@ def criar_driver(headless: bool | None = None) -> webdriver.Chrome:
             # modo econômico extremo: não baixa os tiles do mapa
             opts.add_argument("--blink-settings=imagesEnabled=false")
         if driver_env and Path(driver_env).exists():
-            return webdriver.Chrome(service=Service(executable_path=driver_env),
-                                    options=opts)
-        return webdriver.Chrome(options=opts)
+            return _com_limites(webdriver.Chrome(
+                service=Service(executable_path=driver_env), options=opts))
+        return _com_limites(webdriver.Chrome(options=opts))
 
     if config.IN_COLAB:
         # No Colab moderno (Ubuntu 22+), o 'chromium-browser' do apt pode ser
@@ -156,5 +166,4 @@ def criar_driver(headless: bool | None = None) -> webdriver.Chrome:
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=opts)
 
-    driver.set_page_load_timeout(config.SELENIUM_TIMEOUT_S + 10)
-    return driver
+    return _com_limites(driver)

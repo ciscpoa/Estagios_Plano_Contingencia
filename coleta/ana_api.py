@@ -29,9 +29,30 @@ import config
 _SESSION = requests.Session()
 _TOKEN_CACHE: dict = {"token": None, "expira": None}
 
+# Marca a ANA como fora do ar para NÃO repetir 4 tentativas de token em
+# cada uma das 7 estações (foi o que fez a coleta levar 12 min em 26/07).
+_ANA_INDISPONIVEL: dict = {"ate": None, "motivo": None}
+JANELA_INDISPONIVEL_S = 600      # 10 min sem insistir
+
+
+def _marcar_indisponivel(motivo: str) -> None:
+    from datetime import datetime, timedelta
+    _ANA_INDISPONIVEL["ate"] = datetime.now() + timedelta(seconds=JANELA_INDISPONIVEL_S)
+    _ANA_INDISPONIVEL["motivo"] = motivo
+    print(f"[ANA] Servidor marcado como INDISPONÍVEL por "
+          f"{JANELA_INDISPONIVEL_S // 60} min — as demais estações serão "
+          f"puladas nesta coleta ({motivo}).")
+
+
+def _esta_indisponivel() -> str | None:
+    from datetime import datetime
+    if _ANA_INDISPONIVEL["ate"] and datetime.now() < _ANA_INDISPONIVEL["ate"]:
+        return _ANA_INDISPONIVEL["motivo"]
+    return None
+
 # ── Política de resiliência (a HidroWebService oscila com frequência) ────
-MAX_TENTATIVAS = 4          # tentativas por requisição
-BACKOFF_BASE_S = 3          # espera: 3s, 6s, 12s, 24s...
+MAX_TENTATIVAS = 3          # tentativas por requisição
+BACKOFF_BASE_S = 2          # espera: 2s, 4s, 8s...
 # 417 EXPECTATION_FAILED: a ANA devolve esse código de forma transitória
 # (observado no token OAuth) — retry resolve, então entra na lista.
 STATUS_RETRY = {408, 417, 429, 500, 502, 503, 504}
@@ -181,6 +202,12 @@ def ler_credenciais(caminho=None) -> tuple[str, str]:
 # ──────────────────────────────────────────────────────────────────────────
 def obter_token(force: bool = False) -> str:
     """Obtém (e cacheia) o token OAuth da HidroWebService."""
+    from coleta.rede import forcar_ipv4
+    forcar_ipv4()      # servidores gov.br + IPv6 de CI = timeout
+
+    motivo = _esta_indisponivel()
+    if motivo:
+        raise RuntimeError(f"ANA indisponível nesta coleta ({motivo})")
     agora = datetime.now()
     if (not force and _TOKEN_CACHE["token"]
             and _TOKEN_CACHE["expira"] and agora < _TOKEN_CACHE["expira"]):
@@ -195,6 +222,7 @@ def obter_token(force: bool = False) -> str:
         contexto="[token]",
     )
     if resp is None:
+        _marcar_indisponivel("falha ao obter token")
         raise RuntimeError("ANA fora do ar: não foi possível obter token "
                            f"após {MAX_TENTATIVAS} tentativas.")
     resp.raise_for_status()
@@ -355,6 +383,10 @@ def coletar_niveis_rios(dias: int = 7) -> dict[str, pd.DataFrame]:
 
     # ── 2ª rodada: repete só as estações que vieram vazias ───────────────
     pendentes = [n for n, df in resultado.items() if df.empty]
+    if pendentes and _esta_indisponivel():
+        print(f"[ANA] 2ª rodada CANCELADA: servidor fora do ar "
+              f"({_esta_indisponivel()}).")
+        pendentes = []
     if pendentes:
         try:
             ler_credenciais()
