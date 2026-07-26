@@ -20,54 +20,22 @@ from coleta import ana_api, open_meteo
 # ambientes sem o Selenium instalado (ex.: Render).
 
 
-def _serie_chuva_ana(rios: dict) -> dict:
+def _chuva_observada(rios: dict, meteo: dict) -> dict:
     """
-    Monta a série de chuva OBSERVADA a partir dos pluviômetros das estações
-    telemétricas da ANA (campo Chuva_Adotada/Chuva_Acumulada, já lido pelo
-    coletor). Vantagens: é medição oficial em solo, cobre os últimos 7 dias
-    e vem da mesma API que já usamos para os níveis.
-
-    Preferimos a estação mais próxima de Porto Alegre que tenha chuva.
+    Chuva JÁ OCORRIDA — delega para coleta/chuva_observada.py, que roda a
+    cadeia INMET → CEMADEN → ANA → Open-Meteo e só aceita a série que passar
+    no controle de qualidade (cobertura + comparação com referência).
     """
-    preferencia = ["Guaiba_PortoAlegre_CaisMaua", "Rio_Gravatai",
-                   "Rio_dos_Sinos_SaoLeopoldo", "Rio_Cai_Montenegro", "Rio_Cai"]
-    ordem = preferencia + [n for n in rios if n not in preferencia]
-
-    vazio = {"ok": False, "horaria": pd.DataFrame(), "diaria": pd.DataFrame(),
-             "acumulado_24h_mm": None, "acumulado_72h_mm": None,
-             "acumulado_7d_mm": None, "estacao": None,
-             "fonte": "ANA (pluviômetro telemétrico)"}
-
-    for nome in ordem:
-        df = rios.get(nome)
-        if df is None or df.empty or "chuva_mm" not in df:
-            continue
-        serie = df.dropna(subset=["chuva_mm"])[["datahora", "chuva_mm"]]
-        if serie.empty or float(serie["chuva_mm"].sum()) <= 0:
-            continue
-
-        horaria = (serie.rename(columns={"chuva_mm": "precipitacao_mm"})
-                   .sort_values("datahora").reset_index(drop=True))
-        diaria = (horaria.assign(data=horaria["datahora"].dt.normalize())
-                  .groupby("data", as_index=False)["precipitacao_mm"].sum()
-                  .rename(columns={"precipitacao_mm": "precipitacao_total_mm"}))
-        agora = horaria["datahora"].max()
-
-        def acum(horas: int) -> float:
-            corte = agora - pd.Timedelta(hours=horas)
-            return float(horaria.loc[horaria["datahora"] >= corte,
-                                     "precipitacao_mm"].sum())
-
-        print(f"[ANA-chuva] Pluviômetro de {nome}: {len(horaria)} leituras | "
-              f"24h={acum(24):.1f} mm · 72h={acum(72):.1f} mm · "
-              f"7d={acum(24 * 7):.1f} mm")
-        return {"ok": True, "horaria": horaria, "diaria": diaria,
-                "acumulado_24h_mm": acum(24), "acumulado_72h_mm": acum(72),
-                "acumulado_7d_mm": acum(24 * 7), "estacao": nome,
-                "fonte": "ANA (pluviômetro telemétrico)"}
-
-    print("[ANA-chuva] Nenhuma estação da ANA retornou dados de chuva.")
-    return vazio
+    try:
+        from coleta import chuva_observada
+        return chuva_observada.coletar(rios=rios, meteo=meteo, dias=7)
+    except Exception as exc:
+        print(f"[CHUVA] coletor falhou por completo ({exc}).")
+        return {"ok": False, "fonte": "—", "horaria": pd.DataFrame(),
+                "diaria": pd.DataFrame(), "acumulado_24h_mm": None,
+                "acumulado_72h_mm": None, "acumulado_7d_mm": None,
+                "dias_com_chuva_5d": 0, "dias_chuva_intensa_5d": 0,
+                "qualidade": {}, "tentativas": []}
 
 
 def coletar_tudo(usar_selenium: bool = True) -> dict:
@@ -95,8 +63,6 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
 
     resumo_rios = {nome: ana_api.resumo_estacao(df) for nome, df in rios.items()}
 
-    # Chuva observada dos pluviômetros da ANA (série de 7 dias, medição em solo)
-    chuva_ana = _serie_chuva_ana(rios)
 
     # ── Fallback do nível do Guaíba (ordem importa: MESMO referencial!) ──
     # 1º ANA 87450004 (Cais Mauá) · 2º Poaclima "Cais Mauá C6" (mesma régua,
@@ -111,16 +77,8 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
         print(f"[Open-Meteo] Falha: {exc}")
         meteo = {"horaria": pd.DataFrame(), "diaria": pd.DataFrame(), "resumo": {}}
 
-    # ── INMET: chuva OBSERVADA da estação automática de POA ──
-    # (pluviômetro na cidade — mais fiel que o modelo global do Open-Meteo)
-    try:
-        from coleta import inmet_estacao
-        chuva_inmet = inmet_estacao.coletar_chuva_observada(dias=7)
-    except Exception as exc:
-        print(f"[INMET-estação] falhou ({exc}); Open-Meteo assume o observado.")
-        chuva_inmet = {"ok": False, "horaria": pd.DataFrame(),
-                       "diaria": pd.DataFrame(), "acumulado_24h_mm": None,
-                       "acumulado_72h_mm": None, "acumulado_7d_mm": None}
+    # ── CHUVA OBSERVADA (cadeia auditada de fontes em solo) ──
+    chuva_obs = _chuva_observada(rios, meteo)
 
     # ── INMET / Poaclima ─────────────────────────────────────
     inmet = {"alertas": [], "max_severidade": None, "fonte": None}
@@ -148,8 +106,8 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
             previsao_poa = coletar_previsao_poaclima()
         except Exception as exc:
             print(f"[Poaclima-previsão] Falha: {exc}")
-        # chuva observada nas estações do Poaclima (reserva do INMET)
-        if not chuva_inmet.get("ok"):
+        # chuva das estações do Poaclima — usada como referência cruzada
+        if True:
             try:
                 from coleta.poaclima_scraper import coletar_estacoes_meteo_poaclima
                 estacoes_poa = coletar_estacoes_meteo_poaclima()
@@ -182,9 +140,8 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
 
     return {"timestamp": ts, "rios": rios, "resumo_rios": resumo_rios,
             "meteo": meteo, "inmet": inmet, "poaclima": poaclima,
-            "chuva_inmet": chuva_inmet, "previsao_poaclima": previsao_poa,
-            "estacoes_meteo_poaclima": estacoes_poa,
-            "chuva_ana": chuva_ana}
+            "chuva_obs": chuva_obs, "previsao_poaclima": previsao_poa,
+            "estacoes_meteo_poaclima": estacoes_poa}
 
 
 def montar_dataframe(brutos: dict) -> pd.DataFrame:
@@ -223,20 +180,19 @@ def montar_dataframe(brutos: dict) -> pd.DataFrame:
     add("Aviso INMET (máx severidade)", brutos["inmet"].get("max_severidade"), "-", "INMET")
     add("Qtd avisos INMET vigentes", len(brutos["inmet"].get("alertas") or []), "un", "INMET")
 
-    ca = brutos.get("chuva_ana") or {}
-    if ca.get("ok"):
-        add("Chuva observada 24h (ANA)", ca.get("acumulado_24h_mm"), "mm",
-            f"ANA {ca.get('estacao', '')}")
-        add("Chuva observada 72h (ANA)", ca.get("acumulado_72h_mm"), "mm",
-            f"ANA {ca.get('estacao', '')}")
-
-    # Chuva observada (INMET) e previsão oficial (Poaclima/Catavento)
-    ci = brutos.get("chuva_inmet") or {}
-    if ci.get("ok"):
-        add("Chuva observada 24h (INMET)", ci.get("acumulado_24h_mm"), "mm",
-            f"INMET {ci.get('estacao', '')}")
-        add("Chuva observada 72h (INMET)", ci.get("acumulado_72h_mm"), "mm",
-            f"INMET {ci.get('estacao', '')}")
+    co = brutos.get("chuva_obs") or {}
+    if co.get("ok"):
+        fonte_co = co.get("fonte", "—")
+        add("Chuva observada 24h", co.get("acumulado_24h_mm"), "mm", fonte_co)
+        add("Chuva observada 72h", co.get("acumulado_72h_mm"), "mm", fonte_co)
+        add("Chuva observada 7 dias", co.get("acumulado_7d_mm"), "mm", fonte_co)
+        add("Dias com chuva (últimos 5)", co.get("dias_com_chuva_5d"), "dias", fonte_co)
+        add("Qualidade da série de chuva", (co.get("qualidade") or {}).get("motivo"),
+            "-", fonte_co)
+        for t in co.get("tentativas", []):
+            add(f"Fonte testada — {t.get('fonte')}",
+                f"{t.get('total_7d_mm')} mm/7d · {'ACEITA' if t.get('aprovada') else 'REJEITADA'}"
+                f" · {t.get('motivo')}", "-", "controle de qualidade")
     pp = brutos.get("previsao_poaclima") or {}
     if pp.get("ok"):
         add("Chuva prevista 48h (Poaclima/Catavento)",
