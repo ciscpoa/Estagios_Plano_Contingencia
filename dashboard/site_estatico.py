@@ -340,26 +340,38 @@ def _bloco_graficos(snapshot: dict) -> str:
 
 def _rodape_chuva(snapshot: dict) -> str:
     """
-    Procedência da chuva observada — só a fonte que ENTROU no painel.
-    As fontes testadas e descartadas continuam no CSV e no log do Actions,
-    que é onde se depura; aqui elas só poluiriam a leitura.
+    Card de chuva: 5 dias para trás × 5 dias para frente, lado a lado.
+
+    As cores dos números espelham as do gráfico de precipitação — laranja
+    para o acumulado observado, magenta para a previsão do Poaclima — para
+    que o leitor ligue o número à linha correspondente sem legenda.
+
+    Nada de metainformação de coleta aqui: quantas fontes foram testadas
+    é assunto de depuração e vive no CSV e no log, não no painel público.
     """
-    qualidade = snapshot.get("qualidade_chuva_obs") or {}
-    fonte = snapshot.get("fonte_chuva_obs") or "—"
-    if not qualidade and not snapshot.get("fontes_chuva_testadas"):
+    obs = snapshot.get("chuva_obs_5d_mm")
+    prev = snapshot.get("chuva_prev_5d_mm")
+    if obs is None and prev is None:
         return ""
 
-    detalhe = qualidade.get("motivo") or ""
-    n_testadas = len(snapshot.get("fontes_chuva_testadas") or [])
-    rodape = (f"{n_testadas} fonte(s) avaliada(s) nesta coleta · detalhes no CSV"
-              if n_testadas > 1 else "")
+    fonte_obs = snapshot.get("fonte_chuva_obs") or "—"
+    fonte_prev = snapshot.get("fonte_chuva_prev") or "Poaclima/Catavento"
+
+    def coluna(titulo, fonte, valor, periodo, cor):
+        num = f"{valor:.0f} mm" if isinstance(valor, (int, float)) else "—"
+        return f"""
+        <div class="col-chuva">
+          <div class="titulo-chuva">{titulo}</div>
+          <div class="fonte-chuva">{fonte}</div>
+          <div class="valor-chuva" style="color:{cor}">{num}</div>
+          <div class="periodo-chuva">{periodo}</div>
+        </div>"""
 
     return f"""
-    <section class="procedencia">
-      <div class="titulo-proc">Chuva observada</div>
-      <div class="fonte-proc">{fonte}</div>
-      <div class="sub-proc">{detalhe}</div>
-      <div class="sub-proc rodape-proc">{rodape}</div>
+    <section class="cartao-chuva">
+      {coluna("CHUVA OBSERVADA", fonte_obs, obs, "últimos 5 dias", "#F2830B")}
+      <div class="divisor-chuva"></div>
+      {coluna("CHUVA PREVISTA", fonte_prev, prev, "próximos 5 dias", "#E5399B")}
     </section>"""
 
 
@@ -470,13 +482,17 @@ button:hover{border-color:var(--txt2)}
 .no-arvore.inativo .motivo-no{border-top-color:var(--borda)}
 .conector{align-self:center;font-weight:800;color:var(--txt2);padding:0 2px}
 .nota-arvore{font-size:.82rem;color:var(--txt2);margin-top:6px}
-.procedencia{background:var(--cartao);border:1px solid var(--borda);
-  border-radius:12px;padding:12px 16px;margin:10px 0}
-.titulo-proc{font-weight:700;font-size:.82rem;color:var(--txt2);
-  text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.fonte-proc{font-weight:700;font-size:1.02rem;color:#2E9E44}
-.sub-proc{color:var(--txt2);font-size:.78rem;line-height:1.4}
-.rodape-proc{margin-top:6px;opacity:.75;font-size:.72rem}
+.cartao-chuva{background:var(--cartao);border:1px solid var(--borda);
+  border-radius:12px;padding:16px 20px;margin:10px 0;display:flex;
+  align-items:stretch;justify-content:center;gap:8px;flex-wrap:wrap}
+.col-chuva{flex:1 1 240px;max-width:420px;text-align:center;padding:4px 12px}
+.divisor-chuva{width:1px;background:var(--borda);align-self:stretch}
+.titulo-chuva{font-weight:700;font-size:.82rem;color:var(--txt2);
+  text-transform:uppercase;letter-spacing:.5px}
+.fonte-chuva{font-weight:700;font-size:.95rem;color:var(--txt2);margin-top:2px}
+.valor-chuva{font-weight:800;font-size:2.1rem;line-height:1.2;margin-top:8px}
+.periodo-chuva{color:var(--txt2);font-size:.78rem;margin-top:2px}
+@media(max-width:640px){.divisor-chuva{width:100%;height:1px}}
 .just{line-height:1.5}
 .frescor{display:none;margin-left:8px;padding:2px 8px;border-radius:999px;
   font-size:.72rem;font-weight:700;vertical-align:middle}

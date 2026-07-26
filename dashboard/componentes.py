@@ -152,6 +152,9 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
     p = paleta(tema)
     fig = go.Figure()
     agora = pd.Timestamp.now()
+    # Os dois eixos Y precisam do MESMO zero. Com autorange independente o
+    # Plotly ancora cada um num pixel diferente e aparecem "dois zeros".
+    max_y1 = max_y2 = 0.0
 
     _hover = ("<b>{titulo}</b><br>Data: %{{x|%d/%m/%Y}}<br>"
               "Hora: %{{x|%H:%M}}<br>Chuva: %{{y:.1f}} mm/h<extra></extra>")
@@ -171,12 +174,16 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
             x=dfi["datahora"], y=dfi["precipitacao_mm"],
             name=f"Observada — {fonte_obs} (mm/h)", marker_color="#4EA8DE",
             hovertemplate=_hover.format(titulo=f"Chuva observada · {fonte_obs}")))
+        max_y1 = max(max_y1, float(pd.to_numeric(dfi["precipitacao_mm"],
+                                                 errors="coerce").max() or 0))
     elif not dfh.empty:
         obs = dfh[dfh["datahora"] <= agora]
         fig.add_trace(go.Bar(
             x=obs["datahora"], y=obs["precipitacao_mm"],
             name="Observada — Open-Meteo (mm/h)", marker_color="#4EA8DE",
             hovertemplate=_hover.format(titulo="Chuva observada · Open-Meteo")))
+        max_y1 = max(max_y1, float(pd.to_numeric(obs["precipitacao_mm"],
+                                                 errors="coerce").max() or 0))
 
     # ── Chuva PREVISTA horária: só sem a previsão oficial ────
     if not tem_prev_local and not dfh.empty:
@@ -187,6 +194,8 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
                 name="Prevista — Open-Meteo (mm/h)", marker_color="#9B8CE0",
                 opacity=0.7,
                 hovertemplate=_hover.format(titulo="Chuva prevista · Open-Meteo")))
+            max_y1 = max(max_y1, float(pd.to_numeric(prev["precipitacao_mm"],
+                                                     errors="coerce").max() or 0))
 
     # linha "agora"
     fig.add_shape(type="line", x0=agora, x1=agora, y0=0, y1=1, yref="paper",
@@ -209,6 +218,8 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
             hovertemplate="<b>Total diário observado</b><br>"
                           "Data: %{x|%d/%m/%Y}<br>"
                           "Acumulado: %{y:.1f} mm<extra></extra>"))
+        max_y2 = max(max_y2, float(pd.to_numeric(dfd["precipitacao_total_mm"],
+                                                 errors="coerce").max() or 0))
 
     # ── Previsão diária oficial (Poaclima/Catavento) ─────────
     if tem_prev_local:
@@ -227,15 +238,21 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
             hovertemplate="<b>Previsão · Poaclima/Catavento</b><br>"
                           "Data: %{x|%d/%m/%Y}<br>%{customdata}<br>"
                           "Chuva prevista: %{y:.0f} mm<extra></extra>"))
+        max_y2 = max(max_y2, float(pd.to_numeric(dfp["precipitacao_total_mm"],
+                                                 errors="coerce").max() or 0))
 
     fig.update_layout(
         title=(f"Precipitação em Porto Alegre — observada ({fonte_obs}) "
                f"· prevista ({fonte_prev})"),
         hoverlabel=p["hover"],
         barmode="overlay",
-        yaxis=dict(title="mm/h", gridcolor=p["grade"]),
+        # range explícito a partir de 0 nos DOIS eixos: é o que faz os dois
+        # zeros caírem no mesmo pixel e some com a "linha dupla" no rodapé.
+        yaxis=dict(title="mm/h", gridcolor=p["grade"],
+                   range=[0, (max_y1 or 1) * 1.15], zeroline=False),
         yaxis2=dict(title="mm/dia", overlaying="y", side="right",
-                    showgrid=False),
+                    showgrid=False, zeroline=False,
+                    range=[0, (max_y2 or 1) * 1.15]),
         xaxis=dict(gridcolor=p["grade"]),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font_color=p["txt"], height=380,
