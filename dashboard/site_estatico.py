@@ -44,7 +44,7 @@ def _bloco_banner(snapshot: dict) -> str:
         f"<div class='just'>{j}</div>" for j in cls.get("justificativas", []))
     return f"""
     <section class="banner" style="background:{cor}">
-      <h2>ESTÁGIO OPERACIONAL: {cls.get('estagio', '—')}</h2>
+      <h2>ESTÁGIO OPERACIONAL: {cls.get('rotulo') or cls.get('estagio', '—')}</h2>
       <div class="ts">Última atualização: {snapshot.get('timestamp', '—')}</div>
       {justificativas}
     </section>"""

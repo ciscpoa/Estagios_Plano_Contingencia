@@ -81,7 +81,9 @@ def banner_estagio(classificacao: dict, timestamp: str) -> dbc.Alert:
     cor = classificacao.get("cor", "#2E9E44")
     return dbc.Alert(
         [
-            html.H2(f"ESTÁGIO OPERACIONAL: {classificacao.get('estagio', '—')}",
+            html.H2("ESTÁGIO OPERACIONAL: "
+                    + (classificacao.get("rotulo")
+                       or classificacao.get("estagio", "—")),
                     className="mb-1 fw-bold"),
             html.Div(f"Última atualização: {timestamp}", className="small opacity-75 mb-2"),
             html.Div([html.Div(j, className="mb-1")
