@@ -1,0 +1,55 @@
+﻿datahora_extracao,indicador,valor,unidade,fonte
+26/07/2026 18:14,Nível Guaiba_PortoAlegre_CaisMaua,1.8,m,ANA / fallback
+26/07/2026 18:14,Tendência 48h Guaiba_PortoAlegre_CaisMaua,-0.35,m/48h,ANA
+26/07/2026 18:14,Nível Rio_Gravatai,4.63,m,ANA / fallback
+26/07/2026 18:14,Tendência 48h Rio_Gravatai,0.13,m/48h,ANA
+26/07/2026 18:14,Nível Rio_dos_Sinos_SaoLeopoldo,4.55,m,ANA / fallback
+26/07/2026 18:14,Tendência 48h Rio_dos_Sinos_SaoLeopoldo,0.17,m/48h,ANA
+26/07/2026 18:14,Nível Rio_Cai,4.62,m,ANA / fallback
+26/07/2026 18:14,Tendência 48h Rio_Cai,-2.91,m/48h,ANA
+26/07/2026 18:14,Nível Rio_Cai_Montenegro,3.51,m,ANA / fallback
+26/07/2026 18:14,Tendência 48h Rio_Cai_Montenegro,-2.39,m/48h,ANA
+26/07/2026 18:14,Nível Rio_Cai_NovaPalmira,1.72,m,ANA / fallback
+26/07/2026 18:14,Tendência 48h Rio_Cai_NovaPalmira,-0.21,m/48h,ANA
+26/07/2026 18:14,Nível Rio_Jacui_Triunfo,9.11,m,ANA / fallback
+26/07/2026 18:14,Tendência 48h Rio_Jacui_Triunfo,0.89,m/48h,ANA
+26/07/2026 18:14,Cota de Atenção (Guaíba),2.05,m,Plano Contingência
+26/07/2026 18:14,Cota de Alerta (Guaíba),2.5,m,Plano Contingência
+26/07/2026 18:14,Cota de Inundação (Guaíba),3.0,m,Plano Contingência
+26/07/2026 18:14,acumulado_obs_24h_mm,8.2,mm,Open-Meteo
+26/07/2026 18:14,acumulado_obs_72h_mm,9.2,mm,Open-Meteo
+26/07/2026 18:14,acumulado_obs_7d_mm,128.4,mm,Open-Meteo
+26/07/2026 18:14,previsto_24h_mm,1.2,mm,Open-Meteo
+26/07/2026 18:14,previsto_48h_mm,33.5,mm,Open-Meteo
+26/07/2026 18:14,previsto_72h_mm,87.9,mm,Open-Meteo
+26/07/2026 18:14,dias_chuva_intensa_5d,0,dias,Open-Meteo
+26/07/2026 18:14,Aviso INMET (máx severidade),,-,INMET
+26/07/2026 18:14,Qtd avisos INMET vigentes,0,un,INMET
+26/07/2026 18:14,Chuva observada 24h,1.8,mm,ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)
+26/07/2026 18:14,Chuva observada 72h,2.2,mm,ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)
+26/07/2026 18:14,Chuva observada 7 dias,124.4,mm,ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)
+26/07/2026 18:14,Dias com chuva (últimos 5),2,dias,ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)
+26/07/2026 18:14,Qualidade da série de chuva,124 mm/7d · cobertura 100%,-,ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)
+26/07/2026 18:14,Fonte testada — INMET A801 — PORTO ALEGRE - JARDIM BOTANICO,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+26/07/2026 18:14,Fonte testada — INMET B808 — CACHOEIRINHA,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+26/07/2026 18:14,Fonte testada — INMET B825 — PORTO ALEGRE - BELEM NOVO,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+26/07/2026 18:14,Fonte testada — INMET B809 — SAPUCAIA DO SUL,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+26/07/2026 18:14,Fonte testada — INMET B824 — VIAMAO,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+26/07/2026 18:14,Fonte testada — INMET B814 — MONTENEGRO,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+26/07/2026 18:14,Fonte testada — CEMADEN,None mm/7d · REJEITADA · None,-,controle de qualidade
+26/07/2026 18:14,Fonte testada — ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico),124.4 mm/7d · ACEITA · 124 mm/7d · cobertura 100%,-,controle de qualidade
+26/07/2026 18:14,Chuva prevista 48h (Poaclima/Catavento),30.0,mm,Poaclima/Catavento
+26/07/2026 18:14,Previsão 26/07 — Pancadas de chuva isoladas,15.0,mm,Poaclima/Catavento
+26/07/2026 18:14,Previsão 27/07 — Pancadas de chuva isoladas,15.0,mm,Poaclima/Catavento
+26/07/2026 18:14,Previsão 28/07 — Chuva e raios,25.0,mm,Poaclima/Catavento
+26/07/2026 18:14,Previsão 29/07 — Encoberto e chuva,40.0,mm,Poaclima/Catavento
+26/07/2026 18:14,Previsão 30/07 — Sol entre nuvens,0.0,mm,Poaclima/Catavento
+26/07/2026 18:14,Alerta Poaclima vigente,,-,Poaclima
+26/07/2026 18:14,Chuva acumulada Poaclima,,mm,Poaclima
+26/07/2026 18:14,Nível Usina do Gasômetro (Poaclima),1.29,m,Poaclima
+26/07/2026 18:14,Nível Cais Mauá (Poaclima),1.8,m,Poaclima
+26/07/2026 18:14,Nível Riacho Ipiranga (Poaclima),0.38,m,Poaclima
+26/07/2026 18:14,Alertas regionais vigentes (Defesa Civil),3,un,Poaclima
+26/07/2026 18:14,Alerta regional — (17) Ilhas,Alerta de risco alto · Inundação · até 27/07/2026 12:00,-,Poaclima/Defesa Civil
+26/07/2026 18:14,Alerta regional — (15) Sul,Alerta de risco alto · Inundação · até 27/07/2026 12:00,-,Poaclima/Defesa Civil
+26/07/2026 18:14,Alerta regional — (13) Extremo sul,Alerta de risco alto · Inundação · até 27/07/2026 12:00,-,Poaclima/Defesa Civil
