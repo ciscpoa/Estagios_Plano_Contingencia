@@ -59,7 +59,9 @@ def _bloco_banner(snapshot: dict) -> str:
     return f"""
     <section class="banner" style="background:{cor}">
       <h2>ESTÁGIO OPERACIONAL: {cls.get('rotulo') or cls.get('estagio', '—')}</h2>
-      <div class="ts">Última atualização: {snapshot.get('timestamp', '—')}</div>
+      <div class="ts">Última atualização: {snapshot.get('timestamp', '—')}
+        <span id="frescor" class="frescor" data-iso="{snapshot.get('timestamp_iso', '')}"></span>
+      </div>
       {justificativas}
     </section>"""
 
@@ -361,6 +363,33 @@ def _rodape_chuva(snapshot: dict) -> str:
     </section>"""
 
 
+_JS_FRESCOR = """
+<script>
+/* O cron do GitHub Actions falha/atrasa com frequência. Sem este aviso, um
+   painel parado parece um painel calmo — que é o pior modo de falhar numa
+   ferramenta de contingência. */
+(function () {
+  var el = document.getElementById("frescor");
+  if (!el || !el.dataset.iso) return;
+  function tick() {
+    var min = (Date.now() - new Date(el.dataset.iso).getTime()) / 60000;
+    el.className = "frescor";
+    if (min >= 180) {
+      el.classList.add("parado");
+      el.textContent = "PARADO ha " + Math.floor(min / 60) + "h";
+    } else if (min >= 75) {
+      el.classList.add("velho");
+      el.textContent = "desatualizado ha " + Math.round(min) + " min";
+    } else {
+      el.textContent = "";
+    }
+  }
+  tick();
+  setInterval(tick, 60000);
+})();
+</script>
+"""
+
 _CSS = """
 :root{--fundo:#101418;--cartao:#161C22;--txt:#E8ECF1;--txt2:#9AA6B2;
       --borda:#2A333D;--trilho:rgba(255,255,255,.10)}
@@ -449,6 +478,10 @@ button:hover{border-color:var(--txt2)}
 .sub-proc{color:var(--txt2);font-size:.78rem;line-height:1.4}
 .rodape-proc{margin-top:6px;opacity:.75;font-size:.72rem}
 .just{line-height:1.5}
+.frescor{display:none;margin-left:8px;padding:2px 8px;border-radius:999px;
+  font-size:.72rem;font-weight:700;vertical-align:middle}
+.frescor.velho{display:inline-block;background:#FFD166;color:#3A2E00}
+.frescor.parado{display:inline-block;background:#D62828;color:#fff}
 .gatilhos{margin-bottom:20px}
 .badge{display:inline-block;color:#fff;border-radius:10px;padding:8px 14px;
        margin:4px;font-weight:700;font-size:.9rem}
@@ -580,6 +613,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_arvore(snapshot)}
   {_bloco_gatilhos(snapshot)}
   {_bloco_graficos(snapshot)}
+  {_JS_FRESCOR}
   <div class="rodape">
     <div class="cisc">Realizado por: CISC Porto Alegre — Centro de Informações
       em Saúde e Clima</div>
