@@ -40,7 +40,10 @@ jobs:
             echo "CHROMEDRIVER_PATH=$CHROMEWEBDRIVER/chromedriver" >> $GITHUB_ENV
           fi
           echo "Chrome: ${CHROME:-nao encontrado}"
-
+      - name: Conferir se os secrets chegaram
+        run: |
+          echo "ANA_IDENTIFICADOR definido: ${{ secrets.ANA_IDENTIFICADOR != '' }}"
+          echo "ANA_SENHA definido: ${{ secrets.ANA_SENHA != '' }}"
       - name: Executar o pipeline
         env:
           ANA_IDENTIFICADOR: ${{ secrets.ANA_IDENTIFICADOR }}
