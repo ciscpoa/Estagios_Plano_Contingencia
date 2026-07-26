@@ -108,6 +108,10 @@ def executar_pipeline(usar_selenium: bool = True,
         "series_afluentes": series_afluentes,
         # chuva observada do INMET (estação de POA) e previsão do Poaclima
         "chuva_obs_inmet": (
+            brutos.get("chuva_ana", {}).get("horaria").assign(
+                datahora=lambda d: d["datahora"].astype(str)).to_dict("records")
+            if (not brutos.get("chuva_inmet", {}).get("ok")
+                and brutos.get("chuva_ana", {}).get("ok")) else
             brutos.get("chuva_inmet", {}).get("horaria").assign(
                 datahora=lambda d: d["datahora"].astype(str)).to_dict("records")
             if (brutos.get("chuva_inmet", {}).get("ok")
@@ -115,8 +119,11 @@ def executar_pipeline(usar_selenium: bool = True,
         "previsao_poaclima": [
             {**d, "data": str(d["data"])}
             for d in (brutos.get("previsao_poaclima", {}) or {}).get("dias", [])],
-        "fonte_chuva_obs": ("INMET " + str(brutos.get("chuva_inmet", {}).get("estacao", ""))
-                            if brutos.get("chuva_inmet", {}).get("ok") else "Open-Meteo"),
+        "fonte_chuva_obs": (
+            "INMET " + str(brutos.get("chuva_inmet", {}).get("estacao", ""))
+            if brutos.get("chuva_inmet", {}).get("ok")
+            else ("ANA " + str(brutos.get("chuva_ana", {}).get("estacao", ""))
+                  if brutos.get("chuva_ana", {}).get("ok") else "Open-Meteo")),
         "fonte_chuva_prev": ("Poaclima/Catavento"
                              if (brutos.get("previsao_poaclima", {}) or {}).get("ok")
                              else "Open-Meteo"),
