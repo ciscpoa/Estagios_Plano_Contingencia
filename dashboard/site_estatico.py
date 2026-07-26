@@ -188,6 +188,68 @@ def _bloco_avisos_inmet(snapshot: dict) -> str:
             f" ({len(alertas)})</div>{''.join(itens)}</section>")
 
 
+def _bloco_arvore(snapshot: dict) -> str:
+    """
+    Árvore das regras E/OU do Plano: mostra quais blocos do estágio atual
+    estão ATIVOS (destacados) e quais não (ofuscados), e o que falta para
+    subir para o próximo estágio.
+    """
+    cls = snapshot.get("classificacao") or {}
+    blocos = cls.get("blocos_por_estagio") or {}
+    estagio = cls.get("estagio")
+    if not blocos or not estagio:
+        return ""
+
+    cor = cls.get("cor", "#2E9E44")
+    ordem = config.ESTAGIOS
+    idx = ordem.index(estagio) if estagio in ordem else 0
+    proximo = ordem[idx + 1] if idx + 1 < len(ordem) else None
+
+    def linha(nome: str, cor_linha: str, atual: bool) -> str:
+        bl = blocos.get(nome) or []
+        if not bl:
+            return ""
+        caixas = []
+        for i, b in enumerate(bl):
+            classe = "no-arvore ativo" if b["ativo"] else "no-arvore inativo"
+            estilo = (f"background:{cor_linha};border-color:{cor_linha}"
+                      if b["ativo"] else "")
+            marca = "✔" if b["ativo"] else "✖"
+            caixas.append(
+                f"<div class='{classe}' style='{estilo}'>"
+                f"<span class='marca'>{marca}</span>"
+                f"<span class='rotulo'>{b['titulo']}</span></div>")
+            if i < len(bl) - 1:
+                caixas.append("<div class='conector'>E</div>")
+        subtitulo = ("estágio atual — todos os blocos precisam estar ativos"
+                     if atual else
+                     "para subir de estágio, faltam os blocos ofuscados")
+        return (f"<div class='linha-arvore'>"
+                f"<div class='rotulo-linha' style='color:{cor_linha}'>{nome}</div>"
+                f"<div class='sub-arvore'>{subtitulo}</div>"
+                f"<div class='nos'>{''.join(caixas)}</div></div>")
+
+    partes = [linha(estagio, cor, True)]
+    if proximo:
+        partes.append(linha(proximo, config.CORES_ESTAGIOS.get(proximo, "#888"),
+                            False))
+
+    nota = ""
+    if any("⚑" in j for j in cls.get("justificativas", [])):
+        nota = ("<div class='nota-arvore'>⚑ Este estágio foi definido pela "
+                "<b>regra de piso</b>: um gatilho confirmado em campo pertence "
+                "a esta coluna do Plano, então o estágio sobe mesmo sem todos "
+                "os blocos meteorológicos fecharem.</div>")
+
+    return f"""
+    <section class="bloco-arvore">
+      <h3 class="titulo-secao">Como chegamos a este estágio</h3>
+      <div class="sub">Regras E/OU do Plano de Contingência (item 5.1) ·
+        blocos <b>ativos</b> em destaque, inativos ofuscados</div>
+      {''.join(partes)}{nota}
+    </section>"""
+
+
 def _bloco_gatilhos(snapshot: dict) -> str:
     ativos = snapshot.get("gatilhos_ativos") or []
     if not ativos:
@@ -316,6 +378,20 @@ button:hover{border-color:var(--txt2)}
   border-radius:6px;padding:2px 8px;margin-right:8px}
 .item-aviso .desc{font-size:.9rem}
 .item-aviso .periodo{font-size:.78rem;color:var(--txt2);margin-top:3px}
+.bloco-arvore{margin-bottom:22px}
+.linha-arvore{background:var(--cartao);border:1px solid var(--borda);
+  border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.rotulo-linha{font-weight:800;letter-spacing:.4px}
+.sub-arvore{color:var(--txt2);font-size:.78rem;margin-bottom:8px}
+.nos{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:6px}
+.no-arvore{flex:1 1 220px;max-width:340px;border:1px solid var(--borda);
+  border-radius:10px;padding:8px 10px;display:flex;gap:8px;align-items:flex-start;
+  text-align:left;font-size:.84rem}
+.no-arvore.ativo{color:#fff;font-weight:600}
+.no-arvore.inativo{opacity:.38}
+.no-arvore .marca{font-weight:800}
+.conector{align-self:center;font-weight:800;color:var(--txt2);padding:0 2px}
+.nota-arvore{font-size:.82rem;color:var(--txt2);margin-top:6px}
 .gatilhos{margin-bottom:20px}
 .badge{display:inline-block;color:#fff;border-radius:10px;padding:8px 14px;
        margin:4px;font-weight:700;font-size:.9rem}
@@ -343,7 +419,7 @@ body.claro .fig-claro{display:block}
   .acoes{display:none !important}
   .fig-dark{display:none !important}
   .fig-claro{display:block !important}
-  .banner,.card,.tile,.grafico,.bloco-regioes,.linha-regioes,.avisos-inmet{
+  .banner,.card,.tile,.grafico,.bloco-regioes,.linha-regioes,.avisos-inmet,.linha-arvore{
       break-inside:avoid;page-break-inside:avoid}
   .bloco-regioes{page-break-before:auto}
   .banner h2{font-size:1.5rem}
@@ -444,6 +520,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_avisos_inmet(snapshot)}
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
+  {_bloco_arvore(snapshot)}
   {_bloco_gatilhos(snapshot)}
   {_bloco_graficos(snapshot)}
   <div class="rodape">

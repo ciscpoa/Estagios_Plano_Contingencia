@@ -245,6 +245,224 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
     return fig
 
 
+def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
+    """Níveis dos afluentes — uma cidade de referência por rio."""
+    p = paleta(tema)
+    cores = {"Rio_Gravatai": "#F2B90B", "Rio_dos_Sinos_SaoLeopoldo": "#5FD068",
+             "Rio_Cai": "#F2830B", "Rio_Cai_Montenegro": "#E85D24",
+             "Rio_Cai_NovaPalmira": "#C98A3D",
+             "Rio_Jacui_TriunfoAmarop": "#9B8CE0", "Rio_Jacui_Triunfo": "#9B8CE0"}
+    rotulos = {"Rio_Gravatai": "Gravataí",
+               "Rio_dos_Sinos_SaoLeopoldo": "Sinos (S. Leopoldo)",
+               "Rio_Cai": "Caí (Barca)", "Rio_Cai_Montenegro": "Caí (Montenegro)",
+               "Rio_Cai_NovaPalmira": "Caí (N. Palmira)",
+               "Rio_Jacui_TriunfoAmarop": "Jacuí (Rio Pardo)",
+               "Rio_Jacui_Triunfo": "Jacuí (Rio Pardo)"}
+    # uma cidade por afluente (decisão de produto 25/07)
+    principais = ("Rio_Gravatai", "Rio_dos_Sinos_SaoLeopoldo",
+                  "Rio_Cai", "Rio_Jacui_Triunfo", "Rio_Jacui_TriunfoAmarop")
+
+    fig = go.Figure()
+    for nome, registros in (series or {}).items():
+        if nome not in principais:
+            continue
+        df = pd.DataFrame(registros)
+        if df.empty or "nivel_m" not in df:
+            continue
+        df["datahora"] = pd.to_datetime(df["datahora"])
+        df = df.dropna(subset=["nivel_m"])
+        rotulo = rotulos.get(nome, nome)
+        fig.add_trace(go.Scatter(
+            x=df["datahora"], y=df["nivel_m"], mode="lines", name=rotulo,
+            line=dict(color=cores.get(nome, "#AAAAAA"), width=2.5),
+            hovertemplate=f"<b>{rotulo}</b><br>"
+                          "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
+                          "Nível: %{y:.2f} m<extra></extra>"))
+
+    fig.update_layout(
+        title="Afluentes do Guaíba — nível (últimos 7 dias)",
+        hoverlabel=p["hover"],
+        yaxis_title="metros", paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)", font_color=p["txt"],
+        xaxis=dict(gridcolor=p["grade"]), yaxis=dict(gridcolor=p["grade"]),
+        height=380, margin=dict(l=40, r=20, t=60, b=30),
+        legend=dict(orientation="h", y=-0.15))
+    return fig
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# AVISOS DO INMET
+# ──────────────────────────────────────────────────────────────────────────
+def avisos_inmet(av: dict | None, tema: str = "dark"):
+    """Retângulo com os avisos meteorológicos vigentes do INMET para POA."""
+    av = av or {}
+    alertas = av.get("alertas") or []
+
+    if not av.get("consultado", True):
+        corpo = html.Div("Não foi possível consultar o INMET nesta "
+                         "atualização — verifique em alertas2.inmet.gov.br",
+                         className="text-secondary small")
+        borda = "#8B95A1"
+    elif not alertas:
+        corpo = html.Div([html.B("Nenhum aviso meteorológico vigente"),
+                          " para Porto Alegre no momento."], className="small")
+        borda = config.CORES_ESTAGIOS["NORMALIDADE"]
+    else:
+        itens = []
+        for a in alertas[:4]:
+            sev = a.get("severidade") or "Amarelo"
+            cor = config.CORES_AVISO_INMET.get(sev, "#E3B505")
+            periodo = " · ".join(x for x in (
+                f"de {a['inicio']}" if a.get("inicio") else None,
+                f"até {a['fim']}" if a.get("fim") else None) if x)
+            itens.append(html.Div([
+                html.Span(sev, className="badge me-2",
+                          style={"backgroundColor": cor, "color": "white"}),
+                html.Span((a.get("descricao") or "").strip()[:220],
+                          className="small"),
+                html.Div(periodo, className="text-secondary",
+                         style={"fontSize": "0.78rem"}) if periodo else None,
+            ], className="p-2 mb-2 text-start",
+                style={"borderLeft": f"6px solid {cor}",
+                       "backgroundColor": "rgba(127,127,127,0.08)",
+                       "borderRadius": "8px"}))
+        corpo = html.Div(itens)
+        borda = config.CORES_AVISO_INMET.get(av.get("max_severidade"), "#E3B505")
+
+    titulo = ("Avisos meteorológicos vigentes — INMET"
+              + (f" ({len(alertas)})" if alertas else ""))
+    return dbc.Card(dbc.CardBody([
+        html.H6(titulo, className="text-light text-center mb-2"), corpo,
+    ]), className="bg-transparent mb-3",
+        style={"border": f"1px solid {borda}", "borderRadius": "12px"})
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# CARDS: Nível × Cota de Inundação
+# ──────────────────────────────────────────────────────────────────────────
+def _nivel_do_indicador(indicadores: dict, chave: str) -> float | None:
+    if chave == "Guaiba_PortoAlegre_CaisMaua":
+        return indicadores.get("nivel_guaiba_m")
+    if chave == "poaclima_gasometro":
+        return indicadores.get("poaclima_gasometro_m")
+    if chave == "poaclima_cais_maua":
+        return indicadores.get("poaclima_cais_maua_m")
+    if chave == "poaclima_riacho_ipiranga":
+        return indicadores.get("poaclima_riacho_ipiranga_m")
+    dados = (indicadores.get("afluentes") or {}).get(chave) or {}
+    v = dados.get("nivel_atual_m")
+    return v if v is not None else dados.get("nivel_m")
+
+
+def cards_rios(indicadores: dict, tema: str = "dark") -> dbc.Row:
+    """Cards Nível × Cota de Inundação (cada um com a cota da sua régua)."""
+    p = paleta(tema)
+    cards = []
+    for info in config.INFO_RIOS_CARDS:
+        cota = info["cota_inundacao"]
+        nivel = _nivel_do_indicador(indicadores or {}, info["chave"])
+
+        if nivel is not None and cota:
+            pct = max(0.0, nivel / cota * 100.0)
+            if pct >= 100:
+                cor = config.CORES_ESTAGIOS["SITUAÇÃO DE EMERGÊNCIA"]
+            elif pct >= 85:
+                cor = config.CORES_ESTAGIOS["ALERTA"]
+            elif pct >= 65:
+                cor = config.CORES_ESTAGIOS["MOBILIZAÇÃO"]
+            else:
+                cor = config.CORES_ESTAGIOS["NORMALIDADE"]
+            corpo_valor = html.H3(
+                [f"{nivel:.2f} m", html.Span(f" / {cota:.2f} m",
+                                             className="fs-6 opacity-75")],
+                className="mb-1 fw-bold", style={"color": cor})
+            barra = html.Div(
+                html.Div(style={"width": f"{min(pct, 100):.0f}%", "height": "100%",
+                                "borderRadius": "4px", "backgroundColor": cor}),
+                style={"height": "8px", "borderRadius": "4px",
+                       "backgroundColor": p["track"], "overflow": "hidden"},
+                className="mb-2")
+            rodape = html.Small(f"{pct:.0f}% da cota de inundação",
+                                className="text-secondary")
+        else:
+            corpo_valor = html.H3(f"{nivel:.2f} m" if nivel is not None else "—",
+                                  className="mb-1 fw-bold text-light")
+            barra = html.Div()
+            rodape = html.Small("cota de inundação: não informada"
+                                if nivel is not None else "sem leitura",
+                                className="text-secondary")
+
+        cards.append(dbc.Col(dbc.Card(dbc.CardBody([
+            html.H6(info["rotulo"], className="text-light mb-0 fw-bold"),
+            html.Small(f"{info['municipio']} · est. {info['estacao']}",
+                       className="text-secondary d-block mb-2"),
+            corpo_valor, barra, rodape,
+        ], className="text-center"),
+            className="bg-transparent border-secondary h-100"),
+            md=True, xs=6, className="mb-2"))
+
+    return dbc.Row(cards, className="g-3 justify-content-center text-center cards-rios")
+
+
+def arvore_regras(classificacao: dict, tema: str = "dark") -> html.Div:
+    """Árvore E/OU: blocos ativos em destaque, inativos ofuscados."""
+    cls = classificacao or {}
+    blocos = cls.get("blocos_por_estagio") or {}
+    estagio = cls.get("estagio")
+    if not blocos or not estagio:
+        return html.Div()
+
+    ordem = config.ESTAGIOS
+    idx = ordem.index(estagio) if estagio in ordem else 0
+    proximo = ordem[idx + 1] if idx + 1 < len(ordem) else None
+
+    def linha(nome, cor_linha, atual):
+        bl = blocos.get(nome) or []
+        if not bl:
+            return None
+        nos = []
+        for i, b in enumerate(bl):
+            estilo = {"flex": "1 1 220px", "maxWidth": "340px",
+                      "borderRadius": "10px", "padding": "8px 10px",
+                      "border": "1px solid rgba(127,127,127,.4)",
+                      "textAlign": "left", "fontSize": "0.84rem"}
+            if b["ativo"]:
+                estilo |= {"backgroundColor": cor_linha, "color": "white",
+                           "fontWeight": "600", "borderColor": cor_linha}
+            else:
+                estilo |= {"opacity": 0.38}
+            nos.append(html.Div([html.B("✔ " if b["ativo"] else "✖ "),
+                                 html.Span(b["titulo"])], style=estilo))
+            if i < len(bl) - 1:
+                nos.append(html.Div("E", className="fw-bold text-secondary px-1",
+                                    style={"alignSelf": "center"}))
+        return dbc.Card(dbc.CardBody([
+            html.Div(nome, className="fw-bold", style={"color": cor_linha}),
+            html.Small("estágio atual — todos os blocos precisam estar ativos"
+                       if atual else
+                       "para subir de estágio, faltam os blocos ofuscados",
+                       className="text-secondary d-block mb-2"),
+            html.Div(nos, className="d-flex flex-wrap justify-content-center gap-2"),
+        ]), className="bg-transparent border-secondary mb-2")
+
+    itens = [linha(estagio, cls.get("cor", "#2E9E44"), True)]
+    if proximo:
+        itens.append(linha(proximo, config.CORES_ESTAGIOS.get(proximo, "#888"), False))
+    if any("⚑" in j for j in cls.get("justificativas", [])):
+        itens.append(html.Small(
+            "⚑ Estágio definido pela regra de piso: um gatilho confirmado em "
+            "campo pertence a esta coluna do Plano.",
+            className="text-secondary d-block text-center"))
+
+    return html.Div([
+        html.H6("Como chegamos a este estágio",
+                className="text-light text-center mb-1"),
+        html.Small("Regras E/OU do Plano · blocos ativos em destaque",
+                   className="text-secondary d-block text-center mb-2"),
+        html.Div([i for i in itens if i is not None]),
+    ], className="my-3")
+
+
 def grid_subprefeituras(alertas_regionais: list[dict], tema: str = "dark") -> html.Div:
     """
     Grid das 17 regiões (subprefeituras/OP) com o status de risco da
