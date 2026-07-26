@@ -132,6 +132,9 @@ def executar_pipeline(usar_selenium: bool = True,
         "previsao_poaclima": [
             {**d, "data": str(d["data"])}
             for d in (brutos.get("previsao_poaclima", {}) or {}).get("dias", [])],
+        # card de chuva: 5 dias para trás × 5 dias para frente
+        "chuva_obs_5d_mm": ind.acumulado_obs_5d_mm,
+        "chuva_prev_5d_mm": ind.previsto_5d_mm,
         "fonte_chuva_prev": ("Poaclima/Catavento"
                              if (brutos.get("previsao_poaclima", {}) or {}).get("ok")
                              else "Open-Meteo"),
