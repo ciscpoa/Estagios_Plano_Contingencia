@@ -220,7 +220,8 @@ def _bloco_graficos(snapshot: dict) -> str:
             obs_inmet=snapshot.get("chuva_obs_inmet"),
             previsao_poa=snapshot.get("previsao_poaclima"),
             fonte_obs=snapshot.get("fonte_chuva_obs", "Open-Meteo"),
-            fonte_prev=snapshot.get("fonte_chuva_prev", "Open-Meteo")),
+            fonte_prev=snapshot.get("fonte_chuva_prev", "Open-Meteo"),
+            obs_diaria=snapshot.get("serie_obs_diaria")),
          1000, 300, True),
     ]
 

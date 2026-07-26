@@ -140,65 +140,78 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
                          obs_inmet: list[dict] | None = None,
                          previsao_poa: list[dict] | None = None,
                          fonte_obs: str = "Open-Meteo",
-                         fonte_prev: str = "Open-Meteo") -> go.Figure:
+                         fonte_prev: str = "Open-Meteo",
+                         obs_diaria: list[dict] | None = None) -> go.Figure:
+    """
+    Precipitação observada × prevista.
+
+    O Open-Meteo (modelo global) é APENAS reserva: se houver série local
+    (Poaclima/INMET/ANA) ou previsão do Poaclima, as séries do Open-Meteo
+    nem são desenhadas — para o painel não misturar fontes divergentes.
+    """
     p = paleta(tema)
     fig = go.Figure()
     agora = pd.Timestamp.now()
 
-    _hover_chuva = ("<b>{titulo}</b><br>Data: %{{x|%d/%m/%Y}}<br>"
-                    "Hora: %{{x|%H:%M}}<br>Chuva: %{{y:.1f}} mm/h"
-                    "<extra></extra>")
+    _hover = ("<b>{titulo}</b><br>Data: %{{x|%d/%m/%Y}}<br>"
+              "Hora: %{{x|%H:%M}}<br>Chuva: %{{y:.1f}} mm/h<extra></extra>")
 
-    # ── Chuva OBSERVADA: prioridade para o pluviômetro do INMET em POA ──
     dfh = pd.DataFrame(horaria)
     if not dfh.empty:
         dfh["datahora"] = pd.to_datetime(dfh["datahora"])
 
-    if obs_inmet:
+    tem_obs_local = bool(obs_inmet)
+    tem_prev_local = bool(previsao_poa)
+
+    # ── Chuva OBSERVADA ──────────────────────────────────────
+    if tem_obs_local:
         dfi = pd.DataFrame(obs_inmet)
         dfi["datahora"] = pd.to_datetime(dfi["datahora"])
         fig.add_trace(go.Bar(
             x=dfi["datahora"], y=dfi["precipitacao_mm"],
             name=f"Observada — {fonte_obs} (mm/h)", marker_color="#4EA8DE",
-            hovertemplate=_hover_chuva.format(
-                titulo=f"Chuva observada · {fonte_obs}")))
+            hovertemplate=_hover.format(titulo=f"Chuva observada · {fonte_obs}")))
     elif not dfh.empty:
         obs = dfh[dfh["datahora"] <= agora]
         fig.add_trace(go.Bar(
             x=obs["datahora"], y=obs["precipitacao_mm"],
             name="Observada — Open-Meteo (mm/h)", marker_color="#4EA8DE",
-            hovertemplate=_hover_chuva.format(titulo="Chuva observada")))
+            hovertemplate=_hover.format(titulo="Chuva observada · Open-Meteo")))
 
-    # ── Chuva PREVISTA horária (Open-Meteo; a diária oficial vem abaixo) ──
-    if not dfh.empty:
+    # ── Chuva PREVISTA horária: só sem a previsão oficial ────
+    if not tem_prev_local and not dfh.empty:
         prev = dfh[dfh["datahora"] > agora]
         if not prev.empty:
             fig.add_trace(go.Bar(
                 x=prev["datahora"], y=prev["precipitacao_mm"],
-                name="Prevista horária — Open-Meteo (mm/h)",
-                marker_color="#9B8CE0", opacity=0.7,
-                hovertemplate=_hover_chuva.format(titulo="Chuva prevista")))
+                name="Prevista — Open-Meteo (mm/h)", marker_color="#9B8CE0",
+                opacity=0.7,
+                hovertemplate=_hover.format(titulo="Chuva prevista · Open-Meteo")))
 
-    # linha "agora": add_shape (add_vline com datetime dispara bug no plotly)
-    fig.add_shape(type="line", x0=agora, x1=agora, y0=0, y1=1,
-                  yref="paper", line=dict(dash="dot", color=p["txt"], width=1))
+    # linha "agora"
+    fig.add_shape(type="line", x0=agora, x1=agora, y0=0, y1=1, yref="paper",
+                  line=dict(dash="dot", color=p["txt"], width=1))
     fig.add_annotation(x=agora, y=1, yref="paper", text="agora",
                        showarrow=False, yshift=8,
                        font=dict(color=p["txt"], size=11))
 
-    dfd = pd.DataFrame(diaria)
-    if not dfd.empty:
+    # ── Total diário observado (da fonte que venceu) ─────────
+    dfd = pd.DataFrame(obs_diaria if obs_diaria else
+                       ([] if tem_obs_local else diaria))
+    if not dfd.empty and "precipitacao_total_mm" in dfd:
         dfd["data"] = pd.to_datetime(dfd["data"])
+        rotulo_d = fonte_obs if (obs_diaria or tem_obs_local) else "Open-Meteo"
         fig.add_trace(go.Scatter(
             x=dfd["data"] + pd.Timedelta(hours=12),
             y=dfd["precipitacao_total_mm"],
-            name="Total diário (mm)", mode="lines+markers",
+            name=f"Total diário — {rotulo_d} (mm)", mode="lines+markers",
             line=dict(color="#F2830B", width=2), yaxis="y2",
-            hovertemplate="<b>Total diário</b><br>Data: %{x|%d/%m/%Y}<br>"
-                          "Acumulado: %{y:.1f} mm<extra></extra>",
-        ))
+            hovertemplate="<b>Total diário observado</b><br>"
+                          "Data: %{x|%d/%m/%Y}<br>"
+                          "Acumulado: %{y:.1f} mm<extra></extra>"))
 
-    if previsao_poa:
+    # ── Previsão diária oficial (Poaclima/Catavento) ─────────
+    if tem_prev_local:
         dfp = pd.DataFrame(previsao_poa)
         dfp["data"] = pd.to_datetime(dfp["data"])
         if "descricao" not in dfp:
@@ -213,186 +226,23 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
             customdata=dfp["descricao"].fillna(""),
             hovertemplate="<b>Previsão · Poaclima/Catavento</b><br>"
                           "Data: %{x|%d/%m/%Y}<br>%{customdata}<br>"
-                          "Chuva prevista: %{y:.0f} mm<extra></extra>",
-        ))
+                          "Chuva prevista: %{y:.0f} mm<extra></extra>"))
 
     fig.update_layout(
         title=(f"Precipitação em Porto Alegre — observada ({fonte_obs}) "
                f"· prevista ({fonte_prev})"),
         hoverlabel=p["hover"],
+        barmode="overlay",
         yaxis=dict(title="mm/h", gridcolor=p["grade"]),
-        yaxis2=dict(title="mm/dia", overlaying="y", side="right", showgrid=False),
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        font_color=p["txt"], barmode="overlay", height=380,
+        yaxis2=dict(title="mm/dia", overlaying="y", side="right",
+                    showgrid=False),
         xaxis=dict(gridcolor=p["grade"]),
-        margin=dict(l=40, r=50, t=60, b=30),
-        legend=dict(orientation="h", y=-0.15),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font_color=p["txt"], height=380,
+        margin=dict(l=50, r=50, t=60, b=40),
+        legend=dict(orientation="h", y=-0.18),
     )
     return fig
-
-
-# ──────────────────────────────────────────────────────────────────────────
-# DATATABLE
-# ──────────────────────────────────────────────────────────────────────────
-def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
-    p = paleta(tema)
-    """Níveis dos afluentes (Gravataí, Sinos, Caí, Jacuí) — últimos 7 dias."""
-    cores = {"Rio_Gravatai": "#F2B90B", "Rio_dos_Sinos_SaoLeopoldo": "#5FD068",
-             "Rio_Cai": "#F2830B", "Rio_Cai_Montenegro": "#E85D24",
-             "Rio_Cai_NovaPalmira": "#C98A3D",
-             "Rio_Jacui_TriunfoAmarop": "#9B8CE0", "Rio_Jacui_Triunfo": "#9B8CE0"}
-    rotulos = {"Rio_Gravatai": "Gravataí", "Rio_dos_Sinos_SaoLeopoldo": "Sinos (S. Leopoldo)",
-               "Rio_Cai": "Caí (Barca)", "Rio_Cai_Montenegro": "Caí (Montenegro)",
-               "Rio_Cai_NovaPalmira": "Caí (N. Palmira)",
-               "Rio_Jacui_TriunfoAmarop": "Jacuí (Triunfo)",
-               "Rio_Jacui_Triunfo": "Jacuí (Triunfo)"}
-    # Uma cidade de referência por afluente (decisão de produto 25/07)
-    principais = ("Rio_Gravatai", "Rio_dos_Sinos_SaoLeopoldo",
-                  "Rio_Cai", "Rio_Jacui_Triunfo", "Rio_Jacui_TriunfoAmarop")
-    fig = go.Figure()
-    for nome, registros in (series or {}).items():
-        if nome not in principais:
-            continue
-        df = pd.DataFrame(registros)
-        if df.empty or "nivel_m" not in df:
-            continue
-        df["datahora"] = pd.to_datetime(df["datahora"])
-        df = df.dropna(subset=["nivel_m"])
-        rotulo = rotulos.get(nome, nome)
-        fig.add_trace(go.Scatter(
-            x=df["datahora"], y=df["nivel_m"], mode="lines",
-            name=rotulo,
-            line=dict(color=cores.get(nome, "#AAAAAA"), width=2.5),
-            hovertemplate=f"<b>{rotulo}</b><br>"
-                          "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
-                          "Nível: %{y:.2f} m<extra></extra>",
-        ))
-    fig.update_layout(
-        title="Afluentes do Guaíba — nível (últimos 7 dias)",
-        hoverlabel=p["hover"],
-        yaxis_title="metros", paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)", font_color=p["txt"],
-        xaxis=dict(gridcolor=p["grade"]), yaxis=dict(gridcolor=p["grade"]),
-        height=380, margin=dict(l=40, r=20, t=60, b=30),
-        legend=dict(orientation="h", y=-0.15),
-    )
-    return fig
-
-
-# ──────────────────────────────────────────────────────────────────────────
-# CARDS: Nível × Cota de Inundação (Guaíba + afluentes)
-# ──────────────────────────────────────────────────────────────────────────
-def _nivel_do_indicador(indicadores: dict, chave: str) -> float | None:
-    if chave == "Guaiba_PortoAlegre_CaisMaua":
-        return indicadores.get("nivel_guaiba_m")
-    if chave == "poaclima_gasometro":
-        return indicadores.get("poaclima_gasometro_m")
-    if chave == "poaclima_cais_maua":
-        return indicadores.get("poaclima_cais_maua_m")
-    if chave == "poaclima_riacho_ipiranga":
-        return indicadores.get("poaclima_riacho_ipiranga_m")
-    dados = (indicadores.get("afluentes") or {}).get(chave) or {}
-    v = dados.get("nivel_atual_m")
-    return v if v is not None else dados.get("nivel_m")
-
-
-def avisos_inmet(av: dict | None, tema: str = "dark"):
-    """Retângulo com os avisos meteorológicos vigentes do INMET para POA."""
-    av = av or {}
-    alertas = av.get("alertas") or []
-
-    if not av.get("consultado", True):
-        corpo = html.Div("Não foi possível consultar o INMET nesta "
-                         "atualização — verifique em alertas2.inmet.gov.br",
-                         className="text-secondary small")
-        borda = "#8B95A1"
-    elif not alertas:
-        corpo = html.Div([html.B("Nenhum aviso meteorológico vigente"),
-                          " para Porto Alegre no momento."],
-                         className="small")
-        borda = config.CORES_ESTAGIOS["NORMALIDADE"]
-    else:
-        itens = []
-        for a in alertas[:4]:
-            sev = a.get("severidade") or "Amarelo"
-            cor = config.CORES_AVISO_INMET.get(sev, "#E3B505")
-            periodo = " · ".join(p for p in (
-                f"de {a['inicio']}" if a.get("inicio") else None,
-                f"até {a['fim']}" if a.get("fim") else None) if p)
-            itens.append(html.Div([
-                html.Span(sev, className="badge me-2",
-                          style={"backgroundColor": cor, "color": "white"}),
-                html.Span((a.get("descricao") or "").strip()[:220],
-                          className="small"),
-                html.Div(periodo, className="text-secondary",
-                         style={"fontSize": "0.78rem"}) if periodo else None,
-            ], className="p-2 mb-2 text-start",
-                style={"borderLeft": f"6px solid {cor}",
-                       "backgroundColor": "rgba(127,127,127,0.08)",
-                       "borderRadius": "8px"}))
-        corpo = html.Div(itens)
-        borda = config.CORES_AVISO_INMET.get(av.get("max_severidade"), "#E3B505")
-
-    titulo = ("Avisos meteorológicos vigentes — INMET"
-              + (f" ({len(alertas)})" if alertas else ""))
-    return dbc.Card(dbc.CardBody([
-        html.H6(titulo, className="text-light text-center mb-2"),
-        corpo,
-    ]), className="bg-transparent mb-3",
-        style={"border": f"1px solid {borda}", "borderRadius": "12px"})
-
-
-def cards_rios(indicadores: dict, tema: str = "dark") -> dbc.Row:
-    p = paleta(tema)
-    """Cards centralizados: Nível — Cota de Inundação — Município — Estação."""
-    cards = []
-    for info in config.INFO_RIOS_CARDS:
-        cota = info["cota_inundacao"]
-        nivel = _nivel_do_indicador(indicadores or {}, info["chave"])
-
-        if nivel is not None and cota:
-            pct = max(0.0, nivel / cota * 100.0)
-            if pct >= 100:
-                cor = config.CORES_ESTAGIOS["SITUAÇÃO DE EMERGÊNCIA"]
-            elif pct >= 85:
-                cor = config.CORES_ESTAGIOS["ALERTA"]
-            elif pct >= 65:
-                cor = config.CORES_ESTAGIOS["MOBILIZAÇÃO"]
-            else:
-                cor = config.CORES_ESTAGIOS["NORMALIDADE"]
-            corpo_valor = html.H3(
-                [f"{nivel:.2f} m", html.Span(f" / {cota:.2f} m",
-                                             className="fs-6 opacity-75")],
-                className="mb-1 fw-bold", style={"color": cor})
-            barra = html.Div(
-                html.Div(style={"width": f"{min(pct, 100):.0f}%",
-                                "height": "100%", "borderRadius": "4px",
-                                "backgroundColor": cor}),
-                style={"height": "8px", "borderRadius": "4px",
-                       "backgroundColor": p["track"],
-                       "overflow": "hidden"},
-                className="mb-2")
-            rodape = html.Small(f"{pct:.0f}% da cota de inundação",
-                                className="text-secondary")
-        else:
-            corpo_valor = html.H3(
-                f"{nivel:.2f} m" if nivel is not None else "—",
-                className="mb-1 fw-bold text-light")
-            barra = html.Div()
-            rodape = html.Small("cota de inundação: não informada"
-                                if nivel is not None else "sem leitura",
-                                className="text-secondary")
-
-        cards.append(dbc.Col(dbc.Card(dbc.CardBody([
-            html.H6(info["rotulo"], className="text-light mb-0 fw-bold"),
-            html.Small(f"{info['municipio']} · est. {info['estacao']}",
-                       className="text-secondary d-block mb-2"),
-            corpo_valor, barra, rodape,
-        ], className="text-center"),
-            className="bg-transparent border-secondary h-100"),
-            md=True, xs=6, className="mb-2"))
-
-    return dbc.Row(cards, className="g-3 justify-content-center text-center cards-rios")
 
 
 def grid_subprefeituras(alertas_regionais: list[dict], tema: str = "dark") -> html.Div:
