@@ -1,0 +1,22 @@
+# ── NUNCA versionar credenciais ──
+ANA_API_ID_SENHA.txt
+.env
+
+# ── Saídas geradas em execução ──
+dados/*.csv
+# O snapshot É versionado de propósito: o GitHub Actions o atualiza a cada
+# coleta e ele alimenta o painel (site estático e/ou hospedagem externa).
+!dados/ultimo_snapshot.json
+arquivos_gerados_2026/*.csv
+arquivos_gerados_2026/*.pdf
+!arquivos_gerados_2026/.gitkeep
+!dados/.gitkeep
+
+# Site gerado (publicado pelo Actions, não precisa versionar)
+site/
+
+# ── Caches ──
+__pycache__/
+*.pyc
+.cft/
+.ipynb_checkpoints/
