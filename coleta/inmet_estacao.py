@@ -66,11 +66,21 @@ def coletar_chuva_observada(dias: int = 7, codigo: str | None = None) -> dict:
     Em caso de falha, devolve estruturas vazias com ok=False (o pipeline
     segue usando o Open-Meteo como reserva).
     """
+    import os
+
     codigo = codigo or config.INMET_ESTACAO_POA
     fim = datetime.now().date()
     inicio = fim - timedelta(days=dias)
-    url = (f"https://apitempo.inmet.gov.br/estacao/"
-           f"{inicio:%Y-%m-%d}/{fim:%Y-%m-%d}/{codigo}")
+
+    # O INMET passou a exigir token em parte dos endpoints. Tentamos primeiro
+    # o endpoint aberto; havendo INMET_TOKEN definido, tentamos também o
+    # endpoint autenticado. Peça a chave em: https://portal.inmet.gov.br
+    token = (os.environ.get("INMET_TOKEN") or "").strip()
+    urls = [f"https://apitempo.inmet.gov.br/estacao/"
+            f"{inicio:%Y-%m-%d}/{fim:%Y-%m-%d}/{codigo}"]
+    if token:
+        urls.insert(0, f"https://apitempo.inmet.gov.br/token/estacao/"
+                       f"{inicio:%Y-%m-%d}/{fim:%Y-%m-%d}/{codigo}/{token}")
 
     vazio = {
         "horaria": pd.DataFrame(columns=["datahora", "precipitacao_mm"]),
@@ -82,19 +92,32 @@ def coletar_chuva_observada(dias: int = 7, codigo: str | None = None) -> dict:
 
     forcar_ipv4()      # sem isso, apitempo.inmet.gov.br dá timeout em CI
     registros = None
-    for tentativa in (1, 2):
+    for url in urls:
+        rotulo = "com token" if "/token/" in url else "aberto"
         try:
             r = requests.get(url, headers=_CABECALHOS, timeout=(10, 25))
             r.raise_for_status()
+            corpo = (r.text or "").strip()
+            if not corpo:
+                print(f"[INMET-estação] endpoint {rotulo}: resposta VAZIA "
+                      f"(HTTP {r.status_code}).")
+                continue
             registros = r.json()
+            print(f"[INMET-estação] endpoint {rotulo}: OK "
+                  f"({len(registros)} registros).")
             break
+        except ValueError:
+            print(f"[INMET-estação] endpoint {rotulo}: resposta não é JSON "
+                  f"(início: {corpo[:80]!r}).")
         except Exception as exc:
-            print(f"[INMET-estação] tentativa {tentativa}/2 falhou ({exc})")
-            if tentativa == 2:
-                print("[INMET-estação] indisponível; usando Open-Meteo como reserva.")
-                return vazio
-            import time
-            time.sleep(3)
+            print(f"[INMET-estação] endpoint {rotulo} falhou ({exc}).")
+
+    if registros is None:
+        if not token:
+            print("[INMET-estação] Sem dados. O endpoint aberto do INMET pode "
+                  "exigir chave: defina o secret INMET_TOKEN quando tiver. "
+                  "Usando as estações do Poaclima / Open-Meteo como reserva.")
+        return vazio
 
     if not registros:
         print("[INMET-estação] resposta vazia; usando Open-Meteo como reserva.")

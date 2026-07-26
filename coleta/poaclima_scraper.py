@@ -416,6 +416,78 @@ def _parse_previsao(texto: str) -> list[dict]:
     return unicos
 
 
+def coletar_estacoes_meteo_poaclima() -> dict:
+    """
+    Lê a camada "Estações meteorológicas" do Poaclima (mesma fonte que a
+    Defesa Civil de POA usa) e extrai a CHUVA ACUMULADA de cada estação.
+
+    Serve de reserva para a chuva observada quando a API de estações do
+    INMET não responde (ela passou a exigir chave).
+
+    Retorna {"estacoes": {nome: mm}, "acumulado_max_mm", "fonte", "ok"}
+    """
+    vazio = {"estacoes": {}, "acumulado_max_mm": None,
+             "fonte": "Poaclima (estações meteorológicas)", "ok": False}
+    try:
+        driver = criar_driver()
+    except Exception as exc:
+        print(f"[Poaclima-estações] Selenium indisponível: {exc}")
+        return vazio
+
+    try:
+        driver.get(config.URL_POACLIMA)
+        WebDriverWait(driver, config.SELENIUM_TIMEOUT_S).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body")))
+        baseline = _entrar_no_conteudo(driver, espera_s=20)
+
+        for xp in ("//*[contains(text(),'Estações meteorológicas')]",
+                   "//*[contains(text(),'Estacoes meteorologicas')]"):
+            for el in driver.find_elements(By.XPATH, xp)[:3]:
+                try:
+                    driver.execute_script("arguments[0].click();", el)
+                    time.sleep(2.0)
+                    break
+                except Exception:
+                    continue
+
+        estacoes: dict[str, float] = {}
+        try:
+            marcadores = driver.find_elements(By.CSS_SELECTOR, _SELETORES_MARCADOR)
+        except Exception:
+            marcadores = []
+        for el in marcadores[:60]:
+            try:
+                driver.execute_script(
+                    "arguments[0].scrollIntoView({block:'center'});"
+                    "arguments[0].dispatchEvent(new MouseEvent('click',"
+                    "{bubbles:true, cancelable:true, view:window}));", el)
+                time.sleep(0.9)
+                texto = _texto_popup(driver, baseline)
+                if not texto:
+                    continue
+                m = _RE_CHUVA.search(texto)
+                if m:
+                    nome = texto.splitlines()[0][:60] if texto.splitlines() else "estação"
+                    estacoes.setdefault(nome, float(m.group(1).replace(",", ".")))
+                _fechar_popup(driver)
+            except Exception:
+                continue
+
+        if not estacoes:
+            print("[Poaclima-estações] nenhuma leitura de chuva capturada.")
+            return vazio
+        maximo = max(estacoes.values())
+        print(f"[Poaclima-estações] {len(estacoes)} estação(ões) com chuva | "
+              f"máximo acumulado: {maximo:.1f} mm")
+        return {"estacoes": estacoes, "acumulado_max_mm": maximo,
+                "fonte": "Poaclima (estações meteorológicas)", "ok": True}
+    except Exception as exc:
+        print(f"[Poaclima-estações] falha: {exc}")
+        return vazio
+    finally:
+        driver.quit()
+
+
 def coletar_previsao_poaclima() -> dict:
     """
     Abre a aba "Previsão do tempo" do Poaclima e lê a tabela de previsão
