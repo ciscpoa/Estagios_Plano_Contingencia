@@ -451,6 +451,7 @@ def coletar_estacoes_meteo_poaclima() -> dict:
                     continue
 
         estacoes: dict[str, float] = {}
+        periodos: list[str | None] = []
         try:
             marcadores = driver.find_elements(By.CSS_SELECTOR, _SELETORES_MARCADOR)
         except Exception:
@@ -468,7 +469,13 @@ def coletar_estacoes_meteo_poaclima() -> dict:
                 m = _RE_CHUVA.search(texto)
                 if m:
                     nome = texto.splitlines()[0][:60] if texto.splitlines() else "estação"
-                    estacoes.setdefault(nome, float(m.group(1).replace(",", ".")))
+                    valor = float(m.group(1).replace(",", "."))
+                    # tenta descobrir a janela do acumulado ("24h", "1h"...)
+                    jan = re.search(r"(\d{1,2})\s*h(?:oras)?", texto, re.I)
+                    periodo = f"{jan.group(1)}h" if jan else None
+                    if nome not in estacoes:
+                        estacoes[nome] = valor
+                        periodos.append(periodo)
                 _fechar_popup(driver)
             except Exception:
                 continue
@@ -477,9 +484,13 @@ def coletar_estacoes_meteo_poaclima() -> dict:
             print("[Poaclima-estações] nenhuma leitura de chuva capturada.")
             return vazio
         maximo = max(estacoes.values())
+        periodo = next((p for p in periodos if p), None)
         print(f"[Poaclima-estações] {len(estacoes)} estação(ões) com chuva | "
-              f"máximo acumulado: {maximo:.1f} mm")
+              f"máximo acumulado: {maximo:.1f} mm"
+              + (f" (janela: {periodo})" if periodo
+                 else " (janela não informada no popup — tratada como 24h)"))
         return {"estacoes": estacoes, "acumulado_max_mm": maximo,
+                "periodo": periodo,
                 "fonte": "Poaclima (estações meteorológicas)", "ok": True}
     except Exception as exc:
         print(f"[Poaclima-estações] falha: {exc}")
