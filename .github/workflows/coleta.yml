@@ -19,11 +19,12 @@ name: Coleta e publicação do painel
 
 on:
   schedule:
-    # ATENÇÃO aos minutos: :00 e :30 são os horários mais disputados do
-    # agendador do GitHub e os que mais sofrem atraso/descarte. Minutos
-    # "quebrados" saem na frente da fila. Duas execuções por hora dão
-    # redundância: se a das :07 for descartada, a das :37 costuma passar.
-    - cron: "7,37 * * * *"
+    # Três execuções por hora, em minutos "quebrados" (:00 e :30 são os mais
+    # disputados do agendador do GitHub e os que mais sofrem descarte).
+    # Com 3 tentativas/hora, mesmo perdendo 2 o painel fica dentro de 60 min.
+    # O espaçamento de 20 min é maior que o teto de 18 min do job, então uma
+    # execução nunca atropela a seguinte.
+    - cron: "4,24,44 * * * *"
   workflow_dispatch:             # permite rodar na hora, pelo botão "Run workflow"
   push:
     paths:
@@ -36,12 +37,13 @@ permissions:
 
 concurrency:
   group: coleta-painel
-  cancel-in-progress: false
+  # true: entre uma coleta velha travada e uma nova, o painel quer a nova.
+  cancel-in-progress: true
 
 jobs:
   coletar:
     runs-on: ubuntu-latest
-    timeout-minutes: 32          # a coleta com Selenium leva ~14 min; 20 era pouco
+    timeout-minutes: 18          # menor que o intervalo do cron (20 min)
     steps:
       - uses: actions/checkout@v4
 
@@ -78,7 +80,7 @@ jobs:
           done
 
       - name: Executar o pipeline (coleta + classificação)
-        timeout-minutes: 18
+        timeout-minutes: 13       # deixa ~5 min para setup, página e publicação
         continue-on-error: true   # falha parcial não pode impedir a publicação
         id: pipeline
         env:
@@ -126,6 +128,27 @@ jobs:
             git commit -m "Coleta automática [skip ci]"
             git push origin HEAD:${{ github.ref_name }}
           fi
+
+      - name: Conferir a idade do painel
+        if: always()
+        run: |
+          python - <<'FIM'
+          import json, datetime, os, pathlib
+          arq = pathlib.Path("dashboard/snapshot.json")
+          if not arq.exists():
+              raise SystemExit(0)
+          try:
+              iso = json.loads(arq.read_text())["timestamp_iso"]
+          except Exception:
+              raise SystemExit(0)
+          idade = (datetime.datetime.now()
+                   - datetime.datetime.fromisoformat(iso)).total_seconds() / 60
+          print(f"Painel com {idade:.0f} min desde a coleta.")
+          if idade > 60:
+              print(f"::warning::Painel com {idade:.0f} min sem atualizar "
+                    "(teto acordado: 60 min). Provável descarte do agendador "
+                    "do GitHub — considere o gatilho externo.")
+          FIM
 
       - name: Sinalizar falha do pipeline (após publicar)
         if: always() && steps.pipeline.outcome == 'failure'
