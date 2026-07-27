@@ -411,27 +411,67 @@ def _rodape_chuva(snapshot: dict) -> str:
 
 _JS_FRESCOR = """
 <script>
-/* O cron do GitHub Actions falha/atrasa com frequência. Sem este aviso, um
-   painel parado parece um painel calmo — que é o pior modo de falhar numa
-   ferramenta de contingência. */
+/* Frescor do painel.
+
+   Dois problemas distintos, que antes se confundiam num número só:
+     • a COLETA pode ter parado (cron do GitHub descartado);
+     • a PÁGINA pode estar velha em cache, mesmo com coleta nova no ar.
+
+   O index.html carrega assets embutidos e é grande, então o CDN do Pages e
+   o navegador o guardam. Por isso a idade é medida pelo status.json, que é
+   buscado com cache desativado: se houver coleta nova, a página se recarrega
+   sozinha com parâmetro anti-cache; se não houver, o selo mostra a idade
+   verdadeira do dado. */
 (function () {
   var el = document.getElementById("frescor");
-  if (!el || !el.dataset.iso) return;
-  function tick() {
-    var min = (Date.now() - new Date(el.dataset.iso).getTime()) / 60000;
+  if (!el) return;
+  var isoAtual = el.dataset.iso || "";
+
+  function pinta(iso) {
+    if (!iso) return;
+    var min = (Date.now() - new Date(iso).getTime()) / 60000;
     el.className = "frescor";
     if (min >= 120) {
       el.classList.add("parado");
-      el.textContent = "PARADO ha " + Math.floor(min / 60) + "h";
+      el.textContent = "PARADO há " + Math.floor(min / 60) + "h";
     } else if (min >= 60) {
       el.classList.add("velho");
-      el.textContent = "desatualizado ha " + Math.round(min) + " min";
+      el.textContent = "desatualizado há " + Math.round(min) + " min";
     } else {
       el.textContent = "";
     }
   }
-  tick();
-  setInterval(tick, 60000);
+
+  function consultaServidor() {
+    fetch("status.json?v=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.timestamp_iso) return;
+        var maisNova = isoAtual &&
+                       new Date(d.timestamp_iso) > new Date(isoAtual);
+        if (maisNova) {
+          /* TRAVA obrigatória: se o CDN insistir em servir o HTML antigo, a
+             recarga não resolve e sem esta guarda a página entra em laço
+             infinito. Tentamos UMA vez por versão; se voltar velha, paramos
+             de recarregar e apenas mostramos a idade real do dado. */
+          var chave = "recarga:" + d.timestamp_iso;
+          var jaTentou = false;
+          try { jaTentou = !!sessionStorage.getItem(chave); } catch (e) {}
+          if (!jaTentou) {
+            try { sessionStorage.setItem(chave, "1"); } catch (e) {}
+            location.replace(location.pathname + "?v=" + Date.now());
+            return;
+          }
+        }
+        pinta(d.timestamp_iso);
+      })
+      .catch(function () { /* offline: segue com o horário embutido */ });
+  }
+
+  pinta(isoAtual);
+  setInterval(function () { pinta(isoAtual); }, 60000);
+  consultaServidor();
+  setInterval(consultaServidor, 120000);   // a cada 2 min
 })();
 </script>
 """
@@ -729,12 +769,24 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
     destino = Path(destino)
     destino.parent.mkdir(parents=True, exist_ok=True)
 
+    # status.json: arquivo minúsculo com a hora da coleta. O index.html é
+    # pesado (assets embutidos) e fica em cache no CDN do GitHub Pages e no
+    # navegador, então a página podia estar velha sem ninguém perceber. A
+    # página consulta ESTE arquivo sem cache para saber a idade real do dado
+    # e só se recarrega quando existe coleta nova de verdade.
+    import json as _json
+    (destino.parent / "status.json").write_text(_json.dumps({
+        "timestamp_iso": snapshot.get("timestamp_iso", ""),
+        "timestamp": snapshot.get("timestamp", ""),
+        "estagio": (snapshot.get("classificacao") or {}).get("estagio", ""),
+    }, ensure_ascii=False), encoding="utf-8")
+
     html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="900">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>Estágios Operacionais — Porto Alegre</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
