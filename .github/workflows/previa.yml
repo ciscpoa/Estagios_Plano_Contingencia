@@ -1,0 +1,92 @@
+# ==========================================================================
+# PRÉVIA — testar mudanças fora do main, sem tocar no painel publicado
+#
+# O GitHub Pages publica UM site por repositório, e o `schedule` do Actions
+# só dispara na branch padrão. Então não dá para ter "dois sites". O que dá,
+# e resolve o problema na prática, é gerar a página numa branch de teste e
+# baixá-la pronta como artefato.
+#
+# COMO USAR
+#   1) git checkout -b previa && git push -u origin previa
+#   2) Este fluxo roda sozinho a cada push na branch (menos main/master).
+#   3) Actions → a execução → seção "Artifacts" → baixe "painel-previa".
+#   4) Descompacte e abra o index.html no navegador. É o site inteiro,
+#      autocontido (logo, fundo e gráficos estão embutidos no arquivo).
+#   5) Deu certo? Aí sim faz o merge na main, que é quem publica.
+#
+# Nada aqui escreve no repositório nem no GitHub Pages: é leitura pura.
+# ==========================================================================
+name: Prévia do painel (branch de teste)
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read          # deliberadamente só leitura: prévia não publica
+
+concurrency:
+  group: previa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gerar-previa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Localizar o Chrome do runner (para o Selenium)
+        run: |
+          CHROME=$(command -v google-chrome || command -v chromium-browser || true)
+          echo "CHROME_BIN=$CHROME" >> $GITHUB_ENV
+          if [ -n "$CHROMEWEBDRIVER" ] && [ -x "$CHROMEWEBDRIVER/chromedriver" ]; then
+            echo "CHROMEDRIVER_PATH=$CHROMEWEBDRIVER/chromedriver" >> $GITHUB_ENV
+          fi
+
+      - name: Executar o pipeline
+        timeout-minutes: 18
+        continue-on-error: true
+        id: pipeline
+        env:
+          ANA_IDENTIFICADOR: ${{ secrets.ANA_IDENTIFICADOR }}
+          ANA_SENHA: ${{ secrets.ANA_SENHA }}
+          INMET_TOKEN: ${{ secrets.INMET_TOKEN }}
+          TZ: America/Sao_Paulo
+        run: python main_pipeline.py
+
+      - name: Gerar a página estática
+        if: always()
+        run: python -m dashboard.site_estatico
+
+      - name: Empacotar a prévia para download
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: painel-previa
+          path: site
+          retention-days: 7
+
+      - name: Onde baixar
+        if: always()
+        run: |
+          echo "### Prévia gerada" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Baixe o artefato **painel-previa** no topo desta página, " \
+               "descompacte e abra o \`index.html\`." >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.pipeline.outcome }}" = "failure" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> O pipeline falhou; a página foi montada com o último " \
+                 "snapshot do repositório." >> $GITHUB_STEP_SUMMARY
+          fi
