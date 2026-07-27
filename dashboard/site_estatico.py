@@ -76,10 +76,42 @@ def _trilho_estagios(atual: str) -> str:
     um operador precisa para antecipar. O desenho é o do próprio Plano, não
     um enfeite: a fonte da escala é o documento oficial.
     """
-    def _rgba(hexa: str, alfa: float) -> str:
+    def _rgb(hexa: str):
         h = hexa.lstrip("#")
-        r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+        return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+    def _rgba(hexa: str, alfa: float) -> str:
+        r, g, b = _rgb(hexa)
         return f"rgba({r},{g},{b},{alfa})"
+
+    def _luminancia(hexa: str) -> float:
+        def canal(c):
+            c /= 255
+            return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+        r, g, b = (canal(v) for v in _rgb(hexa))
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+    def _legivel_no_escuro(hexa: str, alvo: float = 5.5) -> str:
+        """
+        Clareia a cor até alcançar contraste `alvo` sobre o fundo escuro.
+
+        As cores dos estágios vêm do Plano e não podem mudar nas faixas
+        preenchidas. Mas quando viram TEXTO sobre fundo escuro, as escuras
+        somem: o roxo da CRISE tinha 2,5:1 e o vermelho da EMERGÊNCIA 3,4:1,
+        contra o mínimo legível de 4,5:1. Aqui geramos só a variante de
+        texto/borda, mantendo a matiz.
+        """
+        lum_fundo = _luminancia("#0A141C")
+        r, g, b = _rgb(hexa)
+        for passo in range(21):
+            f = passo / 20
+            atual = (round(r + (255 - r) * f), round(g + (255 - g) * f),
+                     round(b + (255 - b) * f))
+            hexa_atual = "#%02X%02X%02X" % atual
+            razao = (_luminancia(hexa_atual) + 0.05) / (lum_fundo + 0.05)
+            if razao >= alvo:
+                return hexa_atual
+        return "#FFFFFF"
 
     passos = []
     idx_atual = (config.ESTAGIOS.index(atual)
@@ -93,8 +125,11 @@ def _trilho_estagios(atual: str) -> str:
             # fundo escuro. Agora cada um leva um preenchimento na própria
             # cor: continua claramente secundário, mas legível.
             classe = "passo antes" if i < idx_atual else "passo depois"
-            estilo = (f"border-color:{cor};color:{cor};"
-                      f"background:{_rgba(cor, .16 if i < idx_atual else .10)}")
+            claro = _legivel_no_escuro(cor)
+            # duas variáveis: o CSS escolhe conforme o tema (a clara só serve
+            # sobre o fundo escuro; no modo claro a original é a legível)
+            estilo = (f"--c:{cor};--c-esc:{claro};"
+                      f"background:{_rgba(cor, .20 if i < idx_atual else .14)}")
         curto = "EMERGÊNCIA" if nome.startswith("SITUAÇÃO") else nome
         passos.append(f"<div class='{classe}' style='{estilo}'>"
                       f"<span class='grau'>{i + 1}</span>{curto}</div>")
@@ -520,8 +555,11 @@ button:focus-visible{outline:2px solid var(--cisc);outline-offset:2px}
      clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%)}
 .passo .grau{display:block;font-size:.66rem;opacity:.75;font-weight:600}
 .passo.atual{color:#fff;transform:scale(1.03);box-shadow:0 3px 14px var(--sombra)}
-.passo.antes{opacity:.95}
-.passo.depois{opacity:.82}
+.passo.antes,.passo.depois{color:var(--c-esc);border-color:var(--c-esc)}
+body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
+  border-color:var(--c)}
+.passo.antes{opacity:1}
+.passo.depois{opacity:.92}
 @media(max-width:760px){.passo{clip-path:none;flex:1 1 45%;padding:8px}}
 .aviso-fontes{background:#8a6d1a;color:#fff;border-radius:10px;padding:10px 14px;
               margin-bottom:12px;font-size:.88rem;text-align:center}
