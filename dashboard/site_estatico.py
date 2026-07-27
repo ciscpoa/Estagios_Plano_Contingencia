@@ -303,41 +303,6 @@ def _bloco_avisos_inmet(snapshot: dict) -> str:
             f" ({len(alertas)})</div>{''.join(itens)}</section>")
 
 
-def _bloco_arvore(snapshot: dict) -> str:
-    """
-    O que falta para SUBIR de estágio.
-
-    Os blocos do estágio vigente foram para o topo, junto do banner — repeti-los
-    aqui seria mostrar a mesma informação duas vezes. Sobra a pergunta que esta
-    seção responde de verdade: o que precisaria acontecer para escalar.
-    """
-    cls = snapshot.get("classificacao") or {}
-    blocos = cls.get("blocos_por_estagio") or {}
-    estagio = cls.get("estagio")
-    if not blocos or not estagio:
-        return ""
-
-    ordem = config.ESTAGIOS
-    idx = ordem.index(estagio) if estagio in ordem else 0
-    if idx + 1 >= len(ordem):
-        return ""                      # já está em CRISE: não há próximo
-    proximo = ordem[idx + 1]
-
-    linha = _linha_blocos(
-        blocos.get(proximo) or [], config.CORES_ESTAGIOS.get(proximo, "#888"),
-        "todos estes blocos precisariam estar ativos", proximo)
-    if not linha:
-        return ""
-
-    return f"""
-    <section class="bloco-arvore">
-      <h3 class="titulo-secao">O que falta para subir de estágio</h3>
-      <div class="sub">Próximo degrau do Plano de Contingência (item 5.1) ·
-        regras E/OU</div>
-      {linha}
-    </section>"""
-
-
 def _bloco_gatilhos(snapshot: dict) -> str:
     ativos = snapshot.get("gatilhos_ativos") or []
     if not ativos:
@@ -572,7 +537,6 @@ button:focus-visible{outline:2px solid var(--cisc);outline-offset:2px}
   border-radius:6px;padding:2px 8px;margin-right:8px}
 .item-aviso .desc{font-size:.9rem}
 .item-aviso .periodo{font-size:.78rem;color:var(--txt2);margin-top:3px}
-.bloco-arvore{margin-bottom:22px}
 .linha-arvore{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:10px 12px;margin-bottom:10px}
 .rotulo-linha{font-weight:800;letter-spacing:.4px}
@@ -684,7 +648,6 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
   .titulo-secao{margin:10px 0 2px;font-size:1rem}
 
   /* A árvore começa em página nova: na versão anterior ela caía partida */
-  .bloco-arvore{break-before:page;page-break-before:always}
 
   /* Um gráfico por página, ocupando a folha inteira — antes eles eram
      espremidos lado a lado e os títulos ficavam truncados. */
@@ -808,7 +771,6 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_avisos_inmet(snapshot)}
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
-  {_bloco_arvore(snapshot)}
   {_bloco_gatilhos(snapshot)}
   {_bloco_graficos(snapshot)}
   {_JS_FRESCOR}
