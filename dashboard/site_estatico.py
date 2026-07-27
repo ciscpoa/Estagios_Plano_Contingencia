@@ -23,6 +23,26 @@ from dashboard import componentes
 # ──────────────────────────────────────────────────────────────────────────
 # Blocos de HTML
 # ──────────────────────────────────────────────────────────────────────────
+_RAIZ = Path(__file__).resolve().parent.parent
+
+
+def _ativo_b64(nome: str, mime: str) -> str:
+    """
+    Lê um arquivo de assets/ e devolve um data URI.
+
+    Embutir em base64 deixa a página autocontida: um único index.html, sem
+    caminho relativo para quebrar no GitHub Pages e sem requisição externa
+    na hora de imprimir o PDF (imagem faltando em PDF é falha silenciosa).
+    """
+    caminho = _RAIZ / "assets" / nome
+    try:
+        import base64
+        return (f"data:{mime};base64,"
+                + base64.b64encode(caminho.read_bytes()).decode("ascii"))
+    except Exception:
+        return ""
+
+
 def _texto_html(txt: str) -> str:
     """Escapa HTML e converte quebras de linha em <br>, preservando o
     recuo visual dos itens '•' (o motivo agora é multilinha)."""
@@ -47,6 +67,32 @@ def _bloco_fontes(snapshot: dict) -> str:
     )
 
 
+def _trilho_estagios(atual: str) -> str:
+    """
+    Reproduz a progressão em chevrons do item 5.1 do Plano.
+
+    O banner sozinho diz em que estágio a cidade está; o trilho diz em que
+    DEGRAU da escala isso fica e qual é o próximo — que é a informação que
+    um operador precisa para antecipar. O desenho é o do próprio Plano, não
+    um enfeite: a fonte da escala é o documento oficial.
+    """
+    passos = []
+    idx_atual = (config.ESTAGIOS.index(atual)
+                 if atual in config.ESTAGIOS else -1)
+    for i, nome in enumerate(config.ESTAGIOS):
+        cor = config.CORES_ESTAGIOS[nome]
+        if i == idx_atual:
+            classe, estilo = "passo atual", f"background:{cor};border-color:{cor}"
+        elif i < idx_atual:
+            classe, estilo = "passo antes", f"border-color:{cor};color:{cor}"
+        else:
+            classe, estilo = "passo depois", f"border-color:{cor};color:{cor}"
+        curto = "EMERGÊNCIA" if nome.startswith("SITUAÇÃO") else nome
+        passos.append(f"<div class='{classe}' style='{estilo}'>"
+                      f"<span class='grau'>{i + 1}</span>{curto}</div>")
+    return f"<div class='trilho-estagios'>{''.join(passos)}</div>"
+
+
 def _bloco_banner(snapshot: dict) -> str:
     cls = snapshot.get("classificacao") or {}
     cor = cls.get("cor", "#2E9E44")
@@ -57,6 +103,7 @@ def _bloco_banner(snapshot: dict) -> str:
         for j in cls.get("justificativas", [])
         if not j.lstrip().startswith(("⚑", "⚙")))
     return f"""
+    {_trilho_estagios(cls.get('estagio', ''))}
     <section class="banner" style="background:{cor}">
       <h2>ESTÁGIO OPERACIONAL: {cls.get('rotulo') or cls.get('estagio', '—')}</h2>
       <div class="ts">Última atualização: {snapshot.get('timestamp', '—')}
@@ -403,41 +450,79 @@ _JS_FRESCOR = """
 """
 
 _CSS = """
-:root{--fundo:#101418;--cartao:#161C22;--txt:#E8ECF1;--txt2:#9AA6B2;
-      --borda:#2A333D;--trilho:rgba(255,255,255,.10)}
-body.claro{--fundo:#F2F4F7;--cartao:#FFFFFF;--txt:#1F2733;--txt2:#5A6472;
-      --borda:#D9DEE5;--trilho:rgba(0,0,0,.10)}
+/* Paleta tirada do próprio assunto: a água barrenta do Guaíba e o azul do
+   CISC. Fundo azul-esverdeado escuro em vez de cinza neutro — é água, não
+   painel genérico. Bordas em branco/preto conforme pedido, com alfa para
+   marcarem o contorno sem ofuscar o conteúdo. */
+:root{--fundo:#0A141C;--cartao:#10202C;--txt:#E9EFF5;--txt2:#8FA3B4;
+      --borda:rgba(255,255,255,.58);--borda-fina:rgba(255,255,255,.16);
+      --trilho:rgba(255,255,255,.12);--cisc:#5B9BF3;--sombra:rgba(0,0,0,.35)}
+body.claro{--fundo:#EDF1F5;--cartao:#FFFFFF;--txt:#132030;--txt2:#54657A;
+      --borda:rgba(0,0,0,.52);--borda-fina:rgba(0,0,0,.14);
+      --trilho:rgba(0,0,0,.10);--cisc:#1D4FA3;--sombra:rgba(20,40,60,.12)}
 *{box-sizing:border-box}
-body{margin:0;padding:24px 16px 40px;background:var(--fundo);color:var(--txt);
-     font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-     text-align:center;transition:background .3s}
-.wrap{max-width:1320px;margin:0 auto}
-h1{font-size:1.7rem;margin:0 0 4px}
-.sub{color:var(--txt2);font-size:.9rem;margin-bottom:14px}
-.acoes{margin:10px 0 18px}
+body{margin:0;padding:22px 16px 40px;background:var(--fundo);color:var(--txt);
+     font-family:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+     text-align:center;transition:background .3s;position:relative;min-height:100vh}
+/* Guaíba ao fundo: atmosfera, não ilustração — sai do caminho antes do conteúdo */
+body::before{content:"";position:fixed;inset:0;z-index:-1;
+     background-size:cover;background-position:center 28%;
+     background-repeat:no-repeat;opacity:.85}
+.wrap{max-width:1320px;margin:0 auto;position:relative}
+.cabecalho{display:flex;align-items:center;justify-content:center;gap:16px;
+     text-align:left;margin-bottom:6px;flex-wrap:wrap}
+.logo{height:62px;width:52px;flex:0 0 auto}
+.sobretitulo{font-family:"Barlow Condensed",sans-serif;font-weight:600;
+     font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;
+     color:var(--cisc)}
+h1{font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-weight:700;
+     font-size:2.1rem;line-height:1.05;margin:2px 0 3px;letter-spacing:.01em}
+h1 .fina{font-weight:500;color:var(--txt2)}
+.sub{color:var(--txt2);font-size:.86rem;margin-bottom:0}
+.acoes{margin:14px 0 18px}
 button{background:transparent;color:var(--txt);border:1px solid var(--borda);
-       border-radius:8px;padding:8px 16px;font-size:.9rem;cursor:pointer;margin:0 4px}
-button:hover{border-color:var(--txt2)}
+       border-radius:8px;padding:8px 16px;font-size:.88rem;cursor:pointer;
+       margin:0 4px;font-family:inherit;transition:background .15s}
+button:hover{background:rgba(127,160,190,.16)}
+button:focus-visible{outline:2px solid var(--cisc);outline-offset:2px}
+/* Trilho de estágios — a progressão em chevrons do item 5.1 do Plano */
+.trilho-estagios{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.passo{flex:1 1 0;min-width:110px;position:relative;padding:9px 8px 9px 20px;
+     font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:.86rem;
+     letter-spacing:.05em;border:1.5px solid;border-radius:4px;
+     clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%)}
+.passo .grau{display:block;font-size:.66rem;opacity:.75;font-weight:600}
+.passo.atual{color:#fff;transform:scale(1.03);box-shadow:0 3px 14px var(--sombra)}
+.passo.antes{opacity:.55}
+.passo.depois{opacity:.42}
+@media(max-width:760px){.passo{clip-path:none;flex:1 1 45%;padding:8px}}
 .aviso-fontes{background:#8a6d1a;color:#fff;border-radius:10px;padding:10px 14px;
               margin-bottom:12px;font-size:.88rem;text-align:center}
-.banner{border-radius:14px;padding:16px 20px;color:#fff;margin-bottom:18px}
-.banner h2{margin:0 0 4px;font-size:1.8rem;letter-spacing:.5px}
+.banner{border-radius:14px;padding:16px 20px;color:#fff;margin-bottom:18px;
+      border:1px solid var(--borda);box-shadow:0 4px 18px var(--sombra)}
+.banner h2{margin:0 0 4px;font-size:2rem;letter-spacing:.03em;
+      font-family:"Barlow Condensed",sans-serif;font-weight:700}
 .banner .ts{font-size:.85rem;opacity:.85;margin-bottom:8px}
 .banner .just{font-size:.95rem;margin:3px 0}
 .cards{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:22px}
 .card{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;
-      padding:12px;flex:0 0 calc(20% - 12px);min-width:0}
+      padding:12px;flex:0 0 calc(20% - 12px);min-width:0;
+      box-shadow:0 2px 10px var(--sombra)}
 @media(max-width:1100px){.card{flex:0 0 calc(33.33% - 12px)}}
 @media(max-width:700px){.card{flex:0 0 calc(50% - 12px)}}
-.card .rio{font-weight:700}
+.card .rio{font-weight:700;font-family:"Barlow Condensed",sans-serif;
+      font-size:1.06rem;letter-spacing:.02em}
 .card .est{color:var(--txt2);font-size:.76rem;margin-bottom:8px;min-height:30px}
-.card .valor{font-size:1.6rem;font-weight:700}
+.card .valor{font-size:1.62rem;font-weight:600;font-family:"IBM Plex Mono",
+      ui-monospace,monospace;font-variant-numeric:tabular-nums}
 .card .valor.neutro{color:var(--txt)}
 .card .cota{font-size:.85rem;opacity:.75;font-weight:400}
 .trilho{height:8px;border-radius:4px;background:var(--trilho);overflow:hidden;margin:6px 0}
 .trilho .barra{height:100%;border-radius:4px}
 .card .pct{color:var(--txt2);font-size:.76rem}
-.titulo-secao{margin:22px 0 2px;font-size:1.05rem}
+.titulo-secao{margin:24px 0 2px;font-size:1.18rem;
+      font-family:"Barlow Condensed",sans-serif;font-weight:700;
+      letter-spacing:.04em;text-transform:uppercase}
 .regioes{margin-bottom:22px}
 .linha-regioes{display:flex;gap:8px;justify-content:center;margin-bottom:8px}
 .linha-regioes .tile{flex:0 0 calc(12.5% - 8px);min-width:0}
@@ -468,7 +553,7 @@ button:hover{border-color:var(--txt2)}
 .rotulo-linha{font-weight:800;letter-spacing:.4px}
 .sub-arvore{color:var(--txt2);font-size:.78rem;margin-bottom:8px}
 .nos{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:6px}
-.no-arvore{flex:1 1 240px;max-width:360px;border:1px solid var(--borda);
+.no-arvore{flex:1 1 240px;max-width:360px;border:1px solid var(--borda-fina);
   border-radius:10px;padding:8px 10px;display:grid;
   grid-template-columns:auto 1fr;gap:4px 8px;align-items:start;
   text-align:left;font-size:.84rem}
@@ -479,18 +564,20 @@ button:hover{border-color:var(--txt2)}
 .motivo-no{grid-column:2;font-size:.74rem;font-weight:400;line-height:1.35;
   opacity:.85;border-top:1px solid rgba(255,255,255,.22);padding-top:5px;
   margin-top:2px}
-.no-arvore.inativo .motivo-no{border-top-color:var(--borda)}
+.no-arvore.inativo .motivo-no{border-top-color:var(--borda-fina)}
 .conector{align-self:center;font-weight:800;color:var(--txt2);padding:0 2px}
 .nota-arvore{font-size:.82rem;color:var(--txt2);margin-top:6px}
 .cartao-chuva{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:16px 20px;margin:10px 0;display:flex;
   align-items:stretch;justify-content:center;gap:8px;flex-wrap:wrap}
 .col-chuva{flex:1 1 240px;max-width:420px;text-align:center;padding:4px 12px}
-.divisor-chuva{width:1px;background:var(--borda);align-self:stretch}
+.divisor-chuva{width:1px;background:var(--borda-fina);align-self:stretch}
 .titulo-chuva{font-weight:700;font-size:.82rem;color:var(--txt2);
   text-transform:uppercase;letter-spacing:.5px}
 .fonte-chuva{font-weight:700;font-size:.95rem;color:var(--txt2);margin-top:2px}
-.valor-chuva{font-weight:800;font-size:2.1rem;line-height:1.2;margin-top:8px}
+.valor-chuva{font-weight:600;font-size:2.2rem;line-height:1.2;margin-top:8px;
+      font-family:"IBM Plex Mono",ui-monospace,monospace;
+      font-variant-numeric:tabular-nums}
 .periodo-chuva{color:var(--txt2);font-size:.78rem;margin-top:2px}
 @media(max-width:640px){.divisor-chuva{width:100%;height:1px}}
 .just{line-height:1.5}
@@ -503,50 +590,83 @@ button:hover{border-color:var(--txt2)}
        margin:4px;font-weight:700;font-size:.9rem}
 .graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px}
 .grafico{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;
-         padding:8px;min-width:0;overflow:hidden}
+         padding:8px;min-width:0;overflow:hidden;box-shadow:0 2px 10px var(--sombra)}
 .grafico.largo{grid-column:1/-1}
 .grafico .js-plotly-plot,.grafico .plot-container{width:100% !important}
 .fig-claro{display:none;max-width:100%;overflow-x:auto}
 .regioes-print{display:none}
 body.claro .fig-dark{display:none}
 body.claro .fig-claro{display:block}
-.rodape{margin-top:26px}
-.cisc{font-weight:700;margin-bottom:6px}
+.rodape{margin-top:30px;padding-top:18px;border-top:1px solid var(--borda-fina)}
+.logo-rodape{height:46px;width:40px;opacity:.9;margin:0 auto 6px}
+.cisc{font-weight:700;margin-bottom:6px;font-family:"Barlow Condensed",sans-serif;
+  font-size:1.05rem;letter-spacing:.03em}
 .mini{color:var(--txt2);font-size:.8rem;max-width:900px;margin:0 auto}
 @media(max-width:600px){.graficos{grid-template-columns:1fr}}
 
-/* ── IMPRESSÃO / PDF: paisagem, cores fiéis, gráficos no tema claro ── */
-@page{size:A4 landscape;margin:10mm}
+/* ── IMPRESSÃO / PDF ────────────────────────────────────────────────
+   O botão 🖨 usa o diálogo do navegador, então é ESTE bloco que define o
+   PDF. A4 paisagem, cores fiéis, e quebras controladas: no PDF anterior os
+   gráficos eram cortados no meio e os títulos truncavam. */
+@page{size:A4 landscape;margin:9mm}
 @media print{
   *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
-  body{background:#fff !important;color:#1F2733 !important;padding:0;
-       --fundo:#fff;--cartao:#fff;--txt:#1F2733;--txt2:#5A6472;
-       --borda:#CCD2D9;--trilho:rgba(0,0,0,.10)}
-  .acoes{display:none !important}
+  body{background:#fff !important;color:#132030 !important;padding:0;
+       --fundo:#fff;--cartao:#fff;--txt:#132030;--txt2:#54657A;
+       --borda:rgba(0,0,0,.55);--borda-fina:rgba(0,0,0,.18);
+       --trilho:rgba(0,0,0,.10);--sombra:transparent}
+  body::before{display:none !important}
+  .acoes,.frescor{display:none !important}
   .fig-dark{display:none !important}
   .fig-claro{display:block !important}
-  .banner,.card,.tile,.grafico,.bloco-regioes,.linha-regioes,.avisos-inmet,.linha-arvore{
+  .wrap{max-width:none}
+
+  /* Cabeçalho compacto na primeira página */
+  .cabecalho{gap:12px;margin-bottom:4px}
+  .logo{height:44px;width:37px}
+  h1{font-size:1.5rem}
+  .sub,.sobretitulo{font-size:.72rem}
+
+  .trilho-estagios{margin-bottom:8px}
+  .passo{font-size:.72rem;padding:6px 6px 6px 16px}
+  .banner{padding:10px 14px;margin-bottom:10px;box-shadow:none}
+  .banner h2{font-size:1.45rem}
+  .banner .just{font-size:.82rem}
+
+  /* Nada pode ser partido ao meio entre páginas */
+  .banner,.card,.tile,.grafico,.bloco-regioes,.linha-regioes,.avisos-inmet,
+  .linha-arvore,.cartao-chuva,.trilho-estagios,.no-arvore{
       break-inside:avoid;page-break-inside:avoid}
-  .bloco-regioes{page-break-before:auto}
-  .banner h2{font-size:1.5rem}
-  .cards{display:grid !important;grid-template-columns:repeat(5,1fr);gap:8px}
-  .card{max-width:none;flex:none !important}
+
+  .cards{display:grid !important;grid-template-columns:repeat(5,1fr);gap:7px}
+  .card{max-width:none;flex:none !important;padding:7px;box-shadow:none}
+  .card .est{min-height:0}
+  .card .valor{font-size:1.3rem}
+
   .regioes-tela{display:none !important}
   .regioes-print{display:block !important}
-  .linha-regioes{margin-bottom:6px}
+  .linha-regioes{margin-bottom:5px}
   .linha-regioes .tile{flex:0 0 calc(14.28% - 6px);min-height:0;padding:5px 4px}
-  .graficos{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
-  .grafico{margin:0;padding:2px;border:none}
-  .grafico.largo{flex:0 0 100%}
-  .card{padding:7px}
-  .card .est{min-height:0}
-  .titulo-secao{margin:8px 0 2px}
-  .banner{padding:10px 14px;margin-bottom:10px}
+
+  .titulo-secao{margin:10px 0 2px;font-size:1rem}
+
+  /* A árvore começa em página nova: na versão anterior ela caía partida */
+  .bloco-arvore{break-before:page;page-break-before:always}
+
+  /* Um gráfico por página, ocupando a folha inteira — antes eles eram
+     espremidos lado a lado e os títulos ficavam truncados. */
   .graficos{display:block}
-  .grafico{display:inline-block;vertical-align:top;width:auto;margin:0 4px 8px}
-  .grafico.largo{display:block}
-  .grafico .fig-claro{overflow:visible}
-  h1{font-size:1.4rem}
+  .grafico{border:1px solid var(--borda);border-radius:8px;margin:0 0 5mm;
+           padding:4px;height:82mm;box-shadow:none}
+  .graficos{break-before:page;page-break-before:always}
+  .grafico .fig-claro,.grafico .fig-claro img{width:100% !important;
+           height:auto !important;max-height:78mm;object-fit:contain}
+
+  .cartao-chuva{box-shadow:none;margin-top:8px}
+  .valor-chuva{font-size:1.7rem}
+  .rodape{margin-top:12px;padding-top:8px}
+  .logo-rodape{height:34px;width:29px}
+  .mini{font-size:.66rem}
 }
 """
 
@@ -609,14 +729,32 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="900">
 <title>Estágios Operacionais — Porto Alegre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>{_CSS}</style>
+<style>
+  /* logo embutido uma única vez e reaproveitado nos dois lugares */
+  .logo,.logo-rodape{{background-image:url("{_ativo_b64('cisc_logo.png','image/png')}");
+     background-size:contain;background-repeat:no-repeat;background-position:center}}
+  body::before{{background-image:linear-gradient(180deg,
+      rgba(10,20,28,.42) 0%, var(--fundo) 78%), url("{_ativo_b64('guaiba.webp','image/webp')}")}}
+  body.claro::before{{background-image:linear-gradient(180deg,
+      rgba(238,242,246,.55) 0%, var(--fundo) 78%), url("{_ativo_b64('guaiba.webp','image/webp')}")}}
+</style>
 <script>{_JS_CEDO}</script>
 </head>
 <body class="{'claro' if tema == 'claro' else ''}">
 <div class="wrap">
-  <h1>Plano de Contingência — Estágios Operacionais</h1>
-  <div class="sub">Porto Alegre/RS · SMS/PMPA · monitoramento automatizado
-    (ANA · Open-Meteo · INMET · Poaclima)</div>
+  <header class="cabecalho">
+    <div class="logo" role="img" aria-label="CISC Porto Alegre"></div>
+    <div class="titulos">
+      <div class="sobretitulo">Porto Alegre/RS · Secretaria Municipal de Saúde</div>
+      <h1>Plano de Contingência<span class="fina"> — Estágios Operacionais</span></h1>
+      <div class="sub">Monitoramento automatizado · ANA · INMET · Poaclima ·
+        Open-Meteo</div>
+    </div>
+  </header>
   <div class="acoes">
     <button id="btn-tema">☀ Modo claro</button>
     <button id="btn-print">🖨 Imprimir / PDF</button>
@@ -631,8 +769,8 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_graficos(snapshot)}
   {_JS_FRESCOR}
   <div class="rodape">
-    <div class="cisc">Realizado por: CISC Porto Alegre — Centro de Informações
-      em Saúde e Clima</div>
+    <div class="logo-rodape" role="img" aria-label="CISC Porto Alegre"></div>
+    <div class="cisc">CISC Porto Alegre — Centro de Informações em Saúde e Clima</div>
     <div class="mini">Cotas de referência do Guaíba no Cais Mauá: atenção
       {config.COTA_ATENCAO_GUAIBA} m · alerta {config.COTA_ALERTA_GUAIBA} m ·
       inundação {config.COTA_INUNDACAO_GUAIBA} m (fonte: Poaclima/Defesa Civil
