@@ -26,6 +26,7 @@ on:
     # execução nunca atropela a seguinte.
     - cron: "4,24,44 * * * *"
   workflow_dispatch:             # permite rodar na hora, pelo botão "Run workflow"
+  workflow_call:                 # permite ser chamado pelo gatilho-externo.yml
   push:
     paths:
       - "gatilhos_manuais.txt"   # confirmou um gatilho? republica na hora
@@ -37,8 +38,14 @@ permissions:
 
 concurrency:
   group: coleta-painel
-  # true: entre uma coleta velha travada e uma nova, o painel quer a nova.
-  cancel-in-progress: true
+  # ATENÇÃO: NÃO usar cancel-in-progress: true aqui.
+  # A fila do GitHub costuma atrasar o início em 10-20 min. Com cron de 20 em
+  # 20 min, a execução seguinte chegava enquanto a anterior ainda estava no
+  # meio da coleta e a MATAVA — e a próxima matava aquela, e assim por diante:
+  # nenhuma chegava ao fim, e o painel congelava. Com `false`, quem está em
+  # andamento termina; no máximo uma fica pendente e as demais são
+  # descartadas, que é exatamente o comportamento desejado.
+  cancel-in-progress: false
 
 jobs:
   coletar:
@@ -46,6 +53,21 @@ jobs:
     timeout-minutes: 18          # menor que o intervalo do cron (20 min)
     steps:
       - uses: actions/checkout@v4
+
+      - name: Idade do painel antes desta coleta
+        run: |
+          python - <<'FIM'
+          import json, datetime, pathlib
+          arq = pathlib.Path("dashboard/snapshot.json")
+          if arq.exists():
+              try:
+                  iso = json.loads(arq.read_text())["timestamp_iso"]
+                  idade = (datetime.datetime.now()
+                           - datetime.datetime.fromisoformat(iso)).total_seconds() / 60
+                  print(f"Última coleta bem-sucedida foi há {idade:.0f} min.")
+              except Exception as exc:
+                  print(f"(não foi possível ler o snapshot: {exc})")
+          FIM
 
       - uses: actions/setup-python@v5
         with:
