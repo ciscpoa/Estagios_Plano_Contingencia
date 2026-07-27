@@ -76,6 +76,11 @@ def _trilho_estagios(atual: str) -> str:
     um operador precisa para antecipar. O desenho é o do próprio Plano, não
     um enfeite: a fonte da escala é o documento oficial.
     """
+    def _rgba(hexa: str, alfa: float) -> str:
+        h = hexa.lstrip("#")
+        r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+        return f"rgba({r},{g},{b},{alfa})"
+
     passos = []
     idx_atual = (config.ESTAGIOS.index(atual)
                  if atual in config.ESTAGIOS else -1)
@@ -83,33 +88,79 @@ def _trilho_estagios(atual: str) -> str:
         cor = config.CORES_ESTAGIOS[nome]
         if i == idx_atual:
             classe, estilo = "passo atual", f"background:{cor};border-color:{cor}"
-        elif i < idx_atual:
-            classe, estilo = "passo antes", f"border-color:{cor};color:{cor}"
         else:
-            classe, estilo = "passo depois", f"border-color:{cor};color:{cor}"
+            # Antes os degraus inativos viviam só de opacidade e sumiam no
+            # fundo escuro. Agora cada um leva um preenchimento na própria
+            # cor: continua claramente secundário, mas legível.
+            classe = "passo antes" if i < idx_atual else "passo depois"
+            estilo = (f"border-color:{cor};color:{cor};"
+                      f"background:{_rgba(cor, .16 if i < idx_atual else .10)}")
         curto = "EMERGÊNCIA" if nome.startswith("SITUAÇÃO") else nome
         passos.append(f"<div class='{classe}' style='{estilo}'>"
                       f"<span class='grau'>{i + 1}</span>{curto}</div>")
     return f"<div class='trilho-estagios'>{''.join(passos)}</div>"
 
 
+def _linha_blocos(blocos: list, cor_linha: str, subtitulo: str,
+                  nome: str | None = None) -> str:
+    """Fileira BLOCO · E · BLOCO · E · BLOCO de um estágio."""
+    if not blocos:
+        return ""
+    caixas = []
+    for i, b in enumerate(blocos):
+        classe = "no-arvore ativo" if b["ativo"] else "no-arvore inativo"
+        estilo = (f"background:{cor_linha};border-color:{cor_linha}"
+                  if b["ativo"] else "")
+        marca = "✔" if b["ativo"] else "✖"
+        motivo = (b.get("motivo") or "").strip()
+        # o motivo explica POR QUE o bloco está (ou não) ativo — sem ele
+        # a árvore vira um "sim/não" sem auditoria
+        html_motivo = (f"<span class='motivo-no'>{_texto_html(motivo)}</span>"
+                       if motivo else "")
+        dica = motivo.replace("\n", " · ").replace("'", "&#39;")
+        caixas.append(
+            f"<div class='{classe}' style='{estilo}' title='{dica}'>"
+            f"<span class='marca'>{marca}</span>"
+            f"<span class='rotulo'>{b['titulo']}</span>"
+            f"{html_motivo}</div>")
+        if i < len(blocos) - 1:
+            caixas.append("<div class='conector'>E</div>")
+    cabeca = (f"<div class='rotulo-linha' style='color:{cor_linha}'>{nome}</div>"
+              if nome else "")
+    return (f"<div class='linha-arvore'>{cabeca}"
+            f"<div class='sub-arvore'>{subtitulo}</div>"
+            f"<div class='nos'>{''.join(caixas)}</div></div>")
+
+
 def _bloco_banner(snapshot: dict) -> str:
     cls = snapshot.get("classificacao") or {}
     cor = cls.get("cor", "#2E9E44")
-    # O "⚑" (regra de piso) e o "⚙" (lista de gatilhos) já são mostrados
-    # na seção "Gatilhos de campo confirmados" — não repetir no banner.
-    justificativas = "".join(
-        f"<div class='just'>{_texto_html(j)}</div>"
-        for j in cls.get("justificativas", [])
-        if not j.lstrip().startswith(("⚑", "⚙")))
+    estagio = cls.get("estagio", "")
+    blocos = (cls.get("blocos_por_estagio") or {}).get(estagio) or []
+
+    # As justificativas do banner eram o MESMO texto dos motivos dos blocos.
+    # Com os blocos aqui dentro, repeti-las seria dizer duas vezes a mesma
+    # coisa — então o banner passa a mostrar só os blocos.
+    corpo = _linha_blocos(
+        blocos, cor, "estágio atual — todos os blocos precisam estar ativos")
+
+    nota = ""
+    if any("⚑" in j for j in cls.get("justificativas", [])):
+        nota = ("<div class='nota-piso'>⚑ Estágio definido pela "
+                "<b>regra de piso</b>: um gatilho confirmado em campo pertence "
+                "a esta coluna do Plano, então o estágio sobe mesmo sem todos "
+                "os blocos meteorológicos fecharem.</div>")
+
     return f"""
-    {_trilho_estagios(cls.get('estagio', ''))}
-    <section class="banner" style="background:{cor}">
-      <h2>ESTÁGIO OPERACIONAL: {cls.get('rotulo') or cls.get('estagio', '—')}</h2>
-      <div class="ts">Última atualização: {snapshot.get('timestamp', '—')}
-        <span id="frescor" class="frescor" data-iso="{snapshot.get('timestamp_iso', '')}"></span>
+    {_trilho_estagios(estagio)}
+    <section class="banner" style="border-color:{cor}">
+      <div class="faixa-estagio" style="background:{cor}">
+        <h2>ESTÁGIO OPERACIONAL: {cls.get('rotulo') or estagio or '—'}</h2>
+        <div class="ts">Última atualização: {snapshot.get('timestamp', '—')}
+          <span id="frescor" class="frescor" data-iso="{snapshot.get('timestamp_iso', '')}"></span>
+        </div>
       </div>
-      {justificativas}
+      {corpo}{nota}
     </section>"""
 
 
@@ -153,6 +204,10 @@ def _bloco_cards(snapshot: dict) -> str:
 
 def _bloco_regioes(snapshot: dict) -> str:
     alertas = (snapshot.get("indicadores") or {}).get("alertas_regionais") or []
+    # Distinção que faltava: região sem MARCADOR no mapa não é região sem
+    # dado — é região sem alerta. "Sem dado" só se o Poaclima não respondeu.
+    poaclima_ok = bool((snapshot.get("fontes") or {}).get("Poaclima"))
+    rotulo_vazio = "sem alerta" if poaclima_ok else "sem dado"
 
     def grau(risco: str) -> int:
         """0=sem risco … 4=extremo (o mais grave vence, na ordem inversa)."""
@@ -179,7 +234,7 @@ def _bloco_regioes(snapshot: dict) -> str:
         nome = (al or {}).get("regiao_nome") or config.REGIOES_POACLIMA.get(num, "")
         if al is None:
             cor = config.CORES_RISCO_POACLIMA["sem dado"]
-            status, detalhe = "sem dado", ""
+            status, detalhe = rotulo_vazio, ""
         else:
             cor = config.CORES_RISCO_POACLIMA.get(ordem[grau(al.get("risco"))],
                                                   "#4A5561")
@@ -205,7 +260,8 @@ def _bloco_regioes(snapshot: dict) -> str:
     <section class="bloco-regioes">
       <h3 class="titulo-secao">Risco por região — Defesa Civil (Poaclima)</h3>
       <div class="sub">Status capturado dos marcadores do mapa oficial ·
-        cinza = região sem dado nesta coleta</div>
+        cinza = {"região sem alerta vigente" if poaclima_ok
+                 else "Poaclima não respondeu nesta coleta"}</div>
       <div class="regioes">{html_linhas}</div>
     </section>"""
 
@@ -249,9 +305,11 @@ def _bloco_avisos_inmet(snapshot: dict) -> str:
 
 def _bloco_arvore(snapshot: dict) -> str:
     """
-    Árvore das regras E/OU do Plano: mostra quais blocos do estágio atual
-    estão ATIVOS (destacados) e quais não (ofuscados), e o que falta para
-    subir para o próximo estágio.
+    O que falta para SUBIR de estágio.
+
+    Os blocos do estágio vigente foram para o topo, junto do banner — repeti-los
+    aqui seria mostrar a mesma informação duas vezes. Sobra a pergunta que esta
+    seção responde de verdade: o que precisaria acontecer para escalar.
     """
     cls = snapshot.get("classificacao") or {}
     blocos = cls.get("blocos_por_estagio") or {}
@@ -259,60 +317,24 @@ def _bloco_arvore(snapshot: dict) -> str:
     if not blocos or not estagio:
         return ""
 
-    cor = cls.get("cor", "#2E9E44")
     ordem = config.ESTAGIOS
     idx = ordem.index(estagio) if estagio in ordem else 0
-    proximo = ordem[idx + 1] if idx + 1 < len(ordem) else None
+    if idx + 1 >= len(ordem):
+        return ""                      # já está em CRISE: não há próximo
+    proximo = ordem[idx + 1]
 
-    def linha(nome: str, cor_linha: str, atual: bool) -> str:
-        bl = blocos.get(nome) or []
-        if not bl:
-            return ""
-        caixas = []
-        for i, b in enumerate(bl):
-            classe = "no-arvore ativo" if b["ativo"] else "no-arvore inativo"
-            estilo = (f"background:{cor_linha};border-color:{cor_linha}"
-                      if b["ativo"] else "")
-            marca = "✔" if b["ativo"] else "✖"
-            motivo = (b.get("motivo") or "").strip()
-            # o motivo explica POR QUE o bloco está (ou não) ativo — sem ele
-            # a árvore vira um "sim/não" sem auditoria
-            html_motivo = (f"<span class='motivo-no'>{_texto_html(motivo)}</span>"
-                           if motivo else "")
-            dica = motivo.replace("\n", " · ").replace("'", "&#39;")
-            caixas.append(
-                f"<div class='{classe}' style='{estilo}' title='{dica}'>"
-                f"<span class='marca'>{marca}</span>"
-                f"<span class='rotulo'>{b['titulo']}</span>"
-                f"{html_motivo}</div>")
-            if i < len(bl) - 1:
-                caixas.append("<div class='conector'>E</div>")
-        subtitulo = ("estágio atual — todos os blocos precisam estar ativos"
-                     if atual else
-                     "para subir de estágio, faltam os blocos ofuscados")
-        return (f"<div class='linha-arvore'>"
-                f"<div class='rotulo-linha' style='color:{cor_linha}'>{nome}</div>"
-                f"<div class='sub-arvore'>{subtitulo}</div>"
-                f"<div class='nos'>{''.join(caixas)}</div></div>")
-
-    partes = [linha(estagio, cor, True)]
-    if proximo:
-        partes.append(linha(proximo, config.CORES_ESTAGIOS.get(proximo, "#888"),
-                            False))
-
-    nota = ""
-    if any("⚑" in j for j in cls.get("justificativas", [])):
-        nota = ("<div class='nota-arvore'>⚑ Este estágio foi definido pela "
-                "<b>regra de piso</b>: um gatilho confirmado em campo pertence "
-                "a esta coluna do Plano, então o estágio sobe mesmo sem todos "
-                "os blocos meteorológicos fecharem.</div>")
+    linha = _linha_blocos(
+        blocos.get(proximo) or [], config.CORES_ESTAGIOS.get(proximo, "#888"),
+        "todos estes blocos precisariam estar ativos", proximo)
+    if not linha:
+        return ""
 
     return f"""
     <section class="bloco-arvore">
-      <h3 class="titulo-secao">Como chegamos a este estágio</h3>
-      <div class="sub">Regras E/OU do Plano de Contingência (item 5.1) ·
-        blocos <b>ativos</b> em destaque, inativos ofuscados</div>
-      {''.join(partes)}{nota}
+      <h3 class="titulo-secao">O que falta para subir de estágio</h3>
+      <div class="sub">Próximo degrau do Plano de Contingência (item 5.1) ·
+        regras E/OU</div>
+      {linha}
     </section>"""
 
 
@@ -337,11 +359,11 @@ def _bloco_graficos(snapshot: dict) -> str:
     construtores = [
         # (constrói, largura_print, altura_print, ocupa_linha_inteira)
         (lambda t: componentes.gauge_estagio(
-            snapshot.get("classificacao") or {}, t), 330, 250, False),
+            snapshot.get("classificacao") or {}, t), 1040, 268, True),
         (lambda t: componentes.grafico_guaiba(
-            snapshot.get("serie_guaiba", []), t), 330, 250, False),
+            snapshot.get("serie_guaiba", []), t), 1040, 268, True),
         (lambda t: componentes.grafico_afluentes(
-            snapshot.get("series_afluentes", {}), t), 330, 250, False),
+            snapshot.get("series_afluentes", {}), t), 1040, 268, True),
         (lambda t: componentes.grafico_precipitacao(
             snapshot.get("serie_precipitacao_horaria", []),
             snapshot.get("serie_precipitacao_diaria", []), t,
@@ -350,7 +372,7 @@ def _bloco_graficos(snapshot: dict) -> str:
             fonte_obs=snapshot.get("fonte_chuva_obs", "Open-Meteo"),
             fonte_prev=snapshot.get("fonte_chuva_prev", "Open-Meteo"),
             obs_diaria=snapshot.get("serie_obs_diaria")),
-         1000, 300, True),
+         1040, 268, True),
     ]
 
     partes, primeiro = [], True
@@ -433,10 +455,10 @@ _JS_FRESCOR = """
   function tick() {
     var min = (Date.now() - new Date(el.dataset.iso).getTime()) / 60000;
     el.className = "frescor";
-    if (min >= 180) {
+    if (min >= 120) {
       el.classList.add("parado");
       el.textContent = "PARADO ha " + Math.floor(min / 60) + "h";
-    } else if (min >= 75) {
+    } else if (min >= 60) {
       el.classList.add("velho");
       el.textContent = "desatualizado ha " + Math.round(min) + " min";
     } else {
@@ -493,16 +515,19 @@ button:focus-visible{outline:2px solid var(--cisc);outline-offset:2px}
      clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%)}
 .passo .grau{display:block;font-size:.66rem;opacity:.75;font-weight:600}
 .passo.atual{color:#fff;transform:scale(1.03);box-shadow:0 3px 14px var(--sombra)}
-.passo.antes{opacity:.55}
-.passo.depois{opacity:.42}
+.passo.antes{opacity:.95}
+.passo.depois{opacity:.82}
 @media(max-width:760px){.passo{clip-path:none;flex:1 1 45%;padding:8px}}
 .aviso-fontes{background:#8a6d1a;color:#fff;border-radius:10px;padding:10px 14px;
               margin-bottom:12px;font-size:.88rem;text-align:center}
-.banner{border-radius:14px;padding:16px 20px;color:#fff;margin-bottom:18px;
-      border:1px solid var(--borda);box-shadow:0 4px 18px var(--sombra)}
-.banner h2{margin:0 0 4px;font-size:2rem;letter-spacing:.03em;
+.banner{border-radius:14px;margin-bottom:18px;background:var(--cartao);
+      border:2px solid;box-shadow:0 4px 18px var(--sombra);overflow:hidden}
+.faixa-estagio{color:#fff;padding:14px 20px 12px}
+.banner .linha-arvore{border:none;background:transparent;margin:0;padding:12px}
+.nota-piso{font-size:.82rem;color:var(--txt2);padding:0 12px 12px}
+.banner h2{margin:0 0 2px;font-size:2rem;letter-spacing:.03em;
       font-family:"Barlow Condensed",sans-serif;font-weight:700}
-.banner .ts{font-size:.85rem;opacity:.85;margin-bottom:8px}
+.banner .ts{font-size:.85rem;opacity:.9;margin-bottom:0}
 .banner .just{font-size:.95rem;margin:3px 0}
 .cards{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:22px}
 .card{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;
@@ -590,13 +615,20 @@ button:focus-visible{outline:2px solid var(--cisc);outline-offset:2px}
        margin:4px;font-weight:700;font-size:.9rem}
 .graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px}
 .grafico{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;
-         padding:8px;min-width:0;overflow:hidden;box-shadow:0 2px 10px var(--sombra)}
+         padding:8px;min-width:0;overflow:hidden;position:relative;
+         box-shadow:0 2px 10px var(--sombra)}
 .grafico.largo{grid-column:1/-1}
-.grafico .js-plotly-plot,.grafico .plot-container{width:100% !important}
-.fig-claro{display:none;max-width:100%;overflow-x:auto}
+@media screen{.grafico .js-plotly-plot,.grafico .plot-container{width:100%}}
+/* A figura do tema inativo NÃO pode usar display:none: sem caixa de layout
+   o Plotly não consegue dimensioná-la e ela sai em branco no PDF. Fica
+   fora da tela, mas renderizada. */
+.fig-oculta{position:absolute !important;left:-30000px !important;top:0 !important;
+  width:1040px !important;pointer-events:none}
+.fig-claro{position:absolute;left:-30000px;top:0;width:1040px;pointer-events:none}
+body.claro .fig-claro{position:static;left:auto;width:auto;pointer-events:auto}
+body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
+  pointer-events:none}
 .regioes-print{display:none}
-body.claro .fig-dark{display:none}
-body.claro .fig-claro{display:block}
 .rodape{margin-top:30px;padding-top:18px;border-top:1px solid var(--borda-fina)}
 .logo-rodape{height:46px;width:40px;opacity:.9;margin:0 auto 6px}
 .cisc{font-weight:700;margin-bottom:6px;font-family:"Barlow Condensed",sans-serif;
@@ -617,8 +649,9 @@ body.claro .fig-claro{display:block}
        --trilho:rgba(0,0,0,.10);--sombra:transparent}
   body::before{display:none !important}
   .acoes,.frescor{display:none !important}
-  .fig-dark{display:none !important}
-  .fig-claro{display:block !important}
+  .fig-dark{position:absolute !important;left:-30000px !important;top:0 !important;
+       width:1040px !important}
+  .fig-claro{position:static !important;left:auto !important;width:auto !important}
   .wrap{max-width:none}
 
   /* Cabeçalho compacto na primeira página */
@@ -656,11 +689,20 @@ body.claro .fig-claro{display:block}
   /* Um gráfico por página, ocupando a folha inteira — antes eles eram
      espremidos lado a lado e os títulos ficavam truncados. */
   .graficos{display:block}
-  .grafico{border:1px solid var(--borda);border-radius:8px;margin:0 0 5mm;
-           padding:4px;height:82mm;box-shadow:none}
-  .graficos{break-before:page;page-break-before:always}
-  .grafico .fig-claro,.grafico .fig-claro img{width:100% !important;
-           height:auto !important;max-height:78mm;object-fit:contain}
+  /* duas colunas: gauge + Guaíba lado a lado; afluentes e chuva em linha
+     cheia. Altura automática — travar em mm cortava o gráfico. */
+  /* uma coluna: cada gráfico ocupa a largura útil da folha; dois por página */
+  .graficos{break-before:page;page-break-before:always;display:block !important}
+  .grafico{border:1px solid var(--borda);border-radius:8px;margin:0 0 4mm;
+           padding:3px;height:auto;box-shadow:none;overflow:visible}
+  /* dois gráficos por folha: 80mm cada + margens cabem nos 192mm úteis */
+  .fig-claro,.fig-claro .js-plotly-plot,.fig-claro .plot-container,
+  .fig-claro .svg-container{height:80mm !important}
+  /* a barra de rolagem do modo claro aparecia impressa no PDF */
+  .fig-claro{overflow:visible !important;max-width:none !important}
+  /* NÃO usar width:!important aqui — sobrepõe o style inline que o
+     Plotly.relayout escreve e o gráfico some da folha. */
+  .grafico .js-plotly-plot,.grafico .plot-container{overflow:visible}
 
   .cartao-chuva{box-shadow:none;margin-top:8px}
   .valor-chuva{font-size:1.7rem}
@@ -692,12 +734,14 @@ function ajustarGraficos(){   // ajusta o tema que estiver visível
     if(g.offsetParent!==null){try{Plotly.Plots.resize(g);}catch(e){}}
   });
 }
-function medidasDeImpressao(){   // A4 paisagem: tamanho fixo e previsível
-  document.querySelectorAll('.grafico').forEach(function(box){
-    var w=+box.dataset.w, h=+box.dataset.h;
-    box.querySelectorAll('.fig-claro .js-plotly-plot').forEach(function(g){
-      try{Plotly.relayout(g,{width:w,height:h,autosize:false});}catch(e){}
-    });
+function medidasDeImpressao(){
+  // A largura quem resolve é o ResizeObserver do Plotly, ao entrar no layout
+  // de impressão; a altura vem do CSS. Aqui só encolhemos títulos e margens,
+  // que em 80mm de altura precisam de menos espaço.
+  document.querySelectorAll('.fig-claro .js-plotly-plot').forEach(function(g){
+    try{Plotly.relayout(g,{autosize:true,
+      'title.font.size':13,'legend.font.size':10,
+      'margin.l':55,'margin.r':55,'margin.t':44,'margin.b':36});}catch(e){}
   });
 }
 function medidasDeTela(){
