@@ -18,7 +18,7 @@ aumento_demanda_abrigo = ok
 abrigos_temporarios_instalados = nao
 
 # Bloqueio de vias principais
-bloqueio_vias_principais = ok
+bloqueio_vias_principais = nao
 
 # Aumento de demanda na saúde (evento climático)
 aumento_demanda_saude_clima = nao
