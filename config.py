@@ -91,6 +91,44 @@ ESTACOES_ANA = {
     "Rio_Jacui_Triunfo":          "85900000",    # Jacuí — CONFIRMAR código c/ SGB
 }
 
+# Afluentes usados para relacionar as ondas de cheia ao nível do Guaíba.
+# `tempo_viagem_h` desloca a leitura da estação até o instante estimado de
+# chegada ao Guaíba. Os valores abaixo são OPERACIONAIS/PROVISÓRIOS: devem ser
+# recalibrados com séries históricas e medições de velocidade/vazão.
+#
+# A estação 85900000 fica em Rio Pardo (não em Triunfo); por isso o tempo do
+# Jacuí é especialmente incerto e sua identificação permanece explícita.
+AFLUENTES_GUAIBA = {
+    "Rio_Gravatai": {
+        "rotulo": "Gravataí",
+        "tempo_viagem_h": 12,
+        "provisorio": True,
+    },
+    "Rio_dos_Sinos_SaoLeopoldo": {
+        "rotulo": "Sinos (São Leopoldo)",
+        "tempo_viagem_h": 24,
+        "provisorio": True,
+    },
+    "Rio_Cai": {
+        "rotulo": "Caí (Barca do Caí)",
+        "tempo_viagem_h": 36,
+        "provisorio": True,
+    },
+    "Rio_Jacui_Triunfo": {
+        "rotulo": "Jacuí (Rio Pardo)",
+        "tempo_viagem_h": 72,
+        "provisorio": True,
+    },
+}
+
+# A previsão usa somente água já observada a montante e deslocada pelo tempo
+# de viagem. Vinte e quatro horas preservam uma janela útil sem extrapolar
+# além do menor conjunto de sinais disponíveis.
+HORIZONTE_PREVISAO_GUAIBA_H = 24
+MIN_AMOSTRAS_MODELO_GUAIBA = 48
+INTERPOLACAO_MAX_GAP_H = 6
+RIDGE_ALPHA_GUAIBA = 1.0
+
 # ──────────────────────────────────────────────────────────────────────────
 # 4. COTAS DE REFERÊNCIA DO GUAÍBA (Cais Mauá) — em METROS
 #    Valores oficiais podem ser revisados pela prefeitura/ANA após 2024.

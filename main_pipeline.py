@@ -23,7 +23,7 @@ from dataclasses import asdict
 import pandas as pd
 
 import config
-from processamento import consolidacao
+from processamento import alinhamento_afluentes, consolidacao
 from logica import estagios
 
 
@@ -60,14 +60,11 @@ def executar_pipeline(usar_selenium: bool = True,
     horaria = _sem_nan(horaria) if not horaria.empty else horaria
     diaria = _sem_nan(diaria) if not diaria.empty else diaria
 
-    # Séries dos afluentes (Gravataí, Sinos, Caí, Jacuí) p/ o gráfico
-    series_afluentes = {}
-    for nome, serie in brutos["rios"].items():
-        if nome == "Guaiba_PortoAlegre_CaisMaua" or serie is None or serie.empty:
-            continue
-        s = _sem_nan(serie)
-        series_afluentes[nome] = (
-            s.assign(datahora=s["datahora"].astype(str)).to_dict("records"))
+    # Séries dos quatro afluentes + previsão experimental do Guaíba.
+    # O módulo regulariza as frequências diferentes da ANA e desloca cada
+    # sinal pelo tempo de viagem configurado antes de ajustar a previsão.
+    series_afluentes = alinhamento_afluentes.preparar_series_afluentes(
+        brutos["rios"])
 
     # ── Status de cada fonte nesta coleta (mostrado no painel) ──
     poa = brutos.get("poaclima") or {}
