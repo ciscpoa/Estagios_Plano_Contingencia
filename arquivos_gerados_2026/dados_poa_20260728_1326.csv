@@ -1,0 +1,69 @@
+﻿datahora_extracao,indicador,valor,unidade,fonte
+28/07/2026 13:26,Nível Guaiba_PortoAlegre_CaisMaua,1.63,m,ANA / fallback
+28/07/2026 13:26,Tendência 48h Guaiba_PortoAlegre_CaisMaua,-0.19,m/48h,ANA
+28/07/2026 13:26,Nível Rio_Gravatai,4.69,m,ANA / fallback
+28/07/2026 13:26,Tendência 48h Rio_Gravatai,0.07,m/48h,ANA
+28/07/2026 13:26,Nível Rio_dos_Sinos_SaoLeopoldo,4.61,m,ANA / fallback
+28/07/2026 13:26,Tendência 48h Rio_dos_Sinos_SaoLeopoldo,0.06,m/48h,ANA
+28/07/2026 13:26,Nível Rio_Cai,5.16,m,ANA / fallback
+28/07/2026 13:26,Tendência 48h Rio_Cai,0.29,m/48h,ANA
+28/07/2026 13:26,Nível Rio_Cai_Montenegro,3.0,m,ANA / fallback
+28/07/2026 13:26,Tendência 48h Rio_Cai_Montenegro,-0.74,m/48h,ANA
+28/07/2026 13:26,Nível Rio_Cai_NovaPalmira,2.78,m,ANA / fallback
+28/07/2026 13:26,Tendência 48h Rio_Cai_NovaPalmira,1.04,m/48h,ANA
+28/07/2026 13:26,Nível Rio_Jacui_Triunfo,9.19,m,ANA / fallback
+28/07/2026 13:26,Tendência 48h Rio_Jacui_Triunfo,0.69,m/48h,ANA
+28/07/2026 13:26,Cota de Atenção (Guaíba),2.05,m,Plano Contingência
+28/07/2026 13:26,Cota de Alerta (Guaíba),2.5,m,Plano Contingência
+28/07/2026 13:26,Cota de Inundação (Guaíba),3.0,m,Plano Contingência
+28/07/2026 13:26,acumulado_obs_24h_mm,40.1,mm,Open-Meteo
+28/07/2026 13:26,acumulado_obs_72h_mm,50.5,mm,Open-Meteo
+28/07/2026 13:26,acumulado_obs_7d_mm,120.1,mm,Open-Meteo
+28/07/2026 13:26,previsto_24h_mm,43.8,mm,Open-Meteo
+28/07/2026 13:26,previsto_48h_mm,43.8,mm,Open-Meteo
+28/07/2026 13:26,previsto_72h_mm,43.8,mm,Open-Meteo
+28/07/2026 13:26,dias_chuva_intensa_5d,0,dias,Open-Meteo
+28/07/2026 13:26,Aviso INMET (máx severidade),,-,INMET
+28/07/2026 13:26,Qtd avisos INMET vigentes,0,un,INMET
+28/07/2026 13:26,Chuva observada 24h,54.6,mm,ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)
+28/07/2026 13:26,Chuva observada 72h,57.6,mm,ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)
+28/07/2026 13:26,Chuva observada 7 dias,103.4,mm,ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)
+28/07/2026 13:26,Dias com chuva (últimos 5),2,dias,ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)
+28/07/2026 13:26,Qualidade da série de chuva,103 mm/7d · cobertura 100%,-,ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico)
+28/07/2026 13:26,Fonte testada — INMET A801 — PORTO ALEGRE - JARDIM BOTANICO,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+28/07/2026 13:26,Fonte testada — INMET B808 — CACHOEIRINHA,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+28/07/2026 13:26,Fonte testada — INMET B825 — PORTO ALEGRE - BELEM NOVO,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+28/07/2026 13:26,Fonte testada — INMET B809 — SAPUCAIA DO SUL,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+28/07/2026 13:26,Fonte testada — INMET B824 — VIAMAO,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+28/07/2026 13:26,Fonte testada — INMET B814 — MONTENEGRO,None mm/7d · REJEITADA · HTTP 204 — estação sem transmitir,-,controle de qualidade
+28/07/2026 13:26,Fonte testada — CEMADEN,None mm/7d · REJEITADA · None,-,controle de qualidade
+28/07/2026 13:26,Fonte testada — ANA Gravataí (Passo das Canoas) (pluviômetro telemétrico),103.4 mm/7d · ACEITA · 103 mm/7d · cobertura 100%,-,controle de qualidade
+28/07/2026 13:26,Chuva prevista 48h (Poaclima/Catavento),90.0,mm,Poaclima/Catavento
+28/07/2026 13:26,Previsão 28/07 — Chuva e raios,50.0,mm,Poaclima/Catavento
+28/07/2026 13:26,Previsão 29/07 — Chuva e raios,40.0,mm,Poaclima/Catavento
+28/07/2026 13:26,Previsão 30/07 — Sol entre nuvens,0.0,mm,Poaclima/Catavento
+28/07/2026 13:26,Previsão 31/07 — Ensolarado,0.0,mm,Poaclima/Catavento
+28/07/2026 13:26,Previsão 01/08 — Chuvas isoladas e sol,10.0,mm,Poaclima/Catavento
+28/07/2026 13:26,Alerta Poaclima vigente,,-,Poaclima
+28/07/2026 13:26,Chuva acumulada Poaclima,,mm,Poaclima
+28/07/2026 13:26,Nível Usina do Gasômetro (Poaclima),1.14,m,Poaclima
+28/07/2026 13:26,Nível Cais Mauá (Poaclima),1.65,m,Poaclima
+28/07/2026 13:26,Nível Riacho Ipiranga (Poaclima),0.38,m,Poaclima
+28/07/2026 13:26,Alertas regionais vigentes (Defesa Civil),17,un,Poaclima
+28/07/2026 13:26,Alerta regional — (10) Cruzeiro,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (17) Ilhas,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (5) Norte,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (2) Noroeste,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (14) Eixo baltazar,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (6) Nordeste,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (3) Leste,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (9) Glória,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (12) Centro sul,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (8) Restinga,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (15) Sul,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (13) Extremo sul,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (1) Humaitá,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (16) Centro,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (7) Partenon,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (4) Lomba do pinheiro,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
+28/07/2026 13:26,Alerta regional — (11) Cristal,Alerta de risco alto · Tempestade – Chuvas Intensas · até 29/07/2026 15:00,-,Poaclima/Defesa Civil
