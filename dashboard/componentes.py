@@ -263,21 +263,14 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
 
 
 def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
-    """Níveis dos afluentes — uma cidade de referência por rio."""
+    """Quatro afluentes observados e previsão experimental do Guaíba."""
     p = paleta(tema)
     cores = {"Rio_Gravatai": "#F2B90B", "Rio_dos_Sinos_SaoLeopoldo": "#5FD068",
              "Rio_Cai": "#F2830B", "Rio_Cai_Montenegro": "#E85D24",
              "Rio_Cai_NovaPalmira": "#C98A3D",
              "Rio_Jacui_TriunfoAmarop": "#9B8CE0", "Rio_Jacui_Triunfo": "#9B8CE0"}
-    rotulos = {"Rio_Gravatai": "Gravataí",
-               "Rio_dos_Sinos_SaoLeopoldo": "Sinos (S. Leopoldo)",
-               "Rio_Cai": "Caí (Barca)", "Rio_Cai_Montenegro": "Caí (Montenegro)",
-               "Rio_Cai_NovaPalmira": "Caí (N. Palmira)",
-               "Rio_Jacui_TriunfoAmarop": "Jacuí (Rio Pardo)",
-               "Rio_Jacui_Triunfo": "Jacuí (Rio Pardo)"}
-    # uma cidade por afluente (decisão de produto 25/07)
-    principais = ("Rio_Gravatai", "Rio_dos_Sinos_SaoLeopoldo",
-                  "Rio_Cai", "Rio_Jacui_Triunfo", "Rio_Jacui_TriunfoAmarop")
+    configurados = getattr(config, "AFLUENTES_GUAIBA", {})
+    principais = tuple(configurados)
 
     fig = go.Figure()
     for nome, registros in (series or {}).items():
@@ -288,22 +281,70 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
             continue
         df["datahora"] = pd.to_datetime(df["datahora"])
         df = df.dropna(subset=["nivel_m"])
-        rotulo = rotulos.get(nome, nome)
+        cfg = configurados.get(nome, {})
+        atraso = int(cfg.get("tempo_viagem_h", 0))
+        rotulo = cfg.get("rotulo", nome)
         fig.add_trace(go.Scatter(
             x=df["datahora"], y=df["nivel_m"], mode="lines", name=rotulo,
             line=dict(color=cores.get(nome, "#AAAAAA"), width=2.5),
             hovertemplate=f"<b>{rotulo}</b><br>"
                           "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
+                          "Nível observado: %{y:.2f} m<br>"
+                          f"Tempo de viagem provisório: {atraso} h"
+                          "<extra></extra>"))
+
+    guaiba_obs = pd.DataFrame((series or {}).get("__guaiba_observado__", []))
+    if not guaiba_obs.empty and {"datahora", "nivel_m"}.issubset(guaiba_obs):
+        guaiba_obs["datahora"] = pd.to_datetime(guaiba_obs["datahora"])
+        fig.add_trace(go.Scatter(
+            x=guaiba_obs["datahora"], y=guaiba_obs["nivel_m"],
+            mode="lines", name="Guaíba observado (Cais Mauá)",
+            yaxis="y2", line=dict(color="#4EA8DE", width=3),
+            hovertemplate="<b>Guaíba observado — Cais Mauá</b><br>"
+                          "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
                           "Nível: %{y:.2f} m<extra></extra>"))
 
+    previsao = pd.DataFrame((series or {}).get("__previsao_guaiba__", []))
+    if not previsao.empty and {"datahora", "nivel_previsto_m"}.issubset(previsao):
+        previsao["datahora"] = pd.to_datetime(previsao["datahora"])
+        previsao["incerteza_m"] = pd.to_numeric(
+            previsao.get("incerteza_m", 0), errors="coerce").fillna(0)
+        previsao["inferior"] = (
+            previsao["nivel_previsto_m"] - previsao["incerteza_m"]).clip(lower=0)
+        previsao["superior"] = previsao["nivel_previsto_m"] + previsao["incerteza_m"]
+
+        # Faixa de incerteza no eixo do Guaíba.
+        fig.add_trace(go.Scatter(
+            x=pd.concat([previsao["datahora"], previsao["datahora"].iloc[::-1]]),
+            y=pd.concat([previsao["superior"], previsao["inferior"].iloc[::-1]]),
+            fill="toself", fillcolor="rgba(78,168,222,0.14)",
+            line=dict(color="rgba(0,0,0,0)"), hoverinfo="skip",
+            name="Incerteza da previsão", yaxis="y2"))
+        fig.add_trace(go.Scatter(
+            x=previsao["datahora"], y=previsao["nivel_previsto_m"],
+            mode="lines+markers", name="Guaíba previsto (experimental)",
+            yaxis="y2", line=dict(color="#4EA8DE", width=3, dash="dash"),
+            marker=dict(size=4),
+            customdata=previsao[["incerteza_m", "afluentes_usados"]],
+            hovertemplate="<b>Guaíba previsto — Cais Mauá</b><br>"
+                          "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
+                          "Nível: %{y:.2f} m<br>"
+                          "Incerteza do ajuste: ±%{customdata[0]:.2f} m<br>"
+                          "Afluentes usados: %{customdata[1]:.0f}"
+                          "<extra></extra>"))
+
     fig.update_layout(
-        title="Afluentes do Guaíba — nível (últimos 7 dias)",
+        title=("Afluentes do Guaíba e previsão do nível no Cais Mauá"
+               "<br><sup>Previsão experimental; tempos de viagem provisórios</sup>"),
         hoverlabel=p["hover"],
-        yaxis_title="metros", paper_bgcolor="rgba(0,0,0,0)",
+        yaxis_title="Nível dos afluentes (m)",
+        yaxis2=dict(title="Guaíba previsto (m)", overlaying="y", side="right",
+                    showgrid=False, color="#4EA8DE"),
+        paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)", font_color=p["txt"],
         xaxis=dict(gridcolor=p["grade"]), yaxis=dict(gridcolor=p["grade"]),
-        height=380, margin=dict(l=40, r=20, t=60, b=30),
-        legend=dict(orientation="h", y=-0.15))
+        height=430, margin=dict(l=50, r=60, t=85, b=45),
+        legend=dict(orientation="h", y=-0.18))
     return fig
 
 
