@@ -3,10 +3,10 @@
 Alinha níveis dos afluentes pelo tempo de viagem e estima o nível futuro do
 Guaíba no Cais Mauá.
 
-A previsão é uma regressão ridge curta e auditável. Ela aprende, na própria
-janela coletada, a relação entre a variação de 24 h dos afluentes (já
-deslocados até a chegada) e a variação de 24 h do Guaíba. Não é um modelo
-hidrodinâmico e deve ser exibida como estimativa experimental.
+A previsão usa uma regressão ridge direta para cada hora do horizonte. Ela
+aprende, na própria janela coletada, como o Guaíba respondeu ao seu nível e
+tendências recentes e aos quatro afluentes já deslocados até a chegada. Não é
+um modelo hidrodinâmico e deve ser exibida como estimativa experimental.
 """
 
 from __future__ import annotations
@@ -42,16 +42,29 @@ def _serie_horaria(df: pd.DataFrame, limite_gap_h: int) -> pd.Series:
 def _ridge_prever(x_treino: pd.DataFrame, y_treino: pd.Series,
                   x_futuro: pd.Series) -> tuple[float, float] | None:
     """Ajusta ridge padronizada e retorna (previsão, RMSE do ajuste)."""
-    treino = x_treino.copy()
-    treino["__y"] = y_treino
-    treino = treino.replace([np.inf, -np.inf], np.nan).dropna()
+    x = x_treino.replace([np.inf, -np.inf], np.nan).copy()
+    y = y_treino.replace([np.inf, -np.inf], np.nan)
+    linhas_validas = y.notna()
+    x = x.loc[linhas_validas]
+    y = y.loc[linhas_validas]
     minimo = int(getattr(config, "MIN_AMOSTRAS_MODELO_GUAIBA", 48))
-    if len(treino) < minimo or x_futuro.isna().any():
+    if len(y) < minimo or x_futuro.isna().any():
         return None
 
-    x = treino.drop(columns="__y").to_numpy(dtype=float)
-    y = treino["__y"].to_numpy(dtype=float)
-    futuro = x_futuro.to_numpy(dtype=float)
+    # Falhas intermitentes antigas não devem apagar toda a amostra. A mediana
+    # é usada somente no treino; a previsão atual nunca inventa sensor futuro.
+    medianas = x.median()
+    colunas_validas = medianas[medianas.notna()].index
+    if len(colunas_validas) == 0:
+        return None
+    x = x.loc[:, colunas_validas].fillna(medianas[colunas_validas])
+    futuro_s = x_futuro.reindex(colunas_validas)
+    if futuro_s.isna().any():
+        return None
+
+    x = x.to_numpy(dtype=float)
+    y = y.to_numpy(dtype=float)
+    futuro = futuro_s.to_numpy(dtype=float)
 
     medias = x.mean(axis=0)
     desvios = x.std(axis=0)
@@ -80,7 +93,15 @@ def _ridge_prever(x_treino: pd.DataFrame, y_treino: pd.Series,
 
 def _prever_guaiba(guaiba: pd.Series,
                    alinhadas: dict[str, pd.Series]) -> list[dict]:
-    """Prevê até N horas usando apenas sinais a montante já observados."""
+    """Prevê cada hora diretamente, sem usar água ainda não observada.
+
+    Para o horizonte h, o modelo histórico relaciona Guaíba(t+h) a:
+      * Guaíba(t), variação em 6 h e variação em 24 h;
+      * nível e variação em 24 h de cada afluente que chegará em t+h.
+
+    Assim o modelo aprende como o resultado (Guaíba) respondeu anteriormente
+    aos mesmos sinais, em vez de apenas transladar visualmente as curvas.
+    """
     if guaiba.empty or not alinhadas:
         return []
 
@@ -90,44 +111,63 @@ def _prever_guaiba(guaiba: pd.Series,
 
     ultimo = g.index.max().floor("h")
     horizonte = int(getattr(config, "HORIZONTE_PREVISAO_GUAIBA_H", 24))
-    delta_guaiba_24h = g - g.shift(24)
-    resultados: list[dict] = []
+    nivel_atual = float(g.loc[ultimo])
+    resultados: list[dict] = [{
+        "datahora": ultimo.isoformat(),
+        "nivel_previsto_m": round(nivel_atual, 3),
+        "incerteza_m": 0.0,
+        "afluentes_usados": 0,
+        "ancora_observada": True,
+    }]
+    anterior = nivel_atual
 
     for passo in range(1, horizonte + 1):
         instante = ultimo + pd.Timedelta(hours=passo)
-        base_t = instante - pd.Timedelta(hours=24)
-        if base_t not in g.index or pd.isna(g.get(base_t)):
-            continue
+        x = pd.DataFrame({
+            "guaiba_nivel": g,
+            "guaiba_delta_6h": g - g.shift(6),
+            "guaiba_delta_24h": g - g.shift(24),
+        })
+        afluentes_usados = 0
 
-        colunas = {}
-        futuro = {}
         for nome, serie in alinhadas.items():
-            delta = serie - serie.shift(24)
-            valor = delta.get(instante)
-            if valor is None or pd.isna(valor):
+            # `serie` já está no horário estimado de chegada. shift(-passo)
+            # coloca, na linha t, o sinal que chegará no alvo t+passo.
+            chegada_nivel = serie.shift(-passo)
+            chegada_delta = (serie - serie.shift(24)).shift(-passo)
+            valor_nivel = chegada_nivel.get(ultimo)
+            valor_delta = chegada_delta.get(ultimo)
+            if (valor_nivel is None or pd.isna(valor_nivel)
+                    or valor_delta is None or pd.isna(valor_delta)):
                 continue
-            colunas[nome] = delta
-            futuro[nome] = float(valor)
+            x[f"{nome}_nivel_chegada"] = chegada_nivel
+            x[f"{nome}_delta_24h_chegada"] = chegada_delta
+            afluentes_usados += 1
 
-        if not colunas:
-            continue
-
-        x = pd.DataFrame(colunas)
-        ajuste = _ridge_prever(x, delta_guaiba_24h,
-                               pd.Series(futuro).reindex(x.columns))
+        # O alvo histórico é o nível observado h horas depois.
+        y = g.shift(-passo)
+        if ultimo not in x.index:
+            break
+        # Usa somente variáveis realmente conhecidas na última observação.
+        futuro = x.loc[ultimo].dropna()
+        x = x.loc[:, futuro.index]
+        ajuste = _ridge_prever(x, y, futuro)
         if ajuste is None:
             continue
-        variacao, rmse = ajuste
+        nivel_modelo, rmse = ajuste
 
-        # Limites defensivos: evitam extrapolações matemáticas absurdas numa
-        # janela curta, sem esconder a incerteza calculada.
-        variacao = float(np.clip(variacao, -2.0, 2.0))
-        nivel = float(np.clip(float(g.loc[base_t]) + variacao, 0.0, 10.0))
+        # Suaviza diferenças entre os 24 modelos diretos e limita extrapolação
+        # muito distante do último nível observado numa janela histórica curta.
+        nivel = 0.70 * float(nivel_modelo) + 0.30 * anterior
+        nivel = float(np.clip(nivel, nivel_atual - 2.0, nivel_atual + 2.0))
+        nivel = float(np.clip(nivel, 0.0, 10.0))
+        anterior = nivel
         resultados.append({
             "datahora": instante.isoformat(),
             "nivel_previsto_m": round(nivel, 3),
-            "incerteza_m": round(max(rmse, 0.05), 3),
-            "afluentes_usados": len(colunas),
+            "incerteza_m": round(max(rmse, 0.03), 3),
+            "afluentes_usados": afluentes_usados,
+            "ancora_observada": False,
         })
 
     return resultados
@@ -140,7 +180,7 @@ def preparar_series_afluentes(rios: dict[str, pd.DataFrame]) -> dict:
     limite = int(getattr(config, "INTERPOLACAO_MAX_GAP_H", 6))
     payload: dict = {}
     alinhadas: dict[str, pd.Series] = {}
-    meta = {"metodo": "ridge_variacao_24h", "experimental": True,
+    meta = {"metodo": "ridge_direta_por_horizonte", "experimental": True,
             "afluentes": {}}
 
     for nome, cfg in configurados.items():
