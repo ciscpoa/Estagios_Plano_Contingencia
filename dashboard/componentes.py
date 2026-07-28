@@ -294,8 +294,10 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
                           "<extra></extra>"))
 
     guaiba_obs = pd.DataFrame((series or {}).get("__guaiba_observado__", []))
+    agora = None
     if not guaiba_obs.empty and {"datahora", "nivel_m"}.issubset(guaiba_obs):
         guaiba_obs["datahora"] = pd.to_datetime(guaiba_obs["datahora"])
+        agora = guaiba_obs["datahora"].max()
         fig.add_trace(go.Scatter(
             x=guaiba_obs["datahora"], y=guaiba_obs["nivel_m"],
             mode="lines", name="Guaíba observado (Cais Mauá)",
@@ -303,6 +305,15 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
             hovertemplate="<b>Guaíba observado — Cais Mauá</b><br>"
                           "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
                           "Nível: %{y:.2f} m<extra></extra>"))
+
+        # "Agora" é a última leitura efetivamente observada, não o relógio do
+        # navegador; assim a linha também evidencia quando a coleta está velha.
+        fig.add_vline(
+            x=agora.to_pydatetime(), line_width=2, line_dash="dot",
+            line_color="#FFFFFF" if tema != "claro" else "#334155",
+            annotation_text="Agora · última observação",
+            annotation_position="top",
+            annotation_font_color=p["txt"])
 
     previsao = pd.DataFrame((series or {}).get("__previsao_guaiba__", []))
     if not previsao.empty and {"datahora", "nivel_previsto_m"}.issubset(previsao):
