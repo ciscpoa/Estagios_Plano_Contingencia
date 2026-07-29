@@ -145,6 +145,33 @@ def _trilho_estagios(atual: str) -> str:
     return f"<div class='trilho-estagios'>{''.join(passos)}</div>"
 
 
+_TINTA_ESCURA = "#12202E"      # quase-preto azulado, do próprio tema claro
+
+
+def _tom_suave(hexa: str, mistura: float = 0.45) -> str:
+    """
+    Clareia uma cor do Plano misturando-a com branco.
+
+    As cores oficiais (laranja #F2830B, vermelho, roxo) são fortes de
+    propósito: servem para a FAIXA do estágio, onde precisam gritar. Mas
+    preencher blocos inteiros com elas cansa a vista e obriga a usar texto
+    branco, que é o par de menor contraste possível sobre laranja saturado.
+
+    Aqui a matiz é preservada e só a saturação cai, produzindo um tom pastel
+    que aceita texto preto. A borda continua na cor cheia, então o bloco
+    ainda se lê como "laranja = ALERTA" à distância.
+    """
+    h = (hexa or "#888888").lstrip("#")
+    if len(h) != 6:
+        return hexa
+    try:
+        r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return hexa
+    m = max(0.0, min(1.0, mistura))
+    return "#%02X%02X%02X" % tuple(round(c + (255 - c) * m) for c in (r, g, b))
+
+
 def _linha_blocos(blocos: list, cor_linha: str, subtitulo: str,
                   nome: str | None = None) -> str:
     """Fileira BLOCO · E · BLOCO · E · BLOCO de um estágio."""
@@ -153,7 +180,8 @@ def _linha_blocos(blocos: list, cor_linha: str, subtitulo: str,
     caixas = []
     for i, b in enumerate(blocos):
         classe = "no-arvore ativo" if b["ativo"] else "no-arvore inativo"
-        estilo = (f"background:{cor_linha};border-color:{cor_linha}"
+        estilo = (f"background:{_tom_suave(cor_linha)};"
+                  f"border-color:{cor_linha};color:{_TINTA_ESCURA}"
                   if b["ativo"] else "")
         marca = "✔" if b["ativo"] else "✖"
         motivo = (b.get("motivo") or "").strip()
@@ -296,7 +324,8 @@ def _bloco_regioes(snapshot: dict) -> str:
             partes = [p for p in (al.get("tipo"),
                                   f"até {al.get('fim')}" if al.get("fim") else None) if p]
             detalhe = " · ".join(partes)
-        return (f"<div class='tile' style='background:{cor}'>"
+        return (f"<div class='tile' style='background:{_tom_suave(cor)};"
+                f"border:1px solid {cor};color:{_TINTA_ESCURA}'>"
                 f"<div class='num'>{num}</div><div class='nome'>{nome}</div>"
                 f"<div class='status'>{status}</div>"
                 f"<div class='detalhe'>{detalhe}</div></div>")
@@ -446,7 +475,9 @@ def _bloco_gatilhos(snapshot: dict) -> str:
         return ""
     cor = (snapshot.get("classificacao") or {}).get("cor", "#F2830B")
     badges = "".join(
-        f"<span class='badge' style='background:{cor}'>{a}</span>" for a in ativos)
+        f"<span class='badge' style='background:{_tom_suave(cor)};"
+        f"border:1px solid {cor};color:{_TINTA_ESCURA}'>{a}</span>"
+        for a in ativos)
     return f"""
     <h3 class="titulo-secao">Gatilhos de campo confirmados (SMS/Defesa Civil/CISC)</h3>
     <section class="gatilhos">{badges}</section>"""
@@ -776,7 +807,7 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 @media(max-width:900px){.linha-regioes{flex-wrap:wrap}
   .linha-regioes .tile{flex:0 0 calc(25% - 8px)}}
 @media(max-width:560px){.linha-regioes .tile{flex:0 0 calc(50% - 8px)}}
-.tile{border-radius:10px;padding:8px 6px;color:#fff;min-height:74px}
+.tile{border-radius:10px;padding:8px 6px;min-height:74px}
 .tile .num{font-weight:700;font-size:.85rem;opacity:.9}
 .tile .nome{font-weight:700;font-size:.82rem;line-height:1.15}
 .tile .status{font-size:.78rem}
@@ -809,7 +840,11 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
   border-radius:10px;padding:8px 10px;display:grid;
   grid-template-columns:auto 1fr;gap:4px 8px;align-items:start;
   text-align:left;font-size:.84rem}
-.no-arvore.ativo{color:#fff;font-weight:600}
+.no-arvore{align-content:start}
+/* fundo pastel + texto escuro: o par de maior contraste. O branco sobre
+   laranja saturado tinha só ~2,3:1, abaixo de qualquer piso legível. */
+.no-arvore.ativo{font-weight:600}
+.no-arvore.ativo .motivo-no{border-top-color:rgba(0,0,0,.28);opacity:.92}
 .no-arvore.inativo{opacity:.45}
 .no-arvore .marca{font-weight:800}
 .no-arvore .rotulo{grid-column:2}
@@ -842,7 +877,7 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .frescor.velho{display:inline-block;background:#FFD166;color:#3A2E00}
 .frescor.parado{display:inline-block;background:#D62828;color:#fff}
 .gatilhos{margin-bottom:20px}
-.badge{display:inline-block;color:#fff;border-radius:10px;padding:8px 14px;
+.badge{display:inline-block;border-radius:10px;padding:8px 14px;
        margin:4px;font-weight:700;font-size:.9rem}
 .graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px}
 .grafico{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;
