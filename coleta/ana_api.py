@@ -249,19 +249,20 @@ def obter_token(force: bool = False) -> str:
 _DIALETO_OK: dict = {"indice": None}
 
 
-def _dialetos_params(codigo_estacao: str) -> list[tuple[str, dict]]:
-    hoje = datetime.now().strftime("%Y-%m-%d")
+def _dialetos_params(codigo_estacao: str,
+                     data_busca: datetime | None = None) -> list[tuple[str, dict]]:
+    data_txt = (data_busca or datetime.now()).strftime("%Y-%m-%d")
     return [
         ("swagger-espacos", {
             "Código da Estação": codigo_estacao,
             "Tipo Filtro Data": "DATA_LEITURA",
-            "Data de Busca (yyyy-MM-dd)": hoje,
+            "Data de Busca (yyyy-MM-dd)": data_txt,
             "Range Intervalo de busca": "DIAS_30",
         }),
         ("camelcase+data", {
             "CodigoDaEstacao": codigo_estacao,
             "TipoFiltroData": "DATA_LEITURA",
-            "DataDeBusca": hoje,
+            "DataDeBusca": data_txt,
             "RangeIntervaloDeBusca": "DIAS_30",
         }),
         ("camelcase", {
@@ -272,23 +273,23 @@ def _dialetos_params(codigo_estacao: str) -> list[tuple[str, dict]]:
         ("swagger-espacos-sem-range", {
             "Código da Estação": codigo_estacao,
             "Tipo Filtro Data": "DATA_LEITURA",
-            "Data de Busca (yyyy-MM-dd)": hoje,
+            "Data de Busca (yyyy-MM-dd)": data_txt,
         }),
     ]
 
 
-def _consultar_serie(codigo_estacao: str, dias: int = 7) -> pd.DataFrame:
+def _consultar_janela_30d(codigo_estacao: str,
+                          fim: datetime) -> pd.DataFrame:
     """
     Consulta a série telemétrica (adotada; fallback detalhada) da estação,
     testando os dialetos de parâmetros até um funcionar (e memorizando-o).
-    A janela `dias` é aplicada localmente sobre o retorno.
+    A API telemétrica limita cada requisição a 30 dias.
     """
     token = obter_token()
-    fim = datetime.now()
-    inicio = fim - timedelta(days=dias)
+    inicio = fim - timedelta(days=30)
     headers = {"Authorization": f"Bearer {token}"}
 
-    dialetos = _dialetos_params(codigo_estacao)
+    dialetos = _dialetos_params(codigo_estacao, fim)
     # dialeto já validado vai primeiro
     if _DIALETO_OK["indice"] is not None:
         d = dialetos.pop(_DIALETO_OK["indice"])
@@ -324,7 +325,7 @@ def _consultar_serie(codigo_estacao: str, dias: int = 7) -> pd.DataFrame:
 
             # requisição ACEITA (200) → memoriza o dialeto vencedor
             if _DIALETO_OK["indice"] is None:
-                nomes = [n for n, _ in _dialetos_params("x")]
+                nomes = [n for n, _ in _dialetos_params("x", fim)]
                 _DIALETO_OK["indice"] = nomes.index(nome_dialeto)
                 print(f"[ANA] Dialeto de parâmetros validado: '{nome_dialeto}' "
                       f"(será usado nas próximas consultas).")
@@ -334,6 +335,28 @@ def _consultar_serie(codigo_estacao: str, dias: int = 7) -> pd.DataFrame:
             break  # dialeto ok, mas endpoint sem dados → próximo endpoint
 
     return pd.DataFrame(columns=["datahora", "nivel_m", "chuva_mm"])
+
+
+def _consultar_serie(codigo_estacao: str, dias: int = 7) -> pd.DataFrame:
+    """Consulta até um ano em blocos de 30 dias e elimina as sobreposições."""
+    dias = max(1, int(dias))
+    fim_global = datetime.now()
+    inicio_global = fim_global - timedelta(days=dias)
+    partes = []
+    for deslocamento in range(0, dias, 30):
+        fim_janela = fim_global - timedelta(days=deslocamento)
+        parte = _consultar_janela_30d(codigo_estacao, fim_janela)
+        if not parte.empty:
+            partes.append(parte)
+    if not partes:
+        return pd.DataFrame(columns=["datahora", "nivel_m", "chuva_mm"])
+    return (
+        pd.concat(partes, ignore_index=True)
+        .drop_duplicates(subset=["datahora"], keep="last")
+        .loc[lambda d: d["datahora"] >= inicio_global]
+        .sort_values("datahora")
+        .reset_index(drop=True)
+    )
 
 
 def _itens_para_df(items: list[dict], inicio: datetime) -> pd.DataFrame:
@@ -365,15 +388,21 @@ def _itens_para_df(items: list[dict], inicio: datetime) -> pd.DataFrame:
 # ──────────────────────────────────────────────────────────────────────────
 # 4) FUNÇÃO PÚBLICA
 # ──────────────────────────────────────────────────────────────────────────
-def coletar_niveis_rios(dias: int = 7) -> dict[str, pd.DataFrame]:
+def coletar_niveis_rios(dias: int = 7,
+                        nomes: list[str] | tuple[str, ...] | None = None
+                        ) -> dict[str, pd.DataFrame]:
     """
-    Coleta as séries de todas as estações de `config.ESTACOES_ANA`.
+    Coleta todas as estações, ou somente `nomes` quando informado.
 
     Retorna: {nome_amigavel: DataFrame[datahora, nivel_m, chuva_mm]}
     """
     vazio = pd.DataFrame(columns=["datahora", "nivel_m", "chuva_mm"])
     resultado = {}
-    for nome, codigo in config.ESTACOES_ANA.items():
+    selecionadas = {
+        nome: codigo for nome, codigo in config.ESTACOES_ANA.items()
+        if nomes is None or nome in nomes
+    }
+    for nome, codigo in selecionadas.items():
         print(f"[ANA] Coletando estação {nome} ({codigo})...")
         try:
             resultado[nome] = _consultar_serie(codigo, dias=dias)
