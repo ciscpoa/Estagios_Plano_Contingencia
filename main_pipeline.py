@@ -94,6 +94,8 @@ def executar_pipeline(usar_selenium: bool = True,
             "fonte": (brutos.get("inmet") or {}).get("fonte"),
         },
         "csv_exportado": caminho_csv,
+        # de qual régua saiu o número do card do Guaíba nesta coleta
+        "fonte_nivel_guaiba": brutos.get("fonte_nivel_guaiba"),
         "classificacao": {k: v for k, v in resultado.items() if k != "detalhes"},
         "detalhes": resultado["detalhes"],
         "indicadores": asdict(ind) | {
