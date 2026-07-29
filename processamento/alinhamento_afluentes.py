@@ -106,14 +106,17 @@ def _serie_horaria(df: pd.DataFrame, limite_gap_h: int) -> pd.Series:
 
 
 def _ridge_prever(x_treino: pd.DataFrame, y_treino: pd.Series,
-                  x_futuro: pd.Series) -> tuple[float, float] | None:
+                  x_futuro: pd.Series,
+                  minimo_amostras: int | None = None
+                  ) -> tuple[float, float] | None:
     """Ajusta ridge padronizada e retorna (previsão, RMSE do ajuste)."""
     x = x_treino.replace([np.inf, -np.inf], np.nan).copy()
     y = y_treino.replace([np.inf, -np.inf], np.nan)
     linhas_validas = y.notna()
     x = x.loc[linhas_validas]
     y = y.loc[linhas_validas]
-    minimo = int(getattr(config, "MIN_AMOSTRAS_MODELO_GUAIBA", 48))
+    minimo = int(minimo_amostras or
+                 getattr(config, "MIN_AMOSTRAS_MODELO_GUAIBA", 48))
     if len(y) < minimo or x_futuro.isna().any():
         return None
 
@@ -212,7 +215,9 @@ def _validar_24h(g: pd.Series,
         return {"ok": False, "motivo": "sem Guaíba observado"}
 
     for nome, serie in alinhadas.items():
-        nivel = serie.shift(-passo)
+        janela = int(getattr(config, "JANELA_ONDA_AFLUENTE_H", 12))
+        onda = serie.rolling(janela, min_periods=max(3, janela // 2)).mean()
+        nivel = onda.shift(-passo)
         delta = (serie - serie.shift(24)).shift(-passo)
         # Inclui somente o afluente que estará conhecido numa previsão real
         # de 24 h feita no final da série.
@@ -230,6 +235,9 @@ def _validar_24h(g: pd.Series,
 
     corte = max(int(len(dados) * 0.85), minimo)
     treino, teste = dados.iloc[:corte], dados.iloc[corte:]
+    # Persistência precisa do nível atual conhecido. Sem esta filtragem,
+    # lacunas no teste produziam MAE nulo/NaN e ainda deixavam a previsão ativa.
+    teste = teste.dropna(subset=["guaiba_nivel", "__y"])
     if len(teste) < 100:
         return {"ok": False, "motivo": "período de teste insuficiente",
                 "amostras_teste": len(teste)}
@@ -281,7 +289,8 @@ def _validar_24h(g: pd.Series,
 
 
 def _prever_guaiba(guaiba: pd.Series,
-                   alinhadas: dict[str, pd.Series]) -> list[dict]:
+                   alinhadas: dict[str, pd.Series],
+                   minimo_amostras: int) -> list[dict]:
     """Prevê cada hora diretamente, sem usar água ainda não observada.
 
     Para o horizonte h, o modelo histórico relaciona Guaíba(t+h) a:
@@ -295,7 +304,7 @@ def _prever_guaiba(guaiba: pd.Series,
         return []
 
     g = guaiba
-    if g.notna().sum() < int(getattr(config, "MIN_AMOSTRAS_MODELO_GUAIBA", 48)) + 24:
+    if g.notna().sum() < minimo_amostras + 24:
         return []
 
     ultimo = g.last_valid_index()
@@ -325,7 +334,10 @@ def _prever_guaiba(guaiba: pd.Series,
         for nome, serie in alinhadas.items():
             # `serie` já está no horário estimado de chegada. shift(-passo)
             # coloca, na linha t, o sinal que chegará no alvo t+passo.
-            chegada_nivel = serie.shift(-passo)
+            janela = int(getattr(config, "JANELA_ONDA_AFLUENTE_H", 12))
+            onda = serie.rolling(
+                janela, min_periods=max(3, janela // 2)).mean()
+            chegada_nivel = onda.shift(-passo)
             chegada_delta = (serie - serie.shift(24)).shift(-passo)
             valor_nivel = chegada_nivel.get(ultimo)
             valor_delta = chegada_delta.get(ultimo)
@@ -343,7 +355,7 @@ def _prever_guaiba(guaiba: pd.Series,
         # Usa somente variáveis realmente conhecidas na última observação.
         futuro = x.loc[ultimo].dropna()
         x = x.loc[:, futuro.index]
-        ajuste = _ridge_prever(x, y, futuro)
+        ajuste = _ridge_prever(x, y, futuro, minimo_amostras)
         if ajuste is None:
             continue
         nivel_modelo, rmse = ajuste
@@ -365,6 +377,22 @@ def _prever_guaiba(guaiba: pd.Series,
     return resultados
 
 
+def _combinar_previsoes(recente: list[dict],
+                        anual: list[dict],
+                        usar_anual: bool) -> tuple[list[dict], str]:
+    """Prefere o histórico anual validado; sete dias são apenas contingência.
+
+    A janela recente é curta demais para estimar com segurança a resposta a
+    uma cheia excepcional e pode extrapolar fortemente. O modelo anual só é
+    aceito depois do teste cronológico contra persistência.
+    """
+    if usar_anual and anual:
+        return anual, "anual_validado"
+    if recente:
+        return recente, "recente_contingencia"
+    return [], "indisponivel"
+
+
 def preparar_series_afluentes(rios: dict[str, pd.DataFrame],
                               historico: dict[str, pd.DataFrame] | None = None
                               ) -> dict:
@@ -375,8 +403,10 @@ def preparar_series_afluentes(rios: dict[str, pd.DataFrame],
     payload: dict = {}
     base_modelo = historico or rios
     horarias_modelo: dict[str, pd.Series] = {}
+    horarias_recentes: dict[str, pd.Series] = {}
     alinhadas: dict[str, pd.Series] = {}
-    meta = {"metodo": "ridge_lags_aprendidos_1_ano", "experimental": True,
+    alinhadas_recentes: dict[str, pd.Series] = {}
+    meta = {"metodo": "ridge_hibrido_lags_fisicos", "experimental": True,
             "afluentes": {}}
 
     for nome, cfg in configurados.items():
@@ -396,20 +426,28 @@ def preparar_series_afluentes(rios: dict[str, pd.DataFrame],
         df_modelo = base_modelo.get(nome, df)
         horaria = _serie_horaria(df_modelo, limite)
         horarias_modelo[nome] = horaria
+        horarias_recentes[nome] = _serie_horaria(df, limite)
 
     guaiba = _serie_horaria(base_modelo.get(CHAVE_GUAIBA), limite)
-    lags, diagnostico_lags = _calibrar_lags(guaiba, horarias_modelo)
+    # Os atrasos não são escolhidos por correlação simples. Essa calibração
+    # confundia autocorrelação/chuva comum com tempo de viagem e frequentemente
+    # selecionava exatamente o limite inferior (4, 8 e 12 h).
     for nome, horaria in horarias_modelo.items():
         cfg = configurados[nome]
-        atraso = int(lags[nome])
+        atraso = int(cfg["tempo_viagem_h"])
         chegada = horaria.copy()
         chegada.index = chegada.index + pd.Timedelta(hours=atraso)
         alinhadas[nome] = chegada
+        chegada_recente = horarias_recentes[nome].copy()
+        chegada_recente.index = (
+            chegada_recente.index + pd.Timedelta(hours=atraso))
+        alinhadas_recentes[nome] = chegada_recente
         meta["afluentes"][nome] = {
             "rotulo": cfg.get("rotulo", nome),
             "tempo_viagem_h": atraso,
-            "provisorio": diagnostico_lags[nome]["pares_calibracao"] == 0,
-            **diagnostico_lags[nome],
+            "provisorio": True,
+            "janela_onda_h": int(
+                getattr(config, "JANELA_ONDA_AFLUENTE_H", 12)),
         }
 
     guaiba_recente = _serie_horaria(rios.get(CHAVE_GUAIBA), limite)
@@ -417,10 +455,25 @@ def preparar_series_afluentes(rios: dict[str, pd.DataFrame],
         {"datahora": instante.isoformat(), "nivel_m": round(float(nivel), 3)}
         for instante, nivel in guaiba_recente.dropna().items()
     ]
-    previsao = _prever_guaiba(guaiba, alinhadas)
+    minimo_recente = int(
+        getattr(config, "MIN_AMOSTRAS_MODELO_RECENTE_GUAIBA", 48))
+    minimo_anual = int(getattr(config, "MIN_AMOSTRAS_MODELO_GUAIBA", 1000))
+    previsao_recente = _prever_guaiba(
+        guaiba_recente, alinhadas_recentes, minimo_recente)
+    validacao = _validar_24h(guaiba, alinhadas)
+    usar_anual = bool(
+        validacao.get("ok")
+        and validacao.get("melhor_que_persistencia") is True)
+    previsao_anual = (
+        _prever_guaiba(guaiba, alinhadas, minimo_anual)
+        if usar_anual else [])
+    previsao, modelo_operacional = _combinar_previsoes(
+        previsao_recente, previsao_anual, usar_anual)
     payload[CHAVE_PREVISAO] = previsao
     meta["horizonte_h"] = int(getattr(config, "HORIZONTE_PREVISAO_GUAIBA_H", 24))
     meta["previsoes_geradas"] = len(previsao)
-    meta["validacao_24h"] = _validar_24h(guaiba, alinhadas)
+    meta["validacao_24h"] = validacao
+    meta["modelo_operacional"] = modelo_operacional
+    meta["componente_anual_ativa"] = usar_anual
     payload[CHAVE_META] = meta
     return payload
