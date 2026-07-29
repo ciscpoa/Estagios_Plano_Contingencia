@@ -330,6 +330,8 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
              "Rio_Jacui_TriunfoAmarop": "#9B8CE0", "Rio_Jacui_Triunfo": "#9B8CE0"}
     configurados = getattr(config, "AFLUENTES_GUAIBA", {})
     principais = tuple(configurados)
+    meta_modelo = (series or {}).get("__meta_alinhamento__", {})
+    meta_afluentes = meta_modelo.get("afluentes", {})
 
     fig = go.Figure()
     for nome, registros in (series or {}).items():
@@ -341,7 +343,11 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
         df["datahora"] = pd.to_datetime(df["datahora"])
         df = df.dropna(subset=["nivel_m"])
         cfg = configurados.get(nome, {})
-        atraso = int(cfg.get("tempo_viagem_h", 0))
+        meta_rio = meta_afluentes.get(nome, {})
+        atraso = int(meta_rio.get("lag_aprendido_h",
+                                  cfg.get("tempo_viagem_h", 0)))
+        tipo_atraso = ("provisório" if meta_rio.get("provisorio", True)
+                       else "aprendido no histórico")
         rotulo = cfg.get("rotulo", nome)
         fig.add_trace(go.Scatter(
             x=df["datahora"], y=df["nivel_m"], mode="lines", name=rotulo,
@@ -349,7 +355,7 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
             hovertemplate=f"<b>{rotulo}</b><br>"
                           "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
                           "Nível observado: %{y:.2f} m<br>"
-                          f"Tempo de viagem provisório: {atraso} h"
+                          f"Tempo de viagem {tipo_atraso}: {atraso} h"
                           "<extra></extra>"))
 
     guaiba_obs = pd.DataFrame((series or {}).get("__guaiba_observado__", []))
@@ -403,9 +409,17 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
                           "Afluentes usados: %{customdata[1]:.0f}"
                           "<extra></extra>"))
 
+    validacao = meta_modelo.get("validacao_24h", {})
+    if validacao.get("ok"):
+        subtitulo = (
+            f"24 h: MAE histórico {validacao['mae_m']:.3f} m · "
+            f"persistência {validacao['mae_persistencia_m']:.3f} m")
+    else:
+        subtitulo = "Previsão experimental · histórico ainda não validado"
+
     fig.update_layout(
         title=("Afluentes do Guaíba e previsão do nível no Cais Mauá"
-               "<br><sup>Previsão experimental; tempos de viagem provisórios</sup>"),
+               f"<br><sup>{subtitulo}</sup>"),
         hoverlabel=p["hover"],
         yaxis_title="Nível dos afluentes (m)",
         yaxis2=dict(title="Guaíba previsto (m)", overlaying="y", side="right",

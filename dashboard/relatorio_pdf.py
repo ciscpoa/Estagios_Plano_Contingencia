@@ -193,7 +193,9 @@ def _imagens_graficos(snapshot: dict) -> list:
         from dashboard import componentes
         figs = [
             ("guaiba", componentes.grafico_guaiba(
-                snapshot.get("serie_guaiba", []), "claro"), 0.5),
+                snapshot.get("serie_guaiba", []), "claro",
+                previsao=(snapshot.get("series_afluentes") or {}).get(
+                    "__previsao_guaiba__")), 0.5),
             ("afluentes", componentes.grafico_afluentes(
                 snapshot.get("series_afluentes", {}), "claro"), 0.5),
             ("chuva", componentes.grafico_precipitacao(
