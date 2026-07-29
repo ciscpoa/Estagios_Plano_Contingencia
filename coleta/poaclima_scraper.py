@@ -235,11 +235,17 @@ def _explorar_marcadores(driver, baseline: str, limite: int = 60):
     Clica em cada marcador do mapa e coleta:
       • níveis (medidores conhecidos + demais estações em `outros`)
       • alertas regionais da Defesa Civil
+
+    Devolve também um diagnóstico do mapa. Ele existe para separar duas
+    situações que a lista vazia de alertas confunde: mapa consultado e sem
+    alerta vigente (situação normal) × mapa que não respondeu (falha de
+    coleta). Sem esse diagnóstico, todo dia calmo vira "sem dado".
     """
     niveis = {chave: None for chave in config.MEDIDORES_POACLIMA}
     outros: dict[str, float] = {}
     alertas: list[dict] = []
     vistos: set[tuple] = set()
+    popups_lidos = 0
 
     try:
         marcadores = driver.find_elements(By.CSS_SELECTOR, _SELETORES_MARCADOR)
@@ -257,6 +263,7 @@ def _explorar_marcadores(driver, baseline: str, limite: int = 60):
             texto = _texto_popup(driver, baseline)
             if not texto:
                 continue
+            popups_lidos += 1
 
             alerta = _parse_popup_alerta(texto)
             if alerta:
@@ -278,7 +285,8 @@ def _explorar_marcadores(driver, baseline: str, limite: int = 60):
         except Exception:
             continue
 
-    return niveis, outros, alertas
+    diagnostico = {"marcadores": len(marcadores), "popups_lidos": popups_lidos}
+    return niveis, outros, alertas, diagnostico
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -292,6 +300,7 @@ def coletar_poaclima() -> dict:
         "niveis": {usina_gasometro_m, cais_maua_m, riacho_ipiranga_m},
         "outros_medidores": {nome: nivel_m},
         "alertas_regionais": [ {...}, ... ],
+        "alertas_consultados": True/False,
         "texto_bruto", "url_usada",
       }
     """
@@ -301,6 +310,11 @@ def coletar_poaclima() -> dict:
         "niveis": {chave: None for chave in config.MEDIDORES_POACLIMA},
         "outros_medidores": {},
         "alertas_regionais": [],
+        # Camada de alertas efetivamente consultada? Lista vazia COM esta
+        # flag ligada significa "nenhum alerta vigente" (dia normal); lista
+        # vazia SEM ela significa "não deu para saber".
+        "alertas_consultados": False,
+        "diagnostico_mapa": {"marcadores": 0, "popups_lidos": 0},
         "texto_bruto": "",
         "url_usada": None,
     }
@@ -334,12 +348,19 @@ def coletar_poaclima() -> dict:
         # fallback textual + exploração dos marcadores (fonte principal)
         resultado["niveis"] = _extrair_niveis_medidores(corpo)
         _ligar_camada_fluviometrica(driver)
-        niveis_click, outros, alertas = _explorar_marcadores(driver, baseline=corpo)
+        niveis_click, outros, alertas, diag = _explorar_marcadores(
+            driver, baseline=corpo)
         for chave, valor in niveis_click.items():
             if valor is not None:
                 resultado["niveis"][chave] = valor
         resultado["outros_medidores"] = outros
         resultado["alertas_regionais"] = alertas
+        resultado["diagnostico_mapa"] = diag
+        # O mapa foi lido de verdade quando havia marcadores E pelo menos um
+        # popup abriu. Isso prova que a camada respondeu — independente de
+        # existir ou não alerta. Se houver alerta, a prova é ele próprio.
+        resultado["alertas_consultados"] = bool(
+            alertas or (diag["marcadores"] and diag["popups_lidos"]))
     except Exception as exc:
         print(f"[Poaclima] Falha no scraping: {exc}")
     finally:
@@ -351,7 +372,8 @@ def coletar_poaclima() -> dict:
           f"Gasômetro={n['usina_gasometro_m']} · Cais Mauá={n['cais_maua_m']} · "
           f"Riacho Ipiranga={n['riacho_ipiranga_m']} | "
           f"{len(resultado['outros_medidores'])} outra(s) estação(ões) | "
-          f"{len(resultado['alertas_regionais'])} alerta(s) regional(is)")
+          f"{len(resultado['alertas_regionais'])} alerta(s) regional(is) "
+          f"({'camada consultada' if resultado['alertas_consultados'] else 'CAMADA NÃO CONSULTADA'})")
     return resultado
 
 
