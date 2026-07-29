@@ -116,15 +116,13 @@ def banner_estagio(classificacao: dict, timestamp: str) -> dbc.Alert:
 def grafico_guaiba(serie: list[dict], tema: str = "dark",
                    previsao: list[dict] | None = None) -> go.Figure:
     """
-    Nível observado do Guaíba + as três cotas + a previsão.
+    Nível OBSERVADO do Guaíba + as três cotas de referência.
 
-    A previsão é a MESMA série do gráfico de afluentes
-    (`series_afluentes["__previsao_guaiba__"]`): a regressão ridge que
-    aprende como o Cais Mauá respondeu aos afluentes já deslocados pelo
-    tempo de viagem. Ter dois modelos diferentes prevendo a mesma régua em
-    dois gráficos da mesma página é pior que não prever nada — o operador
-    não tem como saber em qual acreditar. Existe um modelo só; este gráfico
-    apenas o mostra contra as cotas de referência.
+    O painel não faz previsão hidrológica de nível: a série termina na
+    última leitura efetivamente medida no Cais Mauá, marcada pela linha
+    vertical "Agora". O parâmetro `previsao` continua na assinatura só
+    para não quebrar quem já chama a função (app.py, site_estatico.py,
+    relatorio_pdf.py) — ele é ignorado de propósito.
     """
     p = paleta(tema)
     fig = go.Figure()
@@ -140,36 +138,15 @@ def grafico_guaiba(serie: list[dict], tema: str = "dark",
                           "Nível: %{y:.2f} m<extra></extra>",
         ))
 
-    # ── Previsão experimental (mesma do gráfico de afluentes) ──
-    prev = pd.DataFrame(previsao or [])
-    if not prev.empty and {"datahora", "nivel_previsto_m"}.issubset(prev):
-        prev["datahora"] = pd.to_datetime(prev["datahora"])
-        prev = prev.sort_values("datahora")
-        prev["incerteza_m"] = pd.to_numeric(
-            prev.get("incerteza_m", 0), errors="coerce").fillna(0)
-        inferior = (prev["nivel_previsto_m"] - prev["incerteza_m"]).clip(lower=0)
-        superior = prev["nivel_previsto_m"] + prev["incerteza_m"]
-
-        # a faixa vai primeiro, senão cobre a linha
-        fig.add_trace(go.Scatter(
-            x=pd.concat([prev["datahora"], prev["datahora"].iloc[::-1]]),
-            y=pd.concat([superior, inferior.iloc[::-1]]),
-            fill="toself", fillcolor="rgba(78,168,222,0.14)",
-            line=dict(color="rgba(0,0,0,0)"), hoverinfo="skip",
-            name="Incerteza da previsão"))
-        fig.add_trace(go.Scatter(
-            x=prev["datahora"], y=prev["nivel_previsto_m"],
-            mode="lines", name="Guaíba previsto (experimental)",
-            line=dict(color="#4EA8DE", width=3, dash="dot"),
-            hovertemplate="<b>Guaíba previsto — Cais Mauá</b><br>"
-                          "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
-                          "Nível: %{y:.2f} m<extra></extra>"))
-        # "Agora" = última observação, igual ao gráfico de afluentes
-        if not df.empty and "nivel_m" in df:
-            fig.add_vline(
-                x=df["datahora"].max().to_pydatetime(),
-                line_width=2, line_dash="dot",
-                line_color="#FFFFFF" if tema != "claro" else "#334155")
+        # "Agora" = última observação (não o relógio do navegador); assim a
+        # linha também evidencia quando a coleta está atrasada.
+        fig.add_vline(
+            x=df["datahora"].max().to_pydatetime(),
+            line_width=2, line_dash="dot",
+            line_color="#FFFFFF" if tema != "claro" else "#334155",
+            annotation_text="Agora · última observação",
+            annotation_position="top",
+            annotation_font_color=p["txt"])
 
     for cota, nome, cor in (
         (config.COTA_ATENCAO_GUAIBA, "Cota de Atenção", config.CORES_ESTAGIOS["MOBILIZAÇÃO"]),
@@ -181,9 +158,9 @@ def grafico_guaiba(serie: list[dict], tema: str = "dark",
                       annotation_text=f"{nome} ({cota:.2f} m)",
                       annotation_font_color=cor)
     fig.update_layout(
-        title=("Nível do Guaíba — Cais Mauá · observado e previsto"
-               "<br><sup>Previsão experimental; mesma do gráfico de "
-               "afluentes</sup>"),
+        title=("Nível do Guaíba — Cais Mauá · observado"
+               "<br><sup>Série termina na última leitura medida "
+               "(ANA · Cais Mauá)</sup>"),
         hoverlabel=p["hover"],
         yaxis_title="metros", paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)", font_color=p["txt"],
@@ -322,7 +299,12 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
 
 
 def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
-    """Quatro afluentes observados e previsão experimental do Guaíba."""
+    """
+    Afluentes observados + o Guaíba observado no Cais Mauá (eixo direito).
+
+    Somente dado medido: as séries param na linha "Agora" (última leitura
+    da ANA). Previsão hidrológica de nível não é atribuição deste painel.
+    """
     p = paleta(tema)
     cores = {"Rio_Gravatai": "#F2B90B", "Rio_dos_Sinos_SaoLeopoldo": "#5FD068",
              "Rio_Cai": "#F2830B", "Rio_Cai_Montenegro": "#E85D24",
@@ -379,59 +361,18 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
             annotation_position="top",
             annotation_font_color=p["txt"])
 
-    previsao = pd.DataFrame((series or {}).get("__previsao_guaiba__", []))
-    if not previsao.empty and {"datahora", "nivel_previsto_m"}.issubset(previsao):
-        previsao["datahora"] = pd.to_datetime(previsao["datahora"])
-        previsao["incerteza_m"] = pd.to_numeric(
-            previsao.get("incerteza_m", 0), errors="coerce").fillna(0)
-        previsao["inferior"] = (
-            previsao["nivel_previsto_m"] - previsao["incerteza_m"]).clip(lower=0)
-        previsao["superior"] = previsao["nivel_previsto_m"] + previsao["incerteza_m"]
-
-        # Faixa de incerteza no eixo do Guaíba.
-        fig.add_trace(go.Scatter(
-            x=pd.concat([previsao["datahora"], previsao["datahora"].iloc[::-1]]),
-            y=pd.concat([previsao["superior"], previsao["inferior"].iloc[::-1]]),
-            fill="toself", fillcolor="rgba(78,168,222,0.14)",
-            line=dict(color="rgba(0,0,0,0)"), hoverinfo="skip",
-            name="Incerteza da previsão", yaxis="y2"))
-        fig.add_trace(go.Scatter(
-            x=previsao["datahora"], y=previsao["nivel_previsto_m"],
-            mode="lines+markers", name="Guaíba previsto (experimental)",
-            yaxis="y2", line=dict(color="#4EA8DE", width=3, dash="dash"),
-            marker=dict(size=4),
-            customdata=previsao[["incerteza_m", "afluentes_usados"]],
-            hovertemplate="<b>Guaíba previsto — Cais Mauá</b><br>"
-                          "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
-                          "Nível: %{y:.2f} m<br>"
-                          "Incerteza do ajuste: ±%{customdata[0]:.2f} m<br>"
-                          "Afluentes usados: %{customdata[1]:.0f}"
-                          "<extra></extra>"))
-
-    validacao = meta_modelo.get("validacao_24h", {})
-    try:
-        mae_modelo = float(validacao.get("mae_m"))
-        mae_persistencia = float(validacao.get("mae_persistencia_m"))
-        metricas_validas = pd.notna(mae_modelo) and pd.notna(mae_persistencia)
-    except (TypeError, ValueError):
-        mae_modelo = mae_persistencia = None
-        metricas_validas = False
-    if validacao.get("ok") and metricas_validas:
-        situacao = ("validado contra persistência"
-                    if validacao.get("melhor_que_persistencia")
-                    else "componente anual rejeitado")
-        subtitulo = (
-            f"24 h: MAE histórico {mae_modelo:.3f} m · "
-            f"persistência {mae_persistencia:.3f} m · {situacao}")
-    else:
-        subtitulo = "Previsão experimental · histórico ainda não validado"
+    # Nada de previsão de nível aqui: a série do Cais Mauá e as dos
+    # afluentes terminam na última leitura medida, marcada pela linha
+    # vertical "Agora".
+    subtitulo = ("Cada régua tem referencial próprio · níveis observados, "
+                 "sem previsão")
 
     fig.update_layout(
-        title=("Afluentes do Guaíba e previsão do nível no Cais Mauá"
+        title=("Afluentes do Guaíba e nível observado no Cais Mauá"
                f"<br><sup>{subtitulo}</sup>"),
         hoverlabel=p["hover"],
         yaxis_title="Nível dos afluentes (m)",
-        yaxis2=dict(title="Guaíba previsto (m)", overlaying="y", side="right",
+        yaxis2=dict(title="Guaíba observado (m)", overlaying="y", side="right",
                     showgrid=False, color="#4EA8DE"),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)", font_color=p["txt"],
