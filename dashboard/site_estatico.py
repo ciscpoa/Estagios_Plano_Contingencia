@@ -393,7 +393,12 @@ def _bloco_avisos_inmet(snapshot: dict) -> str:
         # que diz o que fazer com o aviso
         tipo = (a.get("tipo") or a.get("descricao") or "").strip()
         detalhe = (a.get("detalhe") or "").strip()
-        if detalhe == tipo:
+        # Defesa em profundidade: mesmo com o filtro na coleta, o painel não
+        # imprime um data URI nem um blob sem espaços. Já aconteceu de um
+        # PNG em base64 vazar para cá; uma linha de guarda custa menos que
+        # a próxima captura de tela constrangedora.
+        if (detalhe == tipo or detalhe.lower().startswith("data:")
+                or "base64" in detalhe.lower() or detalhe.count(" ") < 4):
             detalhe = ""
         periodo = _periodo_aviso(a)
         itens.append(
@@ -764,6 +769,10 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .item-aviso .desc{font-size:.9rem}
 .item-aviso .detalhe-aviso{font-size:.84rem;color:var(--txt);opacity:.9;
   margin-top:4px;line-height:1.35}
+/* rede de segurança de layout: nenhum token comprido pode esticar o
+   cartão para fora da página, aconteça o que acontecer na origem */
+.item-aviso .desc,.item-aviso .detalhe-aviso{overflow-wrap:anywhere;
+  word-break:break-word}
 .item-aviso .periodo{font-size:.78rem;color:var(--txt2);margin-top:3px}
 .linha-arvore{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:10px 12px;margin-bottom:10px}
