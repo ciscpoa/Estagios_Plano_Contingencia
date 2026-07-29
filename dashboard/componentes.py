@@ -344,10 +344,9 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
         df = df.dropna(subset=["nivel_m"])
         cfg = configurados.get(nome, {})
         meta_rio = meta_afluentes.get(nome, {})
-        atraso = int(meta_rio.get("lag_aprendido_h",
+        atraso = int(meta_rio.get("tempo_viagem_h",
                                   cfg.get("tempo_viagem_h", 0)))
-        tipo_atraso = ("provisório" if meta_rio.get("provisorio", True)
-                       else "aprendido no histórico")
+        tipo_atraso = "físico provisório"
         rotulo = cfg.get("rotulo", nome)
         fig.add_trace(go.Scatter(
             x=df["datahora"], y=df["nivel_m"], mode="lines", name=rotulo,
@@ -418,9 +417,12 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
         mae_modelo = mae_persistencia = None
         metricas_validas = False
     if validacao.get("ok") and metricas_validas:
+        situacao = ("validado contra persistência"
+                    if validacao.get("melhor_que_persistencia")
+                    else "componente anual rejeitado")
         subtitulo = (
             f"24 h: MAE histórico {mae_modelo:.3f} m · "
-            f"persistência {mae_persistencia:.3f} m")
+            f"persistência {mae_persistencia:.3f} m · {situacao}")
     else:
         subtitulo = "Previsão experimental · histórico ainda não validado"
 
