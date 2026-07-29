@@ -40,6 +40,18 @@ DADOS_DIR.mkdir(parents=True, exist_ok=True)
 ARQUIVOS_DIR = _SAIDA / "arquivos_gerados_2026"
 ARQUIVOS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Exportar ou não os arquivos por rodada (dados_poa_AAAAMMDD_HHMM.csv/.xlsx).
+#
+# Eles servem para conferência manual na máquina local. No GitHub Actions não
+# têm leitor nenhum — o painel lê `dados/ultimo_snapshot.json` — e só somavam
+# ~95 KB por execução ao repositório. Então: ligados no local, desligados no
+# CI. Para forçar um dos dois, defina a variável de ambiente
+# EXPORTAR_ARQUIVOS_RODADA como 1 (liga) ou 0 (desliga).
+_no_github_actions = os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true"
+EXPORTAR_ARQUIVOS_RODADA = os.environ.get(
+    "EXPORTAR_ARQUIVOS_RODADA", "0" if _no_github_actions else "1"
+).strip().lower() in ("1", "true", "sim", "yes", "s")
+
 
 def _env_int(nome: str, padrao: int) -> int:
     try:
