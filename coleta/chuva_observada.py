@@ -116,10 +116,18 @@ def _curto(fonte: str) -> str:
     f = (fonte or "").strip()
     if f.startswith("INMET"):
         resto = f.replace("INMET", "", 1).strip(" —-")
-        # "A801 — PORTO ALEGRE - JARDIM BOTANICO" → "Porto Alegre"
+        # "B807 — PORTO ALEGRE - BELEM NOVO" → queremos o BAIRRO, não a
+        # cidade: POA tem duas estações do INMET e dizer só "Porto Alegre"
+        # não permite saber qual pluviômetro gerou o número.
         if "—" in resto:
             resto = resto.split("—", 1)[1]
-        local = resto.split(" - ")[0].strip().title()
+        partes = [p.strip() for p in resto.split(" - ") if p.strip()]
+        local = (partes[-1] if len(partes) > 1 else
+                 (partes[0] if partes else "")).title()
+        # o inventário do INMET vem sem acento
+        acentos = {"Belem Novo": "Belém Novo",
+                   "Jardim Botanico": "Jardim Botânico"}
+        local = acentos.get(local, local)
         return f"INMET — {local}" if local else "INMET"
     if f.startswith("ANA"):
         resto = f.replace("ANA", "", 1).strip()
@@ -311,13 +319,31 @@ def estacoes_inmet_proximas(limite: int = 6, raio_km: float = 120.0) -> list[dic
         })
 
     candidatas.sort(key=lambda e: e["dist_km"])
-    # a estação configurada tem prioridade se estiver na lista
+
+    # A estação de referência tem prioridade sobre a mera proximidade.
+    # Casamos por CÓDIGO e por NOME: o INMET já renumerou estações, e um
+    # código fixo que deixa de existir derruba a fonte em silêncio.
     preferida = getattr(config, "INMET_ESTACAO_POA", None)
-    if preferida:
-        candidatas.sort(key=lambda e: (e["codigo"] != preferida, e["dist_km"]))
-        if not any(e["codigo"] == preferida for e in candidatas):
+    nome_pref = (getattr(config, "INMET_ESTACAO_POA_NOME", "") or "").lower()
+
+    def _e_preferida(e: dict) -> bool:
+        if preferida and e.get("codigo") == preferida:
+            return True
+        if nome_pref:
+            nome = str(e.get("nome") or "").lower()
+            # "PORTO ALEGRE - BELEM NOVO" casa com "belem novo"; sem acento
+            # porque o inventário do INMET vem sem acentuação
+            return nome_pref in nome or nome_pref.replace("é", "e") in nome
+        return False
+
+    if preferida or nome_pref:
+        candidatas.sort(key=lambda e: (not _e_preferida(e), e["dist_km"]))
+        if preferida and not any(e["codigo"] == preferida for e in candidatas):
             candidatas.insert(0, {"codigo": preferida, "nome": preferida,
                                   "dist_km": 0.0})
+    if candidatas:
+        print(f"[INMET] ordem das candidatas: "
+              + " → ".join(f"{e['codigo']}/{e['nome']}" for e in candidatas[:limite]))
     return candidatas[:limite]
 
 

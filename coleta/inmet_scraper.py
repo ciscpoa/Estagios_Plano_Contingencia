@@ -193,16 +193,39 @@ def _abrange_poa(av: dict) -> str | None:
 
 
 def _descricao(av: dict) -> tuple[str, str]:
-    """(tipo, descrição) legíveis para o painel."""
+    """
+    (tipo, detalhe) legíveis para o painel.
+
+    O campo `descricao` da API às vezes traz só o nome do evento
+    ("Vendaval") e às vezes o texto completo. O detalhe — intensidade,
+    riscos, o que fazer — pode estar em `riscos`, `instrucoes` ou num campo
+    de nome que o INMET ainda vai inventar. Em vez de listar nomes de campo,
+    pegamos o maior texto plausível do aviso: é o que sobrevive a mudanças
+    de esquema.
+    """
     tipo = str(av.get("descricao_aviso") or av.get("tipo")
                or av.get("evento") or av.get("event") or "").strip()
-    desc = str(av.get("descricao") or av.get("riscos")
-               or av.get("description") or "").strip()
+    desc = str(av.get("descricao") or av.get("description") or "").strip()
     if not tipo and desc:
-        # "Aviso de Chuvas Intensas. Severidade..." → pega o rótulo do evento
         m = re.match(r"aviso de ([^.]+)", desc, flags=re.I)
-        tipo = m.group(1).strip() if m else ""
-    return tipo, (desc or tipo or "Aviso meteorológico vigente")
+        tipo = m.group(1).strip() if m else (desc if len(desc) < 60 else "")
+
+    # maior texto do aviso que não seja polígono/coordenada/data
+    ignorar = ("poligono", "poligonos", "geometry", "polygon", "municipios",
+               "estados", "area_poligono")
+    candidatos = []
+    for chave, valor in av.items():
+        if chave in ignorar or not isinstance(valor, str):
+            continue
+        v = valor.strip()
+        if len(v) < 40 or re.fullmatch(r"[-\d.,\s;]+", v):
+            continue
+        candidatos.append(v)
+    detalhe = max(candidatos, key=len) if candidatos else ""
+
+    # "Aviso de Chuvas Intensas. Chuva entre..." → tira o rótulo repetido
+    detalhe = re.sub(r"^aviso de [^.]+\.\s*", "", detalhe, flags=re.I).strip()
+    return (tipo or "Aviso meteorológico"), detalhe
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -247,11 +270,12 @@ def _tentar_api() -> dict | None:
         criterio = _abrange_poa(av)
         if not criterio:
             continue
-        tipo, desc = _descricao(av)
+        tipo, detalhe = _descricao(av)
         encontrados.append({
             "severidade": _severidade(av),
             "tipo": tipo,
-            "descricao": desc,
+            "descricao": tipo,          # compatibilidade com o painel antigo
+            "detalhe": detalhe,
             "inicio": av.get("data_inicio") or av.get("inicio") or av.get("onset"),
             "fim": av.get("data_fim") or av.get("fim") or av.get("expires"),
             "criterio": criterio,
@@ -315,7 +339,8 @@ def _scrape_selenium() -> dict:
             if sev:
                 encontrados.append({
                     "severidade": sev, "tipo": "",
-                    "descricao": texto[:300], "inicio": None, "fim": None,
+                    "descricao": texto[:120], "detalhe": texto[:400],
+                    "inicio": None, "fim": None,
                     "criterio": "texto da página de alertas",
                 })
     except Exception as exc:
@@ -344,8 +369,8 @@ def coletar_alertas_inmet() -> dict:
     print(f"[INMET] {len(alertas)} aviso(s) p/ Porto Alegre | máx: {max_sev} "
           f"| fonte: {resultado.get('fonte')}")
     for a in alertas[:5]:
-        print(f"[INMET]   · {a['severidade']} — {a.get('tipo') or a['descricao'][:60]} "
-              f"({a.get('criterio')})")
+        print(f"[INMET]   · {a['severidade']} — {a.get('tipo')} "
+              f"| {a.get('inicio')} → {a.get('fim')} | {a.get('criterio')}")
     return resultado
 
 
