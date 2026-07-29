@@ -73,8 +73,14 @@ def executar_pipeline(usar_selenium: bool = True,
         "ANA": any(not df.empty for df in brutos["rios"].values()),
         "Open-Meteo": not brutos["meteo"].get("horaria", pd.DataFrame()).empty,
         "INMET": (brutos.get("inmet") or {}).get("consultado", True),
-        "Poaclima": bool(poa.get("alertas_regionais")
-                         or any(v is not None for v in niveis_poa.values())),
+        # Duas camadas, duas flags. Antes era um OU: bastava os NÍVEIS virem
+        # para o Poaclima ser dado como "ok", mesmo que a camada de ALERTAS
+        # tivesse falhado — e a grade das 17 regiões então mostrava
+        # "sem alerta" (verdadeiro-negativo aparente) quando o certo era
+        # "sem dado". Uma falha de coleta não pode se disfarçar de ausência
+        # de risco num painel de contingência.
+        "Poaclima · alertas": bool(poa.get("alertas_regionais")),
+        "Poaclima · níveis": any(v is not None for v in niveis_poa.values()),
     }
     falhas = [n for n, ok in fontes.items() if not ok]
     if falhas:
