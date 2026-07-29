@@ -113,7 +113,7 @@ class IndicadoresNumericos:
 # ──────────────────────────────────────────────────────────────────────────
 def _lista(itens) -> str:
     """
-    Enumeração simples, um item por linha.
+    Enumeração com marcador, um item por linha.
 
     Aqui NÃO entra ' OU '. Estes itens são as MEDIÇÕES que sustentam o
     gatilho (quais afluentes estão em cota, quais gatilhos foram
@@ -121,7 +121,7 @@ def _lista(itens) -> str:
     opera um nível acima, entre as condições alternativas, e por isso vive
     no TÍTULO do bloco, não na lista de evidências.
     """
-    return "\n".join(str(i).strip() for i in itens if str(i).strip())
+    return "\n".join(f"• {str(i).strip()}" for i in itens if str(i).strip())
 
 
 def _nome(chave: str) -> str:
