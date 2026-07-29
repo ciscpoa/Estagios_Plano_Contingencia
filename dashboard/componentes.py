@@ -41,10 +41,18 @@ def paleta(tema: str = "dark") -> dict:
 # ──────────────────────────────────────────────────────────────────────────
 # GAUGE DO ESTÁGIO
 # ──────────────────────────────────────────────────────────────────────────
-def gauge_estagio(classificacao: dict, tema: str = "dark") -> go.Figure:
+def gauge_estagio(classificacao: dict, tema: str = "dark",
+                  compacto: bool = False) -> go.Figure:
+    """
+    Velocímetro das 5 faixas do Plano.
+
+    `compacto=True` é a versão que vive no CABEÇALHO, ao lado do logo e do
+    título: mesmo desenho, tipos e margens menores. O estágio é a primeira
+    informação que um operador procura, então ele sobe para o topo da
+    página em vez de ficar no meio dos gráficos.
+    """
     p = paleta(tema)
     indice = classificacao.get("indice", 0)
-    estagio = classificacao.get("estagio", "NORMALIDADE")
 
     faixas = [
         {"range": [i, i + 1], "color": config.CORES_ESTAGIOS[e]}
@@ -59,7 +67,7 @@ def gauge_estagio(classificacao: dict, tema: str = "dark") -> go.Figure:
                 "tickvals": [0.5, 1.5, 2.5, 3.5, 4.5],
                 "ticktext": ["Normalidade", "Mobilização", "Alerta",
                              "Emergência", "Crise"],
-                "tickfont": {"size": 12, "color": p["txt"]},
+                "tickfont": {"size": 10 if compacto else 12, "color": p["txt"]},
             },
             "bar": {"color": "rgba(255,255,255,0.85)", "thickness": 0.22},
             "steps": faixas,
@@ -70,10 +78,15 @@ def gauge_estagio(classificacao: dict, tema: str = "dark") -> go.Figure:
             },
         },
         title={"text": "<b>ESTÁGIO OPERACIONAL</b>",
-               "font": {"size": 20, "color": classificacao.get("cor", "#2E9E44")}},
+               "font": {"size": 14 if compacto else 20,
+                        "color": classificacao.get("cor", "#2E9E44")}},
     ))
-    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color=p["txt"],
-                      height=320, margin=dict(l=70, r=70, t=70, b=10))
+    if compacto:
+        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color=p["txt"],
+                          height=210, margin=dict(l=42, r=42, t=38, b=4))
+    else:
+        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color=p["txt"],
+                          height=320, margin=dict(l=70, r=70, t=70, b=10))
     return fig
 
 
@@ -100,7 +113,67 @@ def banner_estagio(classificacao: dict, timestamp: str) -> dbc.Alert:
 # ──────────────────────────────────────────────────────────────────────────
 # GRÁFICOS DE LINHA
 # ──────────────────────────────────────────────────────────────────────────
-def grafico_guaiba(serie: list[dict], tema: str = "dark") -> go.Figure:
+def projecao_guaiba(serie: list[dict], horizonte_h: int = 48,
+                    janela_h: int = 24, tau_h: float = 18.0) -> dict | None:
+    """
+    Projeção do nível do Guaíba para as próximas `horizonte_h` horas.
+
+    NÃO é previsão hidrológica: é a EXTRAPOLAÇÃO AMORTECIDA da tendência
+    recente. Ajusta uma reta às últimas `janela_h` horas e deixa essa
+    inclinação decair com constante de tempo `tau_h`, de modo que o
+    deslocamento total fique limitado a (inclinação × tau). Sem esse
+    amortecimento, uma subida de 5 cm/h viraria +2,4 m em 48h — número
+    grande, bonito no gráfico e completamente irreal.
+
+    A faixa sombreada é a incerteza: resíduo do ajuste + um termo que
+    cresce com o horizonte. Quanto mais longe, mais larga.
+
+    Devolve None quando não há série suficiente para dizer qualquer coisa.
+    """
+    import numpy as np
+
+    df = pd.DataFrame(serie)
+    if df.empty or "nivel_m" not in df:
+        return None
+    df["datahora"] = pd.to_datetime(df["datahora"])
+    df = df.dropna(subset=["nivel_m"]).sort_values("datahora")
+    if len(df) < 8:
+        return None
+
+    fim = df["datahora"].iloc[-1]
+    jan = df[df["datahora"] >= fim - pd.Timedelta(hours=janela_h)]
+    if len(jan) < 8:
+        jan = df.tail(max(8, len(df) // 4))
+
+    t = (jan["datahora"] - fim).dt.total_seconds().to_numpy(dtype=float) / 3600.0
+    y = pd.to_numeric(jan["nivel_m"], errors="coerce").to_numpy(dtype=float)
+    ok = ~np.isnan(y)
+    t, y = t[ok], y[ok]
+    if len(t) < 8 or float(np.ptp(t)) < 3.0:
+        return None
+
+    inclinacao, base = np.polyfit(t, y, 1)          # m/h e nível em t=0
+    sigma = float(np.std(y - (inclinacao * t + base))) or 0.01
+
+    horas = np.arange(1, horizonte_h + 1, dtype=float)
+    nivel = base + inclinacao * tau_h * (1.0 - np.exp(-horas / tau_h))
+    nivel = np.clip(nivel, 0.0, None)
+    banda = 1.96 * sigma + abs(inclinacao) * 0.35 * horas
+
+    return {
+        "datahora": [fim + pd.Timedelta(hours=float(h)) for h in horas],
+        "nivel": nivel,
+        "sup": nivel + banda,
+        "inf": np.clip(nivel - banda, 0.0, None),
+        "inicio": fim,
+        "nivel_atual": float(base),
+        "variacao_h": float(inclinacao),
+        "horizonte_h": horizonte_h,
+    }
+
+
+def grafico_guaiba(serie: list[dict], tema: str = "dark",
+                   horizonte_h: int = 48) -> go.Figure:
     p = paleta(tema)
     fig = go.Figure()
     df = pd.DataFrame(serie)
@@ -108,12 +181,35 @@ def grafico_guaiba(serie: list[dict], tema: str = "dark") -> go.Figure:
         df["datahora"] = pd.to_datetime(df["datahora"])
         fig.add_trace(go.Scatter(
             x=df["datahora"], y=df["nivel_m"], mode="lines",
-            name="Nível do Guaíba", line=dict(color="#4EA8DE", width=3),
+            name="Nível observado", line=dict(color="#4EA8DE", width=3),
             fill="tozeroy", fillcolor="rgba(78,168,222,0.12)",
             hovertemplate="<b>Guaíba — Cais Mauá</b><br>"
                           "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
                           "Nível: %{y:.2f} m<extra></extra>",
         ))
+
+    # ── Projeção 48h ─────────────────────────────────────────
+    prev = projecao_guaiba(serie, horizonte_h=horizonte_h)
+    if prev:
+        # A faixa de incerteza vai primeiro, senão cobre a linha.
+        fig.add_trace(go.Scatter(
+            x=list(prev["datahora"]) + list(prev["datahora"])[::-1],
+            y=list(prev["sup"]) + list(prev["inf"])[::-1],
+            fill="toself", fillcolor="rgba(229,57,155,0.16)",
+            line=dict(width=0), hoverinfo="skip", showlegend=True,
+            name="Faixa de incerteza"))
+        fig.add_trace(go.Scatter(
+            # começa no último ponto observado para a linha não "flutuar"
+            x=[prev["inicio"]] + list(prev["datahora"]),
+            y=[prev["nivel_atual"]] + list(prev["nivel"]),
+            mode="lines", name=f"Projeção {prev['horizonte_h']}h (tendência)",
+            line=dict(color="#E5399B", width=2.5, dash="dot"),
+            hovertemplate="<b>Projeção de tendência</b><br>"
+                          "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
+                          "Nível projetado: %{y:.2f} m<extra></extra>"))
+        fig.add_vline(x=prev["inicio"], line_width=1, line_dash="dot",
+                      line_color=p["txt"], opacity=0.45)
+
     for cota, nome, cor in (
         (config.COTA_ATENCAO_GUAIBA, "Cota de Atenção", config.CORES_ESTAGIOS["MOBILIZAÇÃO"]),
         (config.COTA_ALERTA_GUAIBA, "Cota de Alerta", config.CORES_ESTAGIOS["ALERTA"]),
@@ -124,7 +220,8 @@ def grafico_guaiba(serie: list[dict], tema: str = "dark") -> go.Figure:
                       annotation_text=f"{nome} ({cota:.2f} m)",
                       annotation_font_color=cor)
     fig.update_layout(
-        title="Nível do Guaíba — Cais Mauá (últimos 7 dias)",
+        title=("Nível do Guaíba — Cais Mauá · 7 dias observados + "
+               f"projeção de tendência {horizonte_h}h"),
         hoverlabel=p["hover"],
         yaxis_title="metros", paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)", font_color=p["txt"],

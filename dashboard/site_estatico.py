@@ -44,12 +44,21 @@ def _ativo_b64(nome: str, mime: str) -> str:
 
 
 def _texto_html(txt: str) -> str:
-    """Escapa HTML e converte quebras de linha em <br>, preservando o
-    recuo visual dos itens '•' (o motivo agora é multilinha)."""
+    """
+    Escapa HTML e converte quebras de linha em <br>.
+
+    Os itens alternativos das regras do Plano vinham separados por marcadores
+    '•', o que sugeria uma lista de condições que valem TODAS ao mesmo tempo.
+    No Plano essas condições são alternativas: basta uma. Agora a lógica
+    entrega os itens já unidos por ' OU ' e aqui só damos destaque
+    tipográfico ao conector, para ele ser lido como operador e não como
+    parte da frase.
+    """
     import html as _html
     if not txt:
         return ""
     seguro = _html.escape(str(txt)).replace("\n\n", "<br><br>").replace("\n", "<br>")
+    seguro = seguro.replace(" OU ", " <span class='ou'>OU</span> ")
     return seguro.replace("• ", "&nbsp;&nbsp;• ")
 
 
@@ -201,10 +210,17 @@ def _bloco_banner(snapshot: dict) -> str:
 
 def _bloco_cards(snapshot: dict) -> str:
     ind = snapshot.get("indicadores") or {}
+    # Quando a ANA está fora, o nível do Guaíba vem do Poaclima (mesma
+    # régua do Cais Mauá). O card precisa DIZER isso: um número certo com
+    # a fonte errada é pior que um número ausente, porque parece auditado.
+    fonte_guaiba = snapshot.get("fonte_nivel_guaiba")
     cards = []
     for info in config.INFO_RIOS_CARDS:
         nivel = componentes._nivel_do_indicador(ind, info["chave"])
         cota = info["cota_inundacao"]
+        estacao = info["estacao"]
+        if info["chave"] == "Guaiba_PortoAlegre_CaisMaua" and fonte_guaiba:
+            estacao = fonte_guaiba
 
         if nivel is not None and cota:
             pct = max(0.0, nivel / cota * 100.0)
@@ -231,7 +247,7 @@ def _bloco_cards(snapshot: dict) -> str:
         cards.append(f"""
         <div class="card">
           <div class="rio">{info['rotulo']}</div>
-          <div class="est">{info['municipio']} · est. {info['estacao']}</div>
+          <div class="est">{info['municipio']} · est. {estacao}</div>
           {valor}{barra}{rodape}
         </div>""")
     return f"<section class='cards'>{''.join(cards)}</section>"
@@ -282,14 +298,18 @@ def _bloco_regioes(snapshot: dict) -> str:
                 f"<div class='status'>{status}</div>"
                 f"<div class='detalhe'>{detalhe}</div></div>")
 
-    # Tela: triângulo 8 / 6 / 3 · Impressão: 7 / 6 / 4 (cabe melhor na A4)
+    # Tela: triângulo 8 / 6 / 3
+    # Impressão: 6 / 6 / 5. A divisão anterior era 7 / 6 / 4, mas as sete
+    # células da primeira linha não cabiam na largura útil da A4 e a sétima
+    # quebrava sozinha — o PDF saía 6 / 1 / 6 / 4, com uma linha órfã. Com
+    # seis por linha as três fileiras ficam equilibradas e nada quebra.
     def grade(faixas):
         return "".join(
             f"<div class='linha-regioes'>{''.join(tile(n) for n in faixa)}</div>"
             for faixa in faixas)
 
     html_linhas = (f"<div class='regioes-tela'>{grade([range(1, 9), range(9, 15), range(15, 18)])}</div>"
-                   f"<div class='regioes-print'>{grade([range(1, 8), range(8, 14), range(14, 18)])}</div>")
+                   f"<div class='regioes-print'>{grade([range(1, 7), range(7, 13), range(13, 18)])}</div>")
 
     return f"""
     <section class="bloco-regioes">
@@ -350,16 +370,77 @@ def _bloco_gatilhos(snapshot: dict) -> str:
     <section class="gatilhos">{badges}</section>"""
 
 
+def _figura_dupla(constroi, altura_css: str) -> str:
+    """
+    Renderiza a MESMA figura nos dois temas e devolve os dois blocos.
+
+    O CSS decide qual aparece. É desperdício de bytes e economia de dor de
+    cabeça: alternar tema sem recarregar exigiria redesenhar o Plotly, e
+    figura redesenhada fora da tela sai em branco no PDF.
+    """
+    blocos = []
+    for tema in ("dark", "claro"):
+        fig = constroi(tema)
+        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",
+                          plot_bgcolor="rgba(0,0,0,0)", autosize=True)
+        html_fig = fig.to_html(
+            full_html=False,
+            # o cabeçalho é o primeiro Plotly da página: é ele que carrega a lib
+            include_plotlyjs="cdn" if tema == "dark" and not _figura_dupla.carregado else False,
+            config={"displayModeBar": False, "responsive": True},
+            default_width="100%", default_height=altura_css)
+        if tema == "dark":
+            _figura_dupla.carregado = True
+        blocos.append(f"<div class='fig-{tema}'>{html_fig}</div>")
+    return "".join(blocos)
+
+
+_figura_dupla.carregado = False
+
+
+def _bloco_cabecalho(snapshot: dict) -> str:
+    """
+    Cabeçalho: identidade à esquerda, velocímetro do estágio à direita.
+
+    O estágio operacional é a resposta que a página existe para dar. Ele
+    estava no meio dos gráficos, abaixo de dois rolamentos de tela — quem
+    abria o painel no celular via logo, título e cards antes de descobrir
+    em que estágio a cidade está. Subiu para a primeira dobra, em tamanho
+    reduzido, ao lado do título.
+    """
+    _figura_dupla.carregado = False   # nova página, nova contagem
+    gauge = _figura_dupla(
+        lambda t: componentes.gauge_estagio(
+            snapshot.get("classificacao") or {}, t, compacto=True), "215px")
+    return f"""
+  <header class="cabecalho">
+    <div class="identidade">
+      <div class="logo" role="img" aria-label="CISC Porto Alegre"></div>
+      <div class="titulos">
+        <div class="sobretitulo">Porto Alegre/RS · Secretaria Municipal de Saúde</div>
+        <h1>Plano de Contingência<span class="fina"> — Estágios Operacionais</span></h1>
+        <div class="sub">Monitoramento automatizado · ANA · INMET · Poaclima ·
+          Open-Meteo</div>
+        <div class="acoes">
+          <button id="btn-tema">☀ Modo claro</button>
+          <button id="btn-print">🖨 Imprimir / PDF</button>
+        </div>
+      </div>
+    </div>
+    <div class="gauge-cabecalho">{gauge}</div>
+  </header>"""
+
+
 def _bloco_graficos(snapshot: dict) -> str:
     """
     Cada gráfico é renderizado DUAS vezes (tema escuro e claro). O CSS mostra
     a versão certa conforme o tema — e na impressão força sempre a clara,
     senão o texto dos gráficos sai cinza-claro sobre papel branco.
+
+    O velocímetro saiu daqui: agora mora no cabeçalho.
     """
     construtores = [
         # (constrói, largura_print, altura_print, ocupa_linha_inteira)
-        (lambda t: componentes.gauge_estagio(
-            snapshot.get("classificacao") or {}, t), 1040, 268, True),
         (lambda t: componentes.grafico_guaiba(
             snapshot.get("serie_guaiba", []), t), 1040, 268, True),
         (lambda t: componentes.grafico_afluentes(
@@ -375,7 +456,8 @@ def _bloco_graficos(snapshot: dict) -> str:
          1040, 268, True),
     ]
 
-    partes, primeiro = [], True
+    # a biblioteca do Plotly já veio com o velocímetro do cabeçalho
+    partes, primeiro = [], not _figura_dupla.carregado
     for constroi, larg_print, alt_print, largo in construtores:
         blocos = []
         for tema in ("dark", "claro"):
@@ -531,20 +613,28 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;
      background-size:cover;background-position:center 28%;
      background-repeat:no-repeat;opacity:.85}
 .wrap{max-width:1320px;margin:0 auto;position:relative}
-.cabecalho{display:flex;align-items:center;justify-content:center;gap:16px;
-     text-align:left;margin-bottom:6px;flex-wrap:wrap}
-.logo{height:62px;width:52px;flex:0 0 auto}
+/* Cabeçalho em duas colunas: identidade à esquerda, estágio à direita.
+   Em telas estreitas as duas viram linhas empilhadas. */
+.cabecalho{display:flex;align-items:center;justify-content:space-between;
+     gap:18px;text-align:left;margin-bottom:10px;flex-wrap:wrap}
+.identidade{display:flex;align-items:center;gap:16px;
+     flex:1 1 440px;min-width:0}
+.gauge-cabecalho{flex:0 1 480px;min-width:290px;max-width:540px;
+     align-self:center}
+@media(max-width:820px){.identidade,.gauge-cabecalho{flex:1 1 100%;max-width:none}
+  .cabecalho{justify-content:center}}
+.logo{height:70px;width:59px;flex:0 0 auto}
 .sobretitulo{font-family:"Barlow Condensed",sans-serif;font-weight:600;
-     font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;
+     font-size:.95rem;letter-spacing:.14em;text-transform:uppercase;
      color:var(--cisc)}
 h1{font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-weight:700;
-     font-size:2.1rem;line-height:1.05;margin:2px 0 3px;letter-spacing:.01em}
+     font-size:2.45rem;line-height:1.05;margin:2px 0 4px;letter-spacing:.01em}
 h1 .fina{font-weight:500;color:var(--txt2)}
-.sub{color:var(--txt2);font-size:.86rem;margin-bottom:0}
-.acoes{margin:14px 0 18px}
+.sub{color:var(--txt2);font-size:.98rem;margin-bottom:0}
+.acoes{margin:12px 0 0}
 button{background:transparent;color:var(--txt);border:1px solid var(--borda);
-       border-radius:8px;padding:8px 16px;font-size:.88rem;cursor:pointer;
-       margin:0 4px;font-family:inherit;transition:background .15s}
+       border-radius:8px;padding:8px 16px;font-size:.92rem;cursor:pointer;
+       margin:0 6px 0 0;font-family:inherit;transition:background .15s}
 button:hover{background:rgba(127,160,190,.16)}
 button:focus-visible{outline:2px solid var(--cisc);outline-offset:2px}
 /* Trilho de estágios — a progressão em chevrons do item 5.1 do Plano */
@@ -633,6 +723,10 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
   margin-top:2px}
 .no-arvore.inativo .motivo-no{border-top-color:var(--borda-fina)}
 .conector{align-self:center;font-weight:800;color:var(--txt2);padding:0 2px}
+/* 'OU' dentro do motivo de um bloco: é operador da regra, não palavra da
+   frase — por isso recebe caixa alta, peso e um leve respiro em volta. */
+.ou{font-weight:800;font-size:.92em;letter-spacing:.06em;opacity:.95;
+    padding:0 2px;white-space:nowrap}
 .nota-arvore{font-size:.82rem;color:var(--txt2);margin-top:6px}
 .cartao-chuva{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:16px 20px;margin:10px 0;display:flex;
@@ -696,11 +790,18 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
   .fig-claro{position:static !important;left:auto !important;width:auto !important}
   .wrap{max-width:none}
 
-  /* Cabeçalho compacto na primeira página */
-  .cabecalho{gap:12px;margin-bottom:4px}
-  .logo{height:44px;width:37px}
-  h1{font-size:1.5rem}
-  .sub,.sobretitulo{font-size:.72rem}
+  /* Cabeçalho compacto na primeira página: identidade + velocímetro */
+  .cabecalho{gap:10px;margin-bottom:4px;flex-wrap:nowrap;
+             break-inside:avoid;page-break-inside:avoid}
+  .identidade{flex:1 1 54%}
+  .gauge-cabecalho{flex:0 0 42%;max-width:42%;min-width:0}
+  .gauge-cabecalho .fig-claro,
+  .gauge-cabecalho .fig-claro .js-plotly-plot,
+  .gauge-cabecalho .fig-claro .plot-container,
+  .gauge-cabecalho .fig-claro .svg-container{height:40mm !important}
+  .logo{height:48px;width:40px}
+  h1{font-size:1.68rem}
+  .sub,.sobretitulo{font-size:.8rem}
 
   .trilho-estagios{margin-bottom:8px}
   .passo{font-size:.72rem;padding:6px 6px 6px 16px}
@@ -721,7 +822,8 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
   .regioes-tela{display:none !important}
   .regioes-print{display:block !important}
   .linha-regioes{margin-bottom:5px}
-  .linha-regioes .tile{flex:0 0 calc(14.28% - 6px);min-height:0;padding:5px 4px}
+  /* 6 por linha: 16,66% menos a folga dos 5 vãos de 8px */
+  .linha-regioes .tile{flex:0 0 calc(16.66% - 8px);min-height:0;padding:5px 4px}
 
   .titulo-secao{margin:10px 0 2px;font-size:1rem}
 
@@ -779,15 +881,24 @@ function medidasDeImpressao(){
   // A largura quem resolve é o ResizeObserver do Plotly, ao entrar no layout
   // de impressão; a altura vem do CSS. Aqui só encolhemos títulos e margens,
   // que em 80mm de altura precisam de menos espaço.
-  document.querySelectorAll('.fig-claro .js-plotly-plot').forEach(function(g){
+  document.querySelectorAll('.grafico .fig-claro .js-plotly-plot').forEach(function(g){
     try{Plotly.relayout(g,{autosize:true,
       'title.font.size':13,'legend.font.size':10,
       'margin.l':55,'margin.r':55,'margin.t':44,'margin.b':36});}catch(e){}
   });
+  // o velocímetro do cabeçalho tem altura própria (40mm) e margens menores
+  document.querySelectorAll('.gauge-cabecalho .fig-claro .js-plotly-plot').forEach(function(g){
+    try{Plotly.relayout(g,{autosize:true,width:null,height:null,
+      'margin.l':34,'margin.r':34,'margin.t':30,'margin.b':2});}catch(e){}
+  });
 }
 function medidasDeTela(){
-  document.querySelectorAll('.fig-claro .js-plotly-plot').forEach(function(g){
+  document.querySelectorAll('.grafico .fig-claro .js-plotly-plot').forEach(function(g){
     try{Plotly.relayout(g,{autosize:true,width:null,height:340});}catch(e){}
+  });
+  document.querySelectorAll('.gauge-cabecalho .fig-claro .js-plotly-plot').forEach(function(g){
+    try{Plotly.relayout(g,{autosize:true,width:null,height:215,
+      'margin.l':42,'margin.r':42,'margin.t':38,'margin.b':4});}catch(e){}
   });
   ajustarGraficos();
 }
@@ -843,19 +954,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
 </head>
 <body class="{'claro' if tema == 'claro' else ''}">
 <div class="wrap">
-  <header class="cabecalho">
-    <div class="logo" role="img" aria-label="CISC Porto Alegre"></div>
-    <div class="titulos">
-      <div class="sobretitulo">Porto Alegre/RS · Secretaria Municipal de Saúde</div>
-      <h1>Plano de Contingência<span class="fina"> — Estágios Operacionais</span></h1>
-      <div class="sub">Monitoramento automatizado · ANA · INMET · Poaclima ·
-        Open-Meteo</div>
-    </div>
-  </header>
-  <div class="acoes">
-    <button id="btn-tema">☀ Modo claro</button>
-    <button id="btn-print">🖨 Imprimir / PDF</button>
-  </div>
+  {_bloco_cabecalho(snapshot)}
   {_bloco_fontes(snapshot)}
   {_bloco_banner(snapshot)}
   {_bloco_avisos_inmet(snapshot)}
