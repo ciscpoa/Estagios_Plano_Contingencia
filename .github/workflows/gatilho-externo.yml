@@ -71,13 +71,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: checar
+        env:
+          TZ: America/Sao_Paulo   # o snapshot é gravado em horário de Brasília
         run: |
           python - <<'FIM' >> $GITHUB_OUTPUT
           import json, datetime, os, pathlib
           forcar = "${{ inputs.forcar }}" == "true"
           limite = 25          # min: abaixo disso o painel ainda está fresco
           idade = 999.0
-          arq = pathlib.Path("dashboard/snapshot.json")
+          arq = pathlib.Path("dados/ultimo_snapshot.json")
           if arq.exists():
               try:
                   iso = json.loads(arq.read_text())["timestamp_iso"]

@@ -55,10 +55,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Idade do painel antes desta coleta
+        env:
+          TZ: America/Sao_Paulo   # o snapshot é gravado em horário de Brasília
         run: |
           python - <<'FIM'
           import json, datetime, pathlib
-          arq = pathlib.Path("dashboard/snapshot.json")
+          arq = pathlib.Path("dados/ultimo_snapshot.json")
           if arq.exists():
               try:
                   iso = json.loads(arq.read_text())["timestamp_iso"]
@@ -135,16 +137,17 @@ jobs:
 
           mkdir -p /tmp/saida
           cp -r dados /tmp/saida/ 2>/dev/null || true
-          cp -r arquivos_gerados_2026 /tmp/saida/ 2>/dev/null || true
 
           git fetch origin ${{ github.ref_name }}
           git checkout -B ${{ github.ref_name }} origin/${{ github.ref_name }}
 
           cp -r /tmp/saida/dados . 2>/dev/null || true
-          cp -r /tmp/saida/arquivos_gerados_2026 . 2>/dev/null || true
 
+          # Só o snapshot e o histórico. Os CSV/XLSX por rodada ficam apenas
+          # no runner: ninguém os lê e versioná-los inchava o repositório em
+          # ~95 KB a cada 30 minutos.
           git add -f dados/ultimo_snapshot.json dados/historico_niveis_ana.csv \
-            arquivos_gerados_2026/ 2>/dev/null || true
+            2>/dev/null || true
           if git diff --staged --quiet; then
             echo "Nada mudou nesta coleta."
           else
@@ -154,10 +157,12 @@ jobs:
 
       - name: Conferir a idade do painel
         if: always()
+        env:
+          TZ: America/Sao_Paulo   # o snapshot é gravado em horário de Brasília
         run: |
           python - <<'FIM'
           import json, datetime, os, pathlib
-          arq = pathlib.Path("dashboard/snapshot.json")
+          arq = pathlib.Path("dados/ultimo_snapshot.json")
           if not arq.exists():
               raise SystemExit(0)
           try:
