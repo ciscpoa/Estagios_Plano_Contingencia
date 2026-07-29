@@ -260,6 +260,14 @@ def _validar_24h(g: pd.Series,
     rmse = float(np.sqrt(np.mean((yv - previsto) ** 2)))
     persistencia = teste["guaiba_nivel"].to_numpy(float)
     mae_persistencia = float(np.mean(np.abs(yv - persistencia)))
+    metricas = (mae, rmse, mae_persistencia)
+    if not all(np.isfinite(valor) for valor in metricas):
+        return {
+            "ok": False,
+            "motivo": "métricas não finitas por lacunas no período de teste",
+            "amostras_treino": len(treino),
+            "amostras_teste": len(teste),
+        }
     return {
         "ok": True,
         "horizonte_h": passo,
