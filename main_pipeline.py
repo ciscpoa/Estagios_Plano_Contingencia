@@ -98,7 +98,13 @@ def executar_pipeline(usar_selenium: bool = True,
         # "sem alerta" (verdadeiro-negativo aparente) quando o certo era
         # "sem dado". Uma falha de coleta não pode se disfarçar de ausência
         # de risco num painel de contingência.
-        "Poaclima · alertas": bool(poa.get("alertas_regionais")),
+        # NÃO usar a lista de alertas como prova de sucesso: quando o
+        # alerta vence (o de 29/07 expirou às 15:00), a lista fica vazia e
+        # o painel passava a dizer "não foi possível consultar" num dia
+        # perfeitamente normal. Um aviso que aparece todo dia calmo deixa
+        # de ser lido justamente no dia em que importa. Quem responde se a
+        # camada foi lida é o scraper.
+        "Poaclima · alertas": bool(poa.get("alertas_consultados")),
         "Poaclima · níveis": any(v is not None for v in niveis_poa.values()),
     }
     falhas = [n for n, ok in fontes.items() if not ok]
