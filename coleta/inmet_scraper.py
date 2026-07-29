@@ -86,8 +86,62 @@ _CABECALHOS = {
                    "AppleWebKit/537.36 (KHTML, like Gecko) "
                    "Chrome/126.0 Safari/537.36"),
     "Accept": "application/json, text/plain, */*",
-    "Referer": "https://alertas2.inmet.gov.br/",
+    "Referer": "https://avisos.inmet.gov.br/",
 }
+
+
+_CAMPOS_INICIO = ("data_inicio", "dt_inicio", "data_hora_inicio", "inicio",
+                  "onset", "effective", "start", "data_inicial")
+_CAMPOS_FIM = ("data_fim", "dt_fim", "data_hora_fim", "fim",
+               "expires", "end", "data_final")
+
+
+def _quando(av: dict, campos: tuple) -> tuple[str, object]:
+    """Devolve (texto cru, datetime) do primeiro campo que der para ler."""
+    import datetime as _dt
+    formatos = ("%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ",
+                "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M",
+                "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d",
+                "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y")
+    for campo in campos:
+        bruto = av.get(campo)
+        if bruto in (None, "", "null"):
+            continue
+        txt = str(bruto).strip()
+        for f in formatos:
+            try:
+                # NÃO convertemos fuso. O 'Z' desses campos vem de um
+                # toISOString() aplicado a uma data de calendário, não de um
+                # instante UTC real — converter jogaria um aviso que começa
+                # 00:00 para as 21:00 do dia anterior.
+                return txt, _dt.datetime.strptime(txt, f)
+            except ValueError:
+                continue
+        return txt, None
+    return "", None
+
+
+def _vigente_hoje(inicio, fim) -> bool:
+    """
+    True se a janela do aviso encosta no dia de hoje.
+
+    O endpoint /ativos devolve também o que ainda vai começar. Um aviso para
+    depois de amanhã não descreve a situação operacional de agora e não pode
+    puxar o estágio da cidade — então ele sai da caixa e sai da severidade
+    máxima. Quando a data não é legível, o aviso FICA: sumir com um aviso
+    real por causa de um formato de data é o erro mais caro dos dois.
+    """
+    import datetime as _dt
+    if inicio is None and fim is None:
+        return True
+    hoje = _dt.date.today()
+    abre = _dt.datetime.combine(hoje, _dt.time.min)
+    fecha = _dt.datetime.combine(hoje, _dt.time.max)
+    if inicio is not None and inicio > fecha:
+        return False
+    if fim is not None and fim < abre:
+        return False
+    return True
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -192,16 +246,51 @@ def _abrange_poa(av: dict) -> str | None:
     return None
 
 
+def _texto_util(valor) -> str:
+    """
+    Devolve o valor se ele for TEXTO EM PROSA; caso contrário, string vazia.
+
+    A versão anterior pegava "o maior texto do aviso" e caiu direto numa
+    armadilha: o aviso carrega a miniatura do mapa em base64, que é de longe
+    a maior string do objeto — o painel exibiu `data:image/png;base64,...`.
+    A lição é que tamanho não é sinal de conteúdo. Aqui a checagem é pelo
+    FORMATO da prosa:
+
+      * nada de data URI nem de campo com 'base64';
+      * precisa de espaços — texto corrido tem muitos;
+      * nenhuma "palavra" pode passar de 30 caracteres (base64, hashes,
+        polígonos e WKT quebram exatamente aqui, português quase nunca);
+      * maioria dos caracteres tem de ser letra ou espaço, o que descarta
+        listas de coordenadas e de códigos IBGE.
+    """
+    if not isinstance(valor, str):
+        return ""
+    v = " ".join(valor.split()).strip()
+    if not (30 <= len(v) <= 800):
+        return ""
+    baixo = v.lower()
+    if baixo.startswith(("data:", "http://", "https://", "<svg", "<?xml")):
+        return ""
+    if "base64" in baixo:
+        return ""
+    if v.count(" ") < 4:
+        return ""
+    if max((len(p) for p in v.split(" ")), default=0) > 30:
+        return ""
+    letras = sum(1 for c in v if c.isalpha() or c == " ")
+    if letras / len(v) < 0.7:
+        return ""
+    return v
+
+
 def _descricao(av: dict) -> tuple[str, str]:
     """
     (tipo, detalhe) legíveis para o painel.
 
-    O campo `descricao` da API às vezes traz só o nome do evento
-    ("Vendaval") e às vezes o texto completo. O detalhe — intensidade,
-    riscos, o que fazer — pode estar em `riscos`, `instrucoes` ou num campo
-    de nome que o INMET ainda vai inventar. Em vez de listar nomes de campo,
-    pegamos o maior texto plausível do aviso: é o que sobrevive a mudanças
-    de esquema.
+    O campo `descricao` traz o nome do evento ("Vendaval"); o detalhe
+    — intensidade e riscos — costuma estar em `riscos` ou `instrucoes`.
+    Procuramos primeiro pelos nomes conhecidos e só depois varremos o resto
+    do objeto, sempre passando pelo filtro de prosa.
     """
     tipo = str(av.get("descricao_aviso") or av.get("tipo")
                or av.get("evento") or av.get("event") or "").strip()
@@ -210,20 +299,19 @@ def _descricao(av: dict) -> tuple[str, str]:
         m = re.match(r"aviso de ([^.]+)", desc, flags=re.I)
         tipo = m.group(1).strip() if m else (desc if len(desc) < 60 else "")
 
-    # maior texto do aviso que não seja polígono/coordenada/data
-    ignorar = ("poligono", "poligonos", "geometry", "polygon", "municipios",
-               "estados", "area_poligono")
-    candidatos = []
-    for chave, valor in av.items():
-        if chave in ignorar or not isinstance(valor, str):
-            continue
-        v = valor.strip()
-        if len(v) < 40 or re.fullmatch(r"[-\d.,\s;]+", v):
-            continue
-        candidatos.append(v)
-    detalhe = max(candidatos, key=len) if candidatos else ""
+    detalhe = ""
+    for chave in ("riscos", "descricao", "instrucoes", "instrucao",
+                  "aviso_texto", "texto", "description", "instruction",
+                  "headline", "observacao"):
+        detalhe = _texto_util(av.get(chave))
+        if detalhe:
+            break
+    if not detalhe:
+        candidatos = [_texto_util(v) for k, v in av.items()
+                      if k not in ("municipios", "estados")]
+        candidatos = [c for c in candidatos if c]
+        detalhe = min(candidatos, key=len) if candidatos else ""
 
-    # "Aviso de Chuvas Intensas. Chuva entre..." → tira o rótulo repetido
     detalhe = re.sub(r"^aviso de [^.]+\.\s*", "", detalhe, flags=re.I).strip()
     return (tipo or "Aviso meteorológico"), detalhe
 
@@ -263,23 +351,35 @@ def _tentar_api() -> dict | None:
                else f"lista[{len(dados)}]" if isinstance(dados, list) else type(dados).__name__)
     print(f"[INMET] resposta: {formato} · {len(brutos)} aviso(s) no Brasil")
     if brutos:
-        print(f"[INMET] campos do 1º aviso: {sorted(brutos[0].keys())}")
+        primeiro = brutos[0]
+        print(f"[INMET] campos do 1º aviso: {sorted(primeiro.keys())}")
+        # amostra CURTA de cada campo — sem isto, acertar nome de campo do
+        # INMET vira adivinhação. Cortado em 90 chars p/ não despejar base64.
+        for k, v in list(primeiro.items())[:20]:
+            amostra = " ".join(str(v).split())[:90]
+            print(f"[INMET]     {k} = {amostra}")
 
-    encontrados = []
+    encontrados, futuros = [], []
     for av in brutos:
         criterio = _abrange_poa(av)
         if not criterio:
             continue
         tipo, detalhe = _descricao(av)
-        encontrados.append({
+        txt_ini, dt_ini = _quando(av, _CAMPOS_INICIO)
+        txt_fim, dt_fim = _quando(av, _CAMPOS_FIM)
+        registro = {
             "severidade": _severidade(av),
             "tipo": tipo,
             "descricao": tipo,          # compatibilidade com o painel antigo
             "detalhe": detalhe,
-            "inicio": av.get("data_inicio") or av.get("inicio") or av.get("onset"),
-            "fim": av.get("data_fim") or av.get("fim") or av.get("expires"),
+            "inicio": txt_ini or None,
+            "fim": txt_fim or None,
             "criterio": criterio,
-        })
+        }
+        if _vigente_hoje(dt_ini, dt_fim):
+            encontrados.append(registro)
+        else:
+            futuros.append(registro)
 
     # Dois avisos idênticos (mesmo evento em áreas vizinhas) viram um só.
     unicos, chaves = [], set()
@@ -290,7 +390,13 @@ def _tentar_api() -> dict | None:
         chaves.add(chave)
         unicos.append(a)
 
-    return {"alertas": unicos, "fonte": "api", "consultado": True}
+    if futuros:
+        print(f"[INMET] {len(futuros)} aviso(s) de POA fora do dia de hoje "
+              f"(não entram no painel nem na classificação): "
+              + "; ".join(f"{f['severidade']}/{f['tipo']} {f['inicio']}→{f['fim']}"
+                          for f in futuros[:4]))
+    return {"alertas": unicos, "alertas_futuros": futuros,
+            "fonte": "api", "consultado": True}
 
 
 # ──────────────────────────────────────────────────────────────────────────
