@@ -246,11 +246,19 @@ def montar_dataframe(brutos: dict) -> pd.DataFrame:
 def exportar_csv(df: pd.DataFrame, brutos: dict) -> str:
     """
     Exporta os dados brutos com o timestamp obrigatório no nome, na pasta
-    `arquivos_gerados_2026/` (dentro da pasta de trabalho no Drive):
+    `arquivos_gerados_2026/`:
       • dados_poa_YYYYMMDD_HHMM.csv  — consolidado
       • dados_poa_YYYYMMDD_HHMM.xlsx — Excel com abas: Consolidado,
         Guaiba, Afluentes, Precipitacao_Horaria, Precipitacao_Diaria
+
+    Só roda quando `config.EXPORTAR_ARQUIVOS_RODADA` está ligado — o padrão
+    é ligado na máquina local e desligado no GitHub Actions.
     """
+    if not getattr(config, "EXPORTAR_ARQUIVOS_RODADA", True):
+        print("[EXPORT] Arquivos por rodada desligados nesta execução. "
+              "O painel usa dados/ultimo_snapshot.json.")
+        return ""
+
     ts = brutos["timestamp"]
     base = config.ARQUIVOS_DIR / f"dados_poa_{ts:%Y%m%d_%H%M}"
 
