@@ -115,11 +115,18 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
                 print(f"[Poaclima-estações] Falha: {exc}")
 
     # ── Fallbacks do Guaíba, na ordem correta de referencial ──
+    # A PROCEDÊNCIA viaja junto com o número. Sem isso o card do painel
+    # continuava rotulado "Cais Mauá · ANA 87450004" mesmo quando a ANA
+    # estava fora e o valor tinha vindo do Poaclima — o painel atribuía à
+    # ANA um dado que não era dela, que é exatamente o tipo de fallback
+    # silencioso que este projeto decidiu não ter.
+    fonte_nivel_guaiba = "Cais Mauá · ANA 87450004"
     if resumo_rios.get(chave_guaiba, {}).get("nivel_atual_m") is None:
         cais_maua_poaclima = (poaclima.get("niveis") or {}).get("cais_maua_m")
         if cais_maua_poaclima is not None:
             print(f"[Fallback] Nível do Guaíba do Poaclima — Cais Mauá C6 "
                   f"({cais_maua_poaclima} m; mesma régua da ANA).")
+            fonte_nivel_guaiba = "Cais Mauá C6 · Poaclima (ANA indisponível)"
             resumo_rios[chave_guaiba] = {"nivel_atual_m": cais_maua_poaclima,
                                          "tendencia_48h_m": None,
                                          "ultima_leitura": ts}
@@ -132,13 +139,19 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
                     print("[Fallback] ATENÇÃO: usando nivelguaiba.com "
                           f"({fb['nivel_m']} m) — referencial não confirmado; "
                           "o % da cota pode não ser comparável.")
+                    fonte_nivel_guaiba = ("nivelguaiba.com · referencial NÃO "
+                                          "confirmado")
                     resumo_rios[chave_guaiba] = {"nivel_atual_m": fb["nivel_m"],
                                                  "tendencia_48h_m": None,
                                                  "ultima_leitura": ts}
             except Exception as exc:
                 print(f"[Fallback] nivelguaiba.com falhou: {exc}")
 
+    if resumo_rios.get(chave_guaiba, {}).get("nivel_atual_m") is None:
+        fonte_nivel_guaiba = "Cais Mauá · ANA 87450004 (sem leitura)"
+
     return {"timestamp": ts, "rios": rios, "resumo_rios": resumo_rios,
+            "fonte_nivel_guaiba": fonte_nivel_guaiba,
             "meteo": meteo, "inmet": inmet, "poaclima": poaclima,
             "chuva_obs": chuva_obs, "previsao_poaclima": previsao_poa,
             "estacoes_meteo_poaclima": estacoes_poa}
