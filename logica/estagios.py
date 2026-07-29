@@ -111,16 +111,17 @@ class IndicadoresNumericos:
 # ──────────────────────────────────────────────────────────────────────────
 # HELPERS
 # ──────────────────────────────────────────────────────────────────────────
-def _ou(itens) -> str:
+def _lista(itens) -> str:
     """
-    Une alternativas com ' OU ' — o conector do próprio Plano.
+    Enumeração simples, um item por linha.
 
-    Antes esses itens saíam como uma lista de marcadores '•', o que dá a
-    entender que todas as condições valem juntas. No item 5.1 do Plano elas
-    são alternativas: basta UMA para o gatilho fechar. Escrever o operador
-    por extenso tira a ambiguidade sem precisar de legenda.
+    Aqui NÃO entra ' OU '. Estes itens são as MEDIÇÕES que sustentam o
+    gatilho (quais afluentes estão em cota, quais gatilhos foram
+    confirmados) — todas verdadeiras ao mesmo tempo. O ' OU ' do Plano
+    opera um nível acima, entre as condições alternativas, e por isso vive
+    no TÍTULO do bloco, não na lista de evidências.
     """
-    return " OU ".join(str(i).strip() for i in itens if str(i).strip())
+    return "\n".join(str(i).strip() for i in itens if str(i).strip())
 
 
 def _nome(chave: str) -> str:
@@ -274,7 +275,7 @@ def _perfil_chuva(ind: IndicadoresNumericos) -> dict:
 
     def _bloco_prev(titulo: str) -> str:
         fonte = ind.fonte_chuva_prev or "Poaclima"
-        return f"{titulo} (fonte: {fonte}):\n{_ou(_prev_linhas())}"
+        return f"{titulo} (fonte: {fonte}):\n{_lista(_prev_linhas())}"
 
     ativo, caminho, motivo = False, None, ""
     if aviso == "Vermelho":
@@ -382,10 +383,10 @@ def _avaliar_regras(
     detalhes["CRISE"] = {"disparou": disparou_crise, "motivos": motivos,
         "blocos": [
             {"n": 1, "titulo": "Chuvas muito acima da média histórica", "ativo": bool(b1)},
-            {"n": 2, "titulo": "Colapso (ou risco) da drenagem urbana", "ativo": bool(b2)},
+            {"n": 2, "titulo": "Colapso OU risco de colapso da drenagem urbana", "ativo": bool(b2)},
             {"n": 3, "titulo": "Interrupção de infraestrutura em grande escala", "ativo": bool(b3)},
-            {"n": 4, "titulo": "Isolamento de áreas/comunidades ou óbitos", "ativo": bool(b4)},
-            {"n": 5, "titulo": "Impacto severo no sistema de saúde", "ativo": bool(b5)}]}
+            {"n": 4, "titulo": "Isolamento de áreas/comunidades OU descontrole da rede de abrigos OU óbitos", "ativo": bool(b4)},
+            {"n": 5, "titulo": "Impacto severo no sistema de saúde OU necessidade de apoio estadual/federal", "ativo": bool(b5)}]}
     if disparou_crise:
         return _montar_saida("CRISE", motivos, detalhes)
 
@@ -442,21 +443,21 @@ def _avaliar_regras(
         motivos.append("Gatilhos de infraestrutura satisfeitos por proxy (transbordamento do Guaíba)")
     detalhes["SITUAÇÃO DE EMERGÊNCIA"] = {"disparou": disparou_emerg, "motivos": motivos,
         "blocos": [
-            {"n": 1, "titulo": "Chuvas intensas persistentes / inundações graves",
+            {"n": 1, "titulo": "Chuvas intensas persistentes causando inundações graves OU deslizamentos",
              "ativo": bool(b1),
              "motivo": (motivos[0] if b1 and motivos else
                         (f"Chuva persistente: {'sim' if chuva_persistente else 'não'}"
                          f" — {chuva['obs_txt']}\n"
                          "Nenhuma inundação grave ou deslizamento registrado."))},
-            {"n": 2, "titulo": "Vias ou pontes danificadas · serviços essenciais interrompidos",
+            {"n": 2, "titulo": "Vias ou pontes danificadas OU interrupção parcial de serviços essenciais",
              "ativo": bool(b2), "motivo": motivo_e2},
-            {"n": 3, "titulo": "Desabrigados/desalojados ou óbitos",
+            {"n": 3, "titulo": "Aumento de desabrigados/desalojados OU óbitos pelo evento",
              "ativo": bool(b3),
              "motivo": ("confirmado em campo" if (infra.aumento_significativo_desabrigados
                                                   or infra.obitos_pelo_evento)
                         else ("proxy: Guaíba acima da cota de inundação" if b3
                               else "nenhum registro confirmado"))},
-            {"n": 4, "titulo": "Saúde afetada ou risco de desabastecimento",
+            {"n": 4, "titulo": "Serviços de saúde interrompidos OU risco alto de desabastecimento",
              "ativo": bool(b4),
              "motivo": ("confirmado em campo" if (infra.servicos_saude_interrompidos
                                                   or infra.risco_alto_desabastecimento)
@@ -492,7 +493,7 @@ def _avaliar_regras(
             if ref_a is not None and nv_a is not None and nv_a >= ref_a:
                 quais_afl.append(f"{_nome(nome_a)}: {nv_a:.2f} m (alerta {ref_a:.2f} m)")
         motivos.append("Afluente em cota de alerta, com tendência de alta nas "
-                       "próximas 48h\n" + _ou(quais_afl[:3]))
+                       "próximas 48h\n" + _lista(quais_afl[:3]))
     elif cond_corregos and motivo_corregos:
         motivos.append(motivo_corregos)
     elif cond_regional:
@@ -514,7 +515,7 @@ def _avaliar_regras(
               "abrigos_temporarios_instalados", "bloqueio_vias_principais",
               "aumento_demanda_saude_clima") if getattr(infra, c, False)]
     motivo_b3 = ("Confirmado em campo pela Defesa Civil/SMS:\n"
-                 + _ou(_conf) if _conf
+                 + _lista(_conf) if _conf
                  else ("Satisfeito por proxy: blocos 1 e 2 ativos." if b3
                        else "Nenhum gatilho de campo confirmado."))
     detalhes["ALERTA"] = {"disparou": disparou_alerta, "motivos": motivos,
@@ -522,9 +523,9 @@ def _avaliar_regras(
             {"n": 1, "titulo": "Chuva intensa por horas/dias com previsão de continuidade",
              "ativo": bool(b1), "motivo": motivo_b1,
              "caminho": chuva["alerta_caminho"]},
-            {"n": 2, "titulo": "Guaíba em cota de alerta · afluentes/córregos subindo · risco de inundação",
+            {"n": 2, "titulo": "Guaíba em cota de alerta OU afluentes/córregos subindo OU risco de inundação",
              "ativo": bool(b2), "motivo": motivo_b2},
-            {"n": 3, "titulo": "Efeitos no território: famílias, abrigos, vias, saúde",
+            {"n": 3, "titulo": "Famílias deixando casas OU demanda por abrigo OU bloqueio de vias OU demanda na saúde",
              "ativo": bool(b3), "motivo": motivo_b3}]}
     if disparou_alerta:
         return _montar_saida("ALERTA", motivos, detalhes)
@@ -584,11 +585,11 @@ def _avaliar_regras(
     disparou_mob = b1 and b2
     detalhes["MOBILIZAÇÃO"] = {"disparou": disparou_mob, "motivos": motivos,
         "blocos": [
-            {"n": 1, "titulo": "Previsão de chuvas mais intensas ou avisos vigentes",
+            {"n": 1, "titulo": "Previsão de chuvas mais intensas OU avisos meteorológicos vigentes",
              "ativo": bool(b1),
              "motivo": (motivos[0] if b1 and motivos
                         else f"sem previsão relevante ({chuva['prev_txt']})")},
-            {"n": 2, "titulo": "Rios em cota de atenção, em elevação, ou região já em alerta",
+            {"n": 2, "titulo": "Rios em cota de atenção OU em elevação OU região da RM já em alerta",
              "ativo": bool(b2),
              "motivo": (motivos[-1] if b2 and motivos
                         else "rios abaixo da cota de atenção e sem tendência de subida")}]}
