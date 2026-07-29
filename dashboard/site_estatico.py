@@ -217,7 +217,7 @@ def _bloco_banner(snapshot: dict) -> str:
     # Com os blocos aqui dentro, repeti-las seria dizer duas vezes a mesma
     # coisa — então o banner passa a mostrar só os blocos.
     corpo = _linha_blocos(
-        blocos, cor, "estágio atual — todos os blocos precisam estar ativos")
+        blocos, cor, "Todos os blocos precisam estar ativos")
 
     nota = ""
     if any("⚑" in j for j in cls.get("justificativas", [])):
@@ -324,8 +324,12 @@ def _bloco_regioes(snapshot: dict) -> str:
             partes = [p for p in (al.get("tipo"),
                                   f"até {al.get('fim')}" if al.get("fim") else None) if p]
             detalhe = " · ".join(partes)
+        # Faixa cheia só no topo: o corpo pastel mantém a leitura confortável
+        # e a tarja devolve a cor forte do risco, que é o que se enxerga de
+        # longe ao bater o olho na grade das 17 regiões.
         return (f"<div class='tile' style='background:{_tom_suave(cor)};"
-                f"border:1px solid {cor};color:{_TINTA_ESCURA}'>"
+                f"border:1px solid {cor};border-top:6px solid {cor};"
+                f"color:{_TINTA_ESCURA}'>"
                 f"<div class='num'>{num}</div><div class='nome'>{nome}</div>"
                 f"<div class='status'>{status}</div>"
                 f"<div class='detalhe'>{detalhe}</div></div>")
