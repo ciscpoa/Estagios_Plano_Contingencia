@@ -410,10 +410,17 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
                           "<extra></extra>"))
 
     validacao = meta_modelo.get("validacao_24h", {})
-    if validacao.get("ok"):
+    try:
+        mae_modelo = float(validacao.get("mae_m"))
+        mae_persistencia = float(validacao.get("mae_persistencia_m"))
+        metricas_validas = pd.notna(mae_modelo) and pd.notna(mae_persistencia)
+    except (TypeError, ValueError):
+        mae_modelo = mae_persistencia = None
+        metricas_validas = False
+    if validacao.get("ok") and metricas_validas:
         subtitulo = (
-            f"24 h: MAE histórico {validacao['mae_m']:.3f} m · "
-            f"persistência {validacao['mae_persistencia_m']:.3f} m")
+            f"24 h: MAE histórico {mae_modelo:.3f} m · "
+            f"persistência {mae_persistencia:.3f} m")
     else:
         subtitulo = "Previsão experimental · histórico ainda não validado"
 
