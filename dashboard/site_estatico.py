@@ -162,10 +162,13 @@ def _linha_blocos(blocos: list, cor_linha: str, subtitulo: str,
         html_motivo = (f"<span class='motivo-no'>{_texto_html(motivo)}</span>"
                        if motivo else "")
         dica = motivo.replace("\n", " · ").replace("'", "&#39;")
+        # o OU do título também é operador da regra, e recebe o mesmo destaque
+        titulo = str(b["titulo"]).replace(
+            " OU ", " <span class='ou'>OU</span> ")
         caixas.append(
             f"<div class='{classe}' style='{estilo}' title='{dica}'>"
             f"<span class='marca'>{marca}</span>"
-            f"<span class='rotulo'>{b['titulo']}</span>"
+            f"<span class='rotulo'>{titulo}</span>"
             f"{html_motivo}</div>")
         if i < len(blocos) - 1:
             caixas.append("<div class='conector'>E</div>")
@@ -321,6 +324,47 @@ def _bloco_regioes(snapshot: dict) -> str:
     </section>"""
 
 
+def _data_br(bruto) -> str:
+    """
+    Converte a data de um aviso para 'dd/mm/aaaa HH:MM'.
+
+    O INMET entrega a data em formatos diferentes conforme o campo: ISO com
+    'Z' ('2026-07-31T00:00:00.000Z'), ISO sem fuso, ou já no padrão
+    brasileiro. Jogar o texto cru na tela — como estava — é despejar detalhe
+    de máquina em cima de quem precisa decidir. Quando o horário é 00:00 e
+    veio só a data, mostramos só a data: fingir precisão de minuto num dado
+    que não a tem é pior que omitir.
+    """
+    if not bruto:
+        return ""
+    txt = str(bruto).strip()
+    import datetime as _dt
+    formatos = ("%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ",
+                "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M",
+                "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d",
+                "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y")
+    for f in formatos:
+        try:
+            d = _dt.datetime.strptime(txt, f)
+        except ValueError:
+            continue
+        so_data = f.endswith("%Y-%m-%d") or f.endswith("%d/%m/%Y")
+        if so_data or (d.hour == 0 and d.minute == 0):
+            return d.strftime("%d/%m/%Y")
+        return d.strftime("%d/%m/%Y %H:%M")
+    return txt
+
+
+def _periodo_aviso(a: dict) -> str:
+    """'de X até Y', ou só um dos dois quando o outro falta ou é igual."""
+    ini, fim = _data_br(a.get("inicio")), _data_br(a.get("fim"))
+    if ini and fim and ini != fim:
+        return f"de {ini} até {fim}"
+    if fim and not ini:
+        return f"até {fim}"
+    return f"em {ini}" if ini else ""
+
+
 def _bloco_avisos_inmet(snapshot: dict) -> str:
     """Retângulo com os avisos meteorológicos vigentes do INMET para POA."""
     av = snapshot.get("avisos_inmet") or {}
@@ -330,7 +374,7 @@ def _bloco_avisos_inmet(snapshot: dict) -> str:
         return ("<section class='avisos-inmet indisponivel'>"
                 "<div class='titulo-aviso'>Avisos do INMET</div>"
                 "<div class='texto-aviso'>Não foi possível consultar o INMET "
-                "nesta atualização — verifique em alertas2.inmet.gov.br</div>"
+                "nesta atualização — verifique em avisos.inmet.gov.br</div>"
                 "</section>")
 
     if not alertas:
@@ -344,13 +388,20 @@ def _bloco_avisos_inmet(snapshot: dict) -> str:
     for a in alertas[:4]:
         sev = a.get("severidade") or "Amarelo"
         cor = config.CORES_AVISO_INMET.get(sev, "#E3B505")
-        periodo = " · ".join(p for p in (
-            f"de {a['inicio']}" if a.get("inicio") else None,
-            f"até {a['fim']}" if a.get("fim") else None) if p)
+        # o título é o TIPO do evento (Vendaval, Tempestade); a descrição
+        # detalhada — intensidade e riscos — vai abaixo, que é a informação
+        # que diz o que fazer com o aviso
+        tipo = (a.get("tipo") or a.get("descricao") or "").strip()
+        detalhe = (a.get("detalhe") or "").strip()
+        if detalhe == tipo:
+            detalhe = ""
+        periodo = _periodo_aviso(a)
         itens.append(
             f"<div class='item-aviso' style='border-left:6px solid {cor}'>"
             f"<span class='sev' style='background:{cor}'>{sev}</span>"
-            f"<span class='desc'>{(a.get('descricao') or '').strip()[:220]}</span>"
+            f"<span class='desc'>{_texto_html(tipo[:120])}</span>"
+            + (f"<div class='detalhe-aviso'>{_texto_html(detalhe[:400])}</div>"
+               if detalhe else "")
             + (f"<div class='periodo'>{periodo}</div>" if periodo else "")
             + "</div>")
     return (f"<section class='avisos-inmet'>"
@@ -504,8 +555,11 @@ def _rodape_chuva(snapshot: dict) -> str:
     Nada de metainformação de coleta aqui: quantas fontes foram testadas
     é assunto de depuração e vive no CSV e no log, não no painel público.
     """
-    obs = snapshot.get("chuva_obs_5d_mm")
-    prev = snapshot.get("chuva_prev_5d_mm")
+    # Janela de 3 dias dos dois lados (antes eram 5). Três dias é o horizonte
+    # em que a previsão do Poaclima ainda é confiável e em que a chuva já
+    # caída ainda explica o nível dos rios de hoje.
+    obs = snapshot.get("chuva_obs_3d_mm", snapshot.get("chuva_obs_5d_mm"))
+    prev = snapshot.get("chuva_prev_3d_mm", snapshot.get("chuva_prev_5d_mm"))
     if obs is None and prev is None:
         return ""
 
@@ -524,9 +578,9 @@ def _rodape_chuva(snapshot: dict) -> str:
 
     return f"""
     <section class="cartao-chuva">
-      {coluna("CHUVA OBSERVADA", fonte_obs, obs, "últimos 5 dias", "#F2830B")}
+      {coluna("CHUVA OBSERVADA", fonte_obs, obs, "últimos 3 dias", "#F2830B")}
       <div class="divisor-chuva"></div>
-      {coluna("CHUVA PREVISTA", fonte_prev, prev, "próximos 5 dias", "#E5399B")}
+      {coluna("CHUVA PREVISTA", fonte_prev, prev, "próximos 3 dias", "#E5399B")}
     </section>"""
 
 
@@ -708,6 +762,8 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .item-aviso .sev{display:inline-block;color:#fff;font-weight:700;font-size:.78rem;
   border-radius:6px;padding:2px 8px;margin-right:8px}
 .item-aviso .desc{font-size:.9rem}
+.item-aviso .detalhe-aviso{font-size:.84rem;color:var(--txt);opacity:.9;
+  margin-top:4px;line-height:1.35}
 .item-aviso .periodo{font-size:.78rem;color:var(--txt2);margin-top:3px}
 .linha-arvore{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:10px 12px;margin-bottom:10px}
