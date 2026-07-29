@@ -132,6 +132,11 @@ def executar_pipeline(usar_selenium: bool = True,
             {**d, "data": str(d["data"])}
             for d in (brutos.get("previsao_poaclima", {}) or {}).get("dias", [])],
         # card de chuva: 5 dias para trás × 5 dias para frente
+        # Cards de chuva: janela de 3 DIAS dos dois lados. Simetria importa
+        # — comparar 5 dias de chuva já caída com 5 dias de previsão dá peso
+        # igual a um número medido e a um número modelado.
+        "chuva_obs_3d_mm": ind.acumulado_obs_72h_mm,
+        "chuva_prev_3d_mm": ind.previsto_72h_mm,
         "chuva_obs_5d_mm": ind.acumulado_obs_5d_mm,
         "chuva_prev_5d_mm": ind.previsto_5d_mm,
         "fonte_chuva_prev": ("Poaclima/Catavento"

@@ -252,7 +252,9 @@ QUALIDADE_CHUVA = {
     # Exigência PREFERENCIAL: uma estação que transmite de hora em hora deve
     # entregar quase todas as horas da janela. 80% deixa margem só para
     # manutenção e falhas curtas de transmissão.
-    "cobertura_minima_pct":         80.0,
+    # 75%: régua definida com o CISC. Abaixo disso a estação do INMET é
+    # descartada e a chuva volta para o pluviômetro da ANA em Gravataí.
+    "cobertura_minima_pct":         75.0,
     # Rede de segurança: se NENHUMA fonte em solo alcançar os 80%, o coletor
     # roda uma 2ª passada com este piso antes de cair no modelo global.
     # Um pluviômetro com 60% de cobertura ainda é melhor que o Open-Meteo.
@@ -282,7 +284,8 @@ TENDENCIA_SUBIDA_RELEVANTE_M = 0.30
 # ──────────────────────────────────────────────────────────────────────────
 # 6. FONTES DE SCRAPING
 # ──────────────────────────────────────────────────────────────────────────
-URL_INMET_ALERTAS = "https://alertas2.inmet.gov.br/"
+# o alertas2 saiu do ar / foi substituído pelo avisos.inmet.gov.br
+URL_INMET_ALERTAS = "https://avisos.inmet.gov.br/"
 URL_INMET_MAPAS   = "https://portal.inmet.gov.br/"
 URL_POACLIMA      = "https://prefeitura.poa.br/poaclima/"
 # (endereço antigo poaclima.prefeitura.poa.br foi DESATIVADO — DNS não resolve)
@@ -311,7 +314,14 @@ COTA_INUNDACAO_RIACHO_IPIRANGA = 4.00
 # ── Chuva observada: estação automática do INMET em Porto Alegre ────────
 # A801 = Porto Alegre (Jardim Botânico). Fonte preferencial para a chuva
 # JÁ OCORRIDA (pluviômetro na cidade), no lugar do modelo global.
-INMET_ESTACAO_POA = "A801"
+# Estação automática do INMET usada como pluviômetro de referência.
+# B807 = PORTO ALEGRE - BELEM NOVO (aeroclube, zona sul), em terreno
+# descampado conforme norma da OMM. A A801 (Jardim Botânico) fica como
+# vizinha na auto-descoberta, caso a B807 saia do ar.
+INMET_ESTACAO_POA = "B807"
+# Casar também pelo NOME: se o INMET trocar o código da estação, o painel
+# continua achando o Belém Novo sem precisar de edição aqui.
+INMET_ESTACAO_POA_NOME = "belem novo"
 
 # Prioridade das fontes de chuva (a 1ª disponível vence):
 #   observada → INMET estação → Open-Meteo
