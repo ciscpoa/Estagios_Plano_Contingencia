@@ -23,6 +23,7 @@ from dataclasses import asdict
 import pandas as pd
 
 import config
+from coleta import ana_api
 from processamento import alinhamento_afluentes, consolidacao
 from logica import estagios
 
@@ -60,11 +61,29 @@ def executar_pipeline(usar_selenium: bool = True,
     horaria = _sem_nan(horaria) if not horaria.empty else horaria
     diaria = _sem_nan(diaria) if not diaria.empty else diaria
 
-    # Séries dos quatro afluentes + previsão experimental do Guaíba.
-    # O módulo regulariza as frequências diferentes da ANA e desloca cada
-    # sinal pelo tempo de viagem configurado antes de ajustar a previsão.
+    # Na primeira execução, baixa um ano em blocos de 30 dias (limite da API
+    # telemétrica da ANA). Depois, o CSV persistido recebe apenas a coleta
+    # recente, evitando repetir o bootstrap em cada atualização do painel.
+    historico_bootstrap = {}
+    if not alinhamento_afluentes.historico_suficiente():
+        nomes_modelo = [
+            "Guaiba_PortoAlegre_CaisMaua",
+            *config.AFLUENTES_GUAIBA.keys(),
+        ]
+        print("[MODELO GUAÍBA] Histórico insuficiente; baixando 365 dias...")
+        try:
+            historico_bootstrap = ana_api.coletar_niveis_rios(
+                dias=config.DIAS_HISTORICO_MODELO_GUAIBA,
+                nomes=nomes_modelo)
+        except Exception as exc:
+            print(f"[MODELO GUAÍBA] Bootstrap histórico falhou: {exc}")
+
+    historico_modelo = alinhamento_afluentes.atualizar_historico(
+        brutos["rios"], historico_bootstrap)
+
+    # Séries dos quatro afluentes + previsão histórica do Guaíba.
     series_afluentes = alinhamento_afluentes.preparar_series_afluentes(
-        brutos["rios"])
+        brutos["rios"], historico=historico_modelo)
 
     # ── Status de cada fonte nesta coleta (mostrado no painel) ──
     poa = brutos.get("poaclima") or {}

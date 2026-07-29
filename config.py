@@ -102,21 +102,25 @@ AFLUENTES_GUAIBA = {
     "Rio_Gravatai": {
         "rotulo": "Gravataí",
         "tempo_viagem_h": 12,
+        "faixa_lag_h": (4, 36),
         "provisorio": True,
     },
     "Rio_dos_Sinos_SaoLeopoldo": {
         "rotulo": "Sinos (São Leopoldo)",
         "tempo_viagem_h": 24,
+        "faixa_lag_h": (8, 72),
         "provisorio": True,
     },
     "Rio_Cai": {
         "rotulo": "Caí (Barca do Caí)",
         "tempo_viagem_h": 36,
+        "faixa_lag_h": (12, 96),
         "provisorio": True,
     },
     "Rio_Jacui_Triunfo": {
         "rotulo": "Jacuí (Rio Pardo)",
         "tempo_viagem_h": 72,
+        "faixa_lag_h": (24, 120),
         "provisorio": True,
     },
 }
@@ -125,7 +129,10 @@ AFLUENTES_GUAIBA = {
 # de viagem. Vinte e quatro horas preservam uma janela útil sem extrapolar
 # além do menor conjunto de sinais disponíveis.
 HORIZONTE_PREVISAO_GUAIBA_H = 24
-MIN_AMOSTRAS_MODELO_GUAIBA = 48
+DIAS_HISTORICO_MODELO_GUAIBA = 365
+HISTORICO_MODELO_GUAIBA_CSV = DADOS_DIR / "historico_niveis_ana.csv"
+MIN_DIAS_HISTORICO_MODELO_GUAIBA = 300
+MIN_AMOSTRAS_MODELO_GUAIBA = 1000
 INTERPOLACAO_MAX_GAP_H = 6
 RIDGE_ALPHA_GUAIBA = 1.0
 

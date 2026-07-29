@@ -283,7 +283,10 @@ def renderizar(snapshot, tema):
                     lambda: componentes.gauge_estagio(cls, tema),
                     componentes.gauge_estagio({"indice": 0, "estagio": "—"}, tema))
     g_guaiba = _seguro("grafico_guaiba",
-                       lambda: componentes.grafico_guaiba(snapshot.get("serie_guaiba", []), tema),
+                       lambda: componentes.grafico_guaiba(
+                           snapshot.get("serie_guaiba", []), tema,
+                           previsao=(snapshot.get("series_afluentes") or {}).get(
+                               "__previsao_guaiba__")),
                        componentes.grafico_guaiba([], tema))
     g_afl = _seguro("grafico_afluentes",
                     lambda: componentes.grafico_afluentes(
