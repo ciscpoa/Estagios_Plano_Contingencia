@@ -111,6 +111,18 @@ class IndicadoresNumericos:
 # ──────────────────────────────────────────────────────────────────────────
 # HELPERS
 # ──────────────────────────────────────────────────────────────────────────
+def _ou(itens) -> str:
+    """
+    Une alternativas com ' OU ' — o conector do próprio Plano.
+
+    Antes esses itens saíam como uma lista de marcadores '•', o que dá a
+    entender que todas as condições valem juntas. No item 5.1 do Plano elas
+    são alternativas: basta UMA para o gatilho fechar. Escrever o operador
+    por extenso tira a ambiguidade sem precisar de legenda.
+    """
+    return " OU ".join(str(i).strip() for i in itens if str(i).strip())
+
+
 def _nome(chave: str) -> str:
     """Nome de exibição da estação (sem underlines)."""
     return config.NOMES_EXIBICAO.get(chave, chave.replace("_", " "))
@@ -262,8 +274,7 @@ def _perfil_chuva(ind: IndicadoresNumericos) -> dict:
 
     def _bloco_prev(titulo: str) -> str:
         fonte = ind.fonte_chuva_prev or "Poaclima"
-        itens = "\n".join(f"• {l}" for l in _prev_linhas())
-        return f"{titulo} (fonte: {fonte}):\n{itens}"
+        return f"{titulo} (fonte: {fonte}):\n{_ou(_prev_linhas())}"
 
     ativo, caminho, motivo = False, None, ""
     if aviso == "Vermelho":
@@ -481,7 +492,7 @@ def _avaliar_regras(
             if ref_a is not None and nv_a is not None and nv_a >= ref_a:
                 quais_afl.append(f"{_nome(nome_a)}: {nv_a:.2f} m (alerta {ref_a:.2f} m)")
         motivos.append("Afluente em cota de alerta, com tendência de alta nas "
-                       "próximas 48h\n" + "\n".join(f"• {q}" for q in quais_afl[:3]))
+                       "próximas 48h\n" + _ou(quais_afl[:3]))
     elif cond_corregos and motivo_corregos:
         motivos.append(motivo_corregos)
     elif cond_regional:
@@ -503,7 +514,7 @@ def _avaliar_regras(
               "abrigos_temporarios_instalados", "bloqueio_vias_principais",
               "aumento_demanda_saude_clima") if getattr(infra, c, False)]
     motivo_b3 = ("Confirmado em campo pela Defesa Civil/SMS:\n"
-                 + "\n".join(f"• {r}" for r in _conf) if _conf
+                 + _ou(_conf) if _conf
                  else ("Satisfeito por proxy: blocos 1 e 2 ativos." if b3
                        else "Nenhum gatilho de campo confirmado."))
     detalhes["ALERTA"] = {"disparou": disparou_alerta, "motivos": motivos,
