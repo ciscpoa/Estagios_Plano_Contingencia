@@ -356,7 +356,33 @@ def _data_br(bruto) -> str:
 
 
 def _periodo_aviso(a: dict) -> str:
-    """'de X até Y', ou só um dos dois quando o outro falta ou é igual."""
+    """
+    Período do aviso em uma linha.
+
+    Quando começa e termina no mesmo dia — o caso mais comum — a data
+    aparece uma vez só, com as horas: 'em 29/07/2026, das 00:00 às 23:59'.
+    Repetir a data dos dois lados enche a linha sem informar nada.
+    """
+    import datetime as _dt
+
+    def _dt_de(bruto):
+        if not bruto:
+            return None
+        for f in ("%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S.%fZ",
+                  "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d",
+                  "%d/%m/%Y %H:%M", "%d/%m/%Y"):
+            try:
+                return _dt.datetime.strptime(str(bruto).strip(), f)
+            except ValueError:
+                continue
+        return None
+
+    di, df = _dt_de(a.get("inicio")), _dt_de(a.get("fim"))
+    if di and df and di.date() == df.date():
+        return (f"em {di:%d/%m/%Y}, das {di:%H:%M} às {df:%H:%M}"
+                if (di.hour, di.minute) != (df.hour, df.minute)
+                else f"em {di:%d/%m/%Y}")
+
     ini, fim = _data_br(a.get("inicio")), _data_br(a.get("fim"))
     if ini and fim and ini != fim:
         return f"de {ini} até {fim}"
