@@ -318,7 +318,9 @@ COTA_INUNDACAO_RIACHO_IPIRANGA = 4.00
 # B807 = PORTO ALEGRE - BELEM NOVO (aeroclube, zona sul), em terreno
 # descampado conforme norma da OMM. A A801 (Jardim Botânico) fica como
 # vizinha na auto-descoberta, caso a B807 saia do ar.
-INMET_ESTACAO_POA = "B807"
+# B825 = PORTO ALEGRE - BELEM NOVO no inventário atual do INMET.
+# (A B807, citada em notas técnicas antigas, não existe mais no inventário.)
+INMET_ESTACAO_POA = "B825"
 # Casar também pelo NOME: se o INMET trocar o código da estação, o painel
 # continua achando o Belém Novo sem precisar de edição aqui.
 INMET_ESTACAO_POA_NOME = "belem novo"
