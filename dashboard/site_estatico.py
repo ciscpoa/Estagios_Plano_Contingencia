@@ -288,7 +288,11 @@ def _bloco_regioes(snapshot: dict) -> str:
     alertas = (snapshot.get("indicadores") or {}).get("alertas_regionais") or []
     # Distinção que faltava: região sem MARCADOR no mapa não é região sem
     # dado — é região sem alerta. "Sem dado" só se o Poaclima não respondeu.
-    poaclima_ok = bool((snapshot.get("fontes") or {}).get("Poaclima"))
+    fontes = snapshot.get("fontes") or {}
+    # Só a camada de ALERTAS decide entre "sem alerta" e "sem dado" —
+    # os níveis do Guaíba não dizem nada sobre risco por região.
+    poaclima_ok = bool(fontes.get("Poaclima · alertas",
+                                  fontes.get("Poaclima", False)))
     rotulo_vazio = "sem alerta" if poaclima_ok else "sem dado"
 
     def grau(risco: str) -> int:
