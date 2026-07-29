@@ -50,7 +50,7 @@ concurrency:
 jobs:
   coletar:
     runs-on: ubuntu-latest
-    timeout-minutes: 18          # menor que o intervalo do cron (20 min)
+    timeout-minutes: 30          # 1ª execução pode baixar 1 ano de histórico
     steps:
       - uses: actions/checkout@v4
 
@@ -102,7 +102,7 @@ jobs:
           done
 
       - name: Executar o pipeline (coleta + classificação)
-        timeout-minutes: 13       # deixa ~5 min para setup, página e publicação
+        timeout-minutes: 23       # inclui bootstrap histórico em blocos de 30 dias
         continue-on-error: true   # falha parcial não pode impedir a publicação
         id: pipeline
         env:
@@ -143,7 +143,8 @@ jobs:
           cp -r /tmp/saida/dados . 2>/dev/null || true
           cp -r /tmp/saida/arquivos_gerados_2026 . 2>/dev/null || true
 
-          git add -f dados/ultimo_snapshot.json arquivos_gerados_2026/ 2>/dev/null || true
+          git add -f dados/ultimo_snapshot.json dados/historico_niveis_ana.csv \
+            arquivos_gerados_2026/ 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "Nada mudou nesta coleta."
           else
