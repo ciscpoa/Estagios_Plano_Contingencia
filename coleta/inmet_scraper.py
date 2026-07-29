@@ -94,15 +94,23 @@ _CAMPOS_INICIO = ("data_inicio", "dt_inicio", "data_hora_inicio", "inicio",
                   "onset", "effective", "start", "data_inicial")
 _CAMPOS_FIM = ("data_fim", "dt_fim", "data_hora_fim", "fim",
                "expires", "end", "data_final")
+# O INMET separa DATA e HORA em campos distintos: data_inicio traz
+# '2026-07-31T00:00:00.000Z' (só o calendário, o 'Z' é resíduo de
+# serialização) e hora_inicio traz '00:00'. Ler só o primeiro fazia início e
+# fim saírem idênticos no painel — um aviso que dura o dia inteiro aparecia
+# como um instante.
+_CAMPOS_HORA = {"inicio": ("hora_inicio", "hr_inicio"),
+                "fim": ("hora_fim", "hr_fim")}
 
 
-def _quando(av: dict, campos: tuple) -> tuple[str, object]:
-    """Devolve (texto cru, datetime) do primeiro campo que der para ler."""
+def _quando(av: dict, campos: tuple, ponta: str = "inicio") -> tuple[str, object]:
+    """Devolve (texto legível, datetime) juntando a data e a hora do aviso."""
     import datetime as _dt
     formatos = ("%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ",
                 "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M",
                 "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d",
                 "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y")
+    quando = None
     for campo in campos:
         bruto = av.get(campo)
         if bruto in (None, "", "null"):
@@ -110,15 +118,26 @@ def _quando(av: dict, campos: tuple) -> tuple[str, object]:
         txt = str(bruto).strip()
         for f in formatos:
             try:
-                # NÃO convertemos fuso. O 'Z' desses campos vem de um
-                # toISOString() aplicado a uma data de calendário, não de um
-                # instante UTC real — converter jogaria um aviso que começa
-                # 00:00 para as 21:00 do dia anterior.
-                return txt, _dt.datetime.strptime(txt, f)
+                # Sem conversão de fuso: o 'Z' vem de um toISOString() sobre
+                # uma data de calendário, não de um instante UTC. Converter
+                # jogaria um aviso que começa 00:00 para 21:00 do dia anterior.
+                quando = _dt.datetime.strptime(txt, f)
+                break
             except ValueError:
                 continue
-        return txt, None
-    return "", None
+        if quando is not None:
+            break
+    if quando is None:
+        return "", None
+
+    for campo_hora in _CAMPOS_HORA.get(ponta, ()):
+        h = str(av.get(campo_hora) or "").strip()
+        m = re.match(r"^(\d{1,2})[:h](\d{2})", h)
+        if m:
+            quando = quando.replace(hour=int(m.group(1)), minute=int(m.group(2)))
+            break
+
+    return quando.strftime("%Y-%m-%d %H:%M"), quando
 
 
 def _vigente_hoje(inicio, fim) -> bool:
@@ -300,7 +319,7 @@ def _descricao(av: dict) -> tuple[str, str]:
         tipo = m.group(1).strip() if m else (desc if len(desc) < 60 else "")
 
     detalhe = ""
-    for chave in ("riscos", "descricao", "instrucoes", "instrucao",
+    for chave in ("riscos", "instrucoes", "descricao", "instrucao",
                   "aviso_texto", "texto", "description", "instruction",
                   "headline", "observacao"):
         detalhe = _texto_util(av.get(chave))
@@ -365,8 +384,8 @@ def _tentar_api() -> dict | None:
         if not criterio:
             continue
         tipo, detalhe = _descricao(av)
-        txt_ini, dt_ini = _quando(av, _CAMPOS_INICIO)
-        txt_fim, dt_fim = _quando(av, _CAMPOS_FIM)
+        txt_ini, dt_ini = _quando(av, _CAMPOS_INICIO, "inicio")
+        txt_fim, dt_fim = _quando(av, _CAMPOS_FIM, "fim")
         registro = {
             "severidade": _severidade(av),
             "tipo": tipo,

@@ -338,7 +338,11 @@ def estacoes_inmet_proximas(limite: int = 6, raio_km: float = 120.0) -> list[dic
 
     if preferida or nome_pref:
         candidatas.sort(key=lambda e: (not _e_preferida(e), e["dist_km"]))
-        if preferida and not any(e["codigo"] == preferida for e in candidatas):
+        # Só inventamos uma entrada para o código configurado se NENHUMA
+        # estação real tiver casado. Sem esta guarda o painel criava uma
+        # candidata fantasma ("B807/B807") que consumia duas requisições por
+        # coleta e empurrava a estação verdadeira para o segundo lugar.
+        if preferida and not any(_e_preferida(e) for e in candidatas):
             candidatas.insert(0, {"codigo": preferida, "nome": preferida,
                                   "dist_km": 0.0})
     if candidatas:
