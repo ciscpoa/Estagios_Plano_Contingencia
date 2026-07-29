@@ -441,8 +441,12 @@ def _bloco_graficos(snapshot: dict) -> str:
     """
     construtores = [
         # (constrói, largura_print, altura_print, ocupa_linha_inteira)
+        # a MESMA previsão usada no gráfico de afluentes, para os dois
+        # gráficos nunca discordarem sobre o mesmo Cais Mauá
         (lambda t: componentes.grafico_guaiba(
-            snapshot.get("serie_guaiba", []), t), 1040, 268, True),
+            snapshot.get("serie_guaiba", []), t,
+            previsao=(snapshot.get("series_afluentes") or {}).get(
+                "__previsao_guaiba__")), 1040, 268, True),
         (lambda t: componentes.grafico_afluentes(
             snapshot.get("series_afluentes", {}), t), 1040, 268, True),
         (lambda t: componentes.grafico_precipitacao(
