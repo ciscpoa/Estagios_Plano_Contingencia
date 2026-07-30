@@ -383,6 +383,16 @@ _RE_TEMP = re.compile(r"(-?\d{1,2})\s*°\s*C", re.I)  # o ° é obrigatório:
 # sem ele, "28.07\nChuva" casava como "07 C" (temperatura fantasma)
 _RE_UMID = re.compile(r"(\d{1,3})\s*%")
 _RE_VENTO = re.compile(r"(\d{1,3})\s*km/h", re.I)
+# A direção do vento é a ÚLTIMA coluna da tabela e vem como sigla solta
+# (SE, L, O, NO...). Só aceitamos a sigla logo depois do "km/h": um "O" ou
+# "L" perdido no meio da descrição não é direção de vento.
+_RE_DIR_VENTO = re.compile(r"km/h\s*(NE|NO|SE|SO|N|S|L|E|O|W)\b", re.I)
+# "Última atualização em 29/07/2026 - 07:25" — o horário do boletim da
+# Catavento, que não é o horário da nossa coleta. Mostrar um pelo outro
+# faria a previsão parecer mais nova do que é.
+_RE_ATUALIZ_PREV = re.compile(
+    r"atualiza(?:ç|c)[ãa]o\s*em\s*(\d{1,2}/\d{1,2}/\d{4})"
+    r"(?:\s*[-–—]\s*(\d{1,2}:\d{2}))?", re.I)
 
 
 def _parse_previsao(texto: str) -> list[dict]:
@@ -405,6 +415,7 @@ def _parse_previsao(texto: str) -> list[dict]:
         temps = [int(t) for t in _RE_TEMP.findall(bloco)[:2]]
         umid = [int(u) for u in _RE_UMID.findall(bloco)[:2]]
         vento = _RE_VENTO.search(bloco)
+        direcao = _RE_DIR_VENTO.search(bloco)
 
         # descrição = primeira linha textual sem números
         descricao = None
@@ -419,6 +430,14 @@ def _parse_previsao(texto: str) -> list[dict]:
             data = datetime(ano, int(m_dia.group(2)), int(m_dia.group(1)))
         except ValueError:
             continue
+        # A tabela do Poaclima traz dia/mês SEM o ano. Em 30/12, o "01.01"
+        # da previsão é do ano que vem — carimbá-lo com o ano corrente
+        # jogaria a previsão 12 meses para trás e ela sumiria dos cards.
+        if (data - datetime.now()).days < -180:
+            try:
+                data = data.replace(year=ano + 1)
+            except ValueError:
+                continue
         dias.append({
             "data": data,
             "descricao": descricao,
@@ -428,6 +447,7 @@ def _parse_previsao(texto: str) -> list[dict]:
             "umidade_max_pct": umid[0] if umid else None,
             "umidade_min_pct": umid[1] if len(umid) > 1 else None,
             "vento_kmh": int(vento.group(1)) if vento else None,
+            "dir_vento": direcao.group(1).upper() if direcao else None,
         })
     # remove duplicatas mantendo a ordem
     vistos, unicos = set(), []
@@ -528,7 +548,7 @@ def coletar_previsao_poaclima() -> dict:
 
     Retorna {"dias": [...], "previsto_48h_mm": float|None, "fonte", "ok"}
     """
-    vazio = {"dias": [], "previsto_48h_mm": None,
+    vazio = {"dias": [], "previsto_48h_mm": None, "atualizado_em": None,
              "fonte": "Poaclima/Catavento", "ok": False}
     try:
         driver = criar_driver()
@@ -570,9 +590,16 @@ def coletar_previsao_poaclima() -> dict:
         proximos = [d for d in dias if d["data"] >= hoje][:2]
         previsto_48h = sum(d["precipitacao_total_mm"] for d in proximos) or 0.0
 
+        m_at = _RE_ATUALIZ_PREV.search(texto)
+        atualizado = None
+        if m_at:
+            atualizado = m_at.group(1) + (f" {m_at.group(2)}" if m_at.group(2) else "")
+
         print(f"[Poaclima-previsão] {len(dias)} dia(s) lidos | "
-              f"próximas 48h: {previsto_48h:.0f} mm (Catavento)")
+              f"próximas 48h: {previsto_48h:.0f} mm (Catavento)"
+              + (f" | boletim de {atualizado}" if atualizado else ""))
         return {"dias": dias, "previsto_48h_mm": previsto_48h,
+                "atualizado_em": atualizado,
                 "fonte": "Poaclima/Catavento", "ok": True}
     except Exception as exc:
         print(f"[Poaclima-previsão] falha: {exc}")
