@@ -179,120 +179,131 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
                          fonte_prev: str = "Open-Meteo",
                          obs_diaria: list[dict] | None = None) -> go.Figure:
     """
-    Precipitação observada × prevista.
+    Chuva POR DIA: quanto já choveu e quanto está previsto.
 
-    O Open-Meteo (modelo global) é APENAS reserva: se houver série local
-    (Poaclima/INMET/ANA) ou previsão do Poaclima, as séries do Open-Meteo
-    nem são desenhadas — para o painel não misturar fontes divergentes.
+    Antes o gráfico tinha dois eixos Y — mm/h à esquerda, para as barras
+    horárias, e mm/dia à direita, para os acumulados. Quem monta o painel lê
+    isso sem esforço; quem abre a página uma vez na vida, não: são duas
+    escalas, dois zeros e a mesma palavra "chuva" medindo coisas diferentes.
+    Ficou só o acumulado diário, num eixo só — que é a pergunta que as
+    pessoas realmente fazem: quanto choveu hoje e quanto vem por aí.
+
+    A série horária continua chegando aqui: ela ainda serve de previsão de
+    reserva quando não há a previsão oficial. Só não é mais desenhada.
+
+    Medida e previsão convivem no dia de hoje, lado a lado, de propósito: de
+    manhã o acumulado observado é parcial, e esconder a previsão do próprio
+    dia faria o painel subestimar justamente o dia que importa.
     """
     p = paleta(tema)
     fig = go.Figure()
     agora = pd.Timestamp.now()
-    # Os dois eixos Y precisam do MESMO zero. Com autorange independente o
-    # Plotly ancora cada um num pixel diferente e aparecem "dois zeros".
-    max_y1 = max_y2 = 0.0
+    hoje = agora.normalize()
 
-    _hover = ("<b>{titulo}</b><br>Data: %{{x|%d/%m/%Y}}<br>"
-              "Hora: %{{x|%H:%M}}<br>Chuva: %{{y:.1f}} mm/h<extra></extra>")
+    COR_MEDIDA = "#F2830B"      # o mesmo laranja que já significa "observado"
+    COR_PREVISTA = "#C2187E"    # e o mesmo magenta que já significa "previsto"
 
-    dfh = pd.DataFrame(horaria)
-    if not dfh.empty:
-        dfh["datahora"] = pd.to_datetime(dfh["datahora"])
+    def _por_dia(serie) -> pd.DataFrame:
+        df = pd.DataFrame(serie or [])
+        if df.empty or "precipitacao_total_mm" not in df or "data" not in df:
+            return pd.DataFrame()
+        df["data"] = pd.to_datetime(df["data"]).dt.normalize()
+        df["precipitacao_total_mm"] = pd.to_numeric(
+            df["precipitacao_total_mm"], errors="coerce")
+        return (df.dropna(subset=["precipitacao_total_mm"])
+                  .sort_values("data").reset_index(drop=True))
 
+    # ── Chuva MEDIDA (fonte que venceu a cadeia de observação) ───────
     tem_obs_local = bool(obs_inmet)
-    tem_prev_local = bool(previsao_poa)
+    dfo = _por_dia(obs_diaria if obs_diaria else
+                   ([] if tem_obs_local else diaria))
+    rotulo_obs = fonte_obs if (obs_diaria or tem_obs_local) else "Open-Meteo"
+    if not dfo.empty:
+        # Nada de pintar dia futuro como medição: a série diária de reserva
+        # do Open-Meteo traz previsão junto, e ela não é observação.
+        dfo = dfo[dfo["data"] <= hoje]
 
-    # ── Chuva OBSERVADA ──────────────────────────────────────
-    if tem_obs_local:
-        dfi = pd.DataFrame(obs_inmet)
-        dfi["datahora"] = pd.to_datetime(dfi["datahora"])
+    # ── Chuva PREVISTA (oficial; horária do Open-Meteo como reserva) ─
+    dfp = _por_dia(previsao_poa)
+    rotulo_prev = fonte_prev if not dfp.empty else "Open-Meteo"
+    if not dfp.empty:
+        dfp = dfp[dfp["data"] >= hoje]
+    else:
+        dfh = pd.DataFrame(horaria or [])
+        if not dfh.empty and "precipitacao_mm" in dfh:
+            dfh["datahora"] = pd.to_datetime(dfh["datahora"])
+            futuro = dfh[dfh["datahora"] > agora]
+            if not futuro.empty:
+                soma = (futuro.set_index("datahora")["precipitacao_mm"]
+                        .astype(float).resample("D").sum())
+                dfp = pd.DataFrame({"data": soma.index.normalize(),
+                                    "precipitacao_total_mm": soma.values})
+
+    if dfo.empty and dfp.empty:
+        fig.add_annotation(text="Sem dados de chuva nesta coleta.",
+                           showarrow=False, xref="paper", yref="paper",
+                           x=0.5, y=0.5, font=dict(color=p["txt"], size=14))
+
+    teto = 0.0
+    if not dfo.empty:
+        teto = max(teto, float(dfo["precipitacao_total_mm"].max() or 0))
         fig.add_trace(go.Bar(
-            x=dfi["datahora"], y=dfi["precipitacao_mm"],
-            name=f"Observada — {fonte_obs} (mm/h)", marker_color="#4EA8DE",
-            hovertemplate=_hover.format(titulo=f"Chuva observada · {fonte_obs}")))
-        max_y1 = max(max_y1, float(pd.to_numeric(dfi["precipitacao_mm"],
-                                                 errors="coerce").max() or 0))
-    elif not dfh.empty:
-        obs = dfh[dfh["datahora"] <= agora]
+            x=dfo["data"] + pd.Timedelta(hours=12),
+            y=dfo["precipitacao_total_mm"],
+            name=f"Chuva medida — {rotulo_obs}",
+            marker=dict(color=COR_MEDIDA),
+            text=[f"{v:.0f}" for v in dfo["precipitacao_total_mm"]],
+            textposition="outside", cliponaxis=False,
+            textfont=dict(color=p["txt"], size=11),
+            hovertemplate="<b>Chuva medida</b><br>%{x|%d/%m/%Y}<br>"
+                          "%{y:.1f} mm no dia<extra></extra>"))
+
+    if not dfp.empty:
+        teto = max(teto, float(dfp["precipitacao_total_mm"].max() or 0))
+        descricao = (pd.DataFrame(previsao_poa or []).get("descricao")
+                     if previsao_poa else None)
+        dados_extra = (descricao.fillna("").tolist()[:len(dfp)]
+                       if descricao is not None else [""] * len(dfp))
         fig.add_trace(go.Bar(
-            x=obs["datahora"], y=obs["precipitacao_mm"],
-            name="Observada — Open-Meteo (mm/h)", marker_color="#4EA8DE",
-            hovertemplate=_hover.format(titulo="Chuva observada · Open-Meteo")))
-        max_y1 = max(max_y1, float(pd.to_numeric(obs["precipitacao_mm"],
-                                                 errors="coerce").max() or 0))
+            x=dfp["data"] + pd.Timedelta(hours=12),
+            y=dfp["precipitacao_total_mm"],
+            name=f"Chuva prevista — {rotulo_prev}",
+            # Barra hachurada é a convenção de "ainda não aconteceu": a cor
+            # separa as duas séries, a textura diz que uma delas é aposta.
+            marker=dict(color=COR_PREVISTA, opacity=0.9,
+                        pattern=dict(shape="/", size=5, solidity=0.25,
+                                     fgcolor="#FFFFFF")),
+            text=[f"{v:.0f}" for v in dfp["precipitacao_total_mm"]],
+            textposition="outside", cliponaxis=False,
+            textfont=dict(color=p["txt"], size=11),
+            customdata=dados_extra,
+            hovertemplate="<b>Chuva prevista</b><br>%{x|%d/%m/%Y}<br>"
+                          "%{customdata}<br>%{y:.0f} mm no dia"
+                          "<extra></extra>"))
 
-    # ── Chuva PREVISTA horária: só sem a previsão oficial ────
-    if not tem_prev_local and not dfh.empty:
-        prev = dfh[dfh["datahora"] > agora]
-        if not prev.empty:
-            fig.add_trace(go.Bar(
-                x=prev["datahora"], y=prev["precipitacao_mm"],
-                name="Prevista — Open-Meteo (mm/h)", marker_color="#9B8CE0",
-                opacity=0.7,
-                hovertemplate=_hover.format(titulo="Chuva prevista · Open-Meteo")))
-            max_y1 = max(max_y1, float(pd.to_numeric(prev["precipitacao_mm"],
-                                                     errors="coerce").max() or 0))
-
-    # linha "agora"
+    # Divisor entre o que foi medido e o que é aposta
     fig.add_shape(type="line", x0=agora, x1=agora, y0=0, y1=1, yref="paper",
                   line=dict(dash="dot", color=p["txt"], width=1))
     fig.add_annotation(x=agora, y=1, yref="paper", text="agora",
                        showarrow=False, yshift=8,
                        font=dict(color=p["txt"], size=11))
 
-    # ── Total diário observado (da fonte que venceu) ─────────
-    dfd = pd.DataFrame(obs_diaria if obs_diaria else
-                       ([] if tem_obs_local else diaria))
-    if not dfd.empty and "precipitacao_total_mm" in dfd:
-        dfd["data"] = pd.to_datetime(dfd["data"])
-        rotulo_d = fonte_obs if (obs_diaria or tem_obs_local) else "Open-Meteo"
-        fig.add_trace(go.Scatter(
-            x=dfd["data"] + pd.Timedelta(hours=12),
-            y=dfd["precipitacao_total_mm"],
-            name=f"Total diário — {rotulo_d} (mm)", mode="lines+markers",
-            line=dict(color="#F2830B", width=2), yaxis="y2",
-            hovertemplate="<b>Total diário observado</b><br>"
-                          "Data: %{x|%d/%m/%Y}<br>"
-                          "Acumulado: %{y:.1f} mm<extra></extra>"))
-        max_y2 = max(max_y2, float(pd.to_numeric(dfd["precipitacao_total_mm"],
-                                                 errors="coerce").max() or 0))
-
-    # ── Previsão diária oficial (Poaclima/Catavento) ─────────
-    if tem_prev_local:
-        dfp = pd.DataFrame(previsao_poa)
-        dfp["data"] = pd.to_datetime(dfp["data"])
-        if "descricao" not in dfp:
-            dfp["descricao"] = ""
-        fig.add_trace(go.Scatter(
-            x=dfp["data"] + pd.Timedelta(hours=12),
-            y=dfp["precipitacao_total_mm"],
-            name="Previsão diária — Defesa Civil/POA (mm)",
-            mode="lines+markers", yaxis="y2",
-            line=dict(color="#C2187E", width=2.5, dash="dot"),
-            marker=dict(size=9, symbol="diamond"),
-            customdata=dfp["descricao"].fillna(""),
-            hovertemplate="<b>Previsão · Poaclima/Catavento</b><br>"
-                          "Data: %{x|%d/%m/%Y}<br>%{customdata}<br>"
-                          "Chuva prevista: %{y:.0f} mm<extra></extra>"))
-        max_y2 = max(max_y2, float(pd.to_numeric(dfp["precipitacao_total_mm"],
-                                                 errors="coerce").max() or 0))
-
     fig.update_layout(
-        title=(f"Precipitação em Porto Alegre — observada ({fonte_obs}) "
-               f"· prevista ({fonte_prev})"),
+        title=dict(
+            text=("Chuva por dia em Porto Alegre<br>"
+                  "<span style='font-size:13px;opacity:.72'>quanto já choveu "
+                  "e quanto está previsto, em milímetros</span>"),
+            x=0.5, xanchor="center", y=0.94, yanchor="top",
+            font=dict(size=19)),
         hoverlabel=p["hover"],
-        barmode="overlay",
-        # range explícito a partir de 0 nos DOIS eixos: é o que faz os dois
-        # zeros caírem no mesmo pixel e some com a "linha dupla" no rodapé.
-        yaxis=dict(title="mm/h", gridcolor=p["grade"],
-                   range=[0, (max_y1 or 1) * 1.15], zeroline=False),
-        yaxis2=dict(title="mm/dia", overlaying="y", side="right",
-                    showgrid=False, zeroline=False,
-                    range=[0, (max_y2 or 1) * 1.15]),
-        xaxis=dict(gridcolor=p["grade"]),
+        barmode="group", bargap=0.35, bargroupgap=0.08,
+        yaxis=dict(title="mm no dia", gridcolor=p["grade"],
+                   range=[0, (teto or 1) * 1.22], zeroline=False),
+        xaxis=dict(gridcolor=p["grade"], tickformat="%d/%m",
+                   dtick=86400000.0, ticklabelmode="period"),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font_color=p["txt"], height=380,
-        margin=dict(l=50, r=50, t=60, b=40),
+        margin=dict(l=55, r=25, t=88, b=40),
         legend=dict(orientation="h", y=-0.18),
     )
     return fig

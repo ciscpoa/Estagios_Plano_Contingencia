@@ -430,6 +430,12 @@ def _periodo_aviso(a: dict) -> str:
 
 def _bloco_avisos_defesa_civil(snapshot: dict) -> str:
     """
+    NÃO ESTÁ MONTADO NO PAINEL. Saiu a pedido da chefia: a página de avisos
+    da prefeitura fica meses sem publicação, e um bloco de alertas parado é
+    pior do que bloco nenhum — quem lê não sabe se o silêncio é calmaria ou
+    desatualização. A coleta segue rodando e o dado continua no snapshot;
+    para trazer de volta, é uma linha na montagem da página.
+
     Retângulo de destaque: avisos publicados pela DEFESA CIVIL DE POA.
 
     Tomou o lugar do bloco do INMET no topo. O INMET compõe a análise, mas
@@ -1569,7 +1575,6 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_cabecalho(snapshot)}
   {_bloco_fontes(snapshot)}
   {_bloco_banner(snapshot)}
-  {_bloco_avisos_defesa_civil(snapshot)}
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
   {_bloco_gatilhos(snapshot)}
