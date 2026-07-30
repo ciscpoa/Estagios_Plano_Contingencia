@@ -477,6 +477,230 @@ def _bloco_avisos_inmet(snapshot: dict) -> str:
             f" ({len(alertas)})</div>{''.join(itens)}</section>")
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# Previsão do tempo — 5 dias (Poaclima/Catavento)
+# ──────────────────────────────────────────────────────────────────────────
+# A escala de chuva usa as MESMAS cores do Plano de Contingência: quem lê o
+# painel já aprendeu que verde/amarelo/laranja/vermelho significam gravidade
+# crescente. Inventar uma segunda paleta para a chuva obrigaria a decorar
+# duas gramáticas de cor na mesma tela.
+_ESCALA_CHUVA = (
+    (0.05, "#8FA3B4", "sem chuva prevista"),
+    (10.0, "#3FA9F5", "chuva fraca"),
+    (30.0, "#E3B505", "chuva moderada"),
+    (50.0, "#F2830B", "chuva forte"),
+    (float("inf"), "#CE1B22", "chuva muito forte"),
+)
+
+# Sigla → (nome falado, graus de ONDE o vento vem). A seta desenhada aponta
+# para onde o vento SOPRA (graus + 180), que é como a Defesa Civil lê o
+# arraste de chuva sobre a cidade.
+_DIR_VENTO = {
+    "N": ("norte", 0), "NE": ("nordeste", 45),
+    "L": ("leste", 90), "E": ("leste", 90),
+    "SE": ("sudeste", 135), "S": ("sul", 180), "SO": ("sudoeste", 225),
+    "O": ("oeste", 270), "W": ("oeste", 270), "NO": ("noroeste", 315),
+}
+
+_DIAS_SEMANA = ("seg", "ter", "qua", "qui", "sex", "sáb", "dom")
+
+
+def _cor_chuva(mm: float | None) -> tuple[str, str]:
+    """Cor e rótulo da faixa de chuva prevista para o dia."""
+    if mm is None:
+        return "#8FA3B4", "sem dado"
+    for limite, cor, rotulo in _ESCALA_CHUVA:
+        if mm < limite:
+            return cor, rotulo
+    return "#CE1B22", "chuva muito forte"
+
+
+def _icone_tempo(descricao: str | None, mm: float | None) -> str:
+    """
+    Ícone SVG embutido para a condição do dia.
+
+    SVG inline em vez de fonte de ícones ou PNG: a página é autocontida
+    (assets em base64) e precisa imprimir em PDF sem requisição externa —
+    ícone que depende da rede é ícone que falta na folha impressa.
+    """
+    d = (descricao or "").lower()
+    chuva = mm or 0.0
+
+    sol = ("<circle cx='11' cy='11' r='5.4' fill='#F7B733'/>"
+           "<g stroke='#F7B733' stroke-width='2' stroke-linecap='round'>"
+           "<path d='M11 1.6v2.6M11 17.8v2.6M1.6 11h2.6M17.8 11h2.6"
+           "M4.3 4.3l1.9 1.9M15.8 15.8l1.9 1.9M17.7 4.3l-1.9 1.9"
+           "M6.2 15.8l-1.9 1.9'/></g>")
+    sol_canto = ("<circle cx='22.5' cy='9' r='4.6' fill='#F7B733'/>"
+                 "<g stroke='#F7B733' stroke-width='1.8' stroke-linecap='round'>"
+                 "<path d='M22.5 1.6v2.2M29.4 9h-2.2M27.4 4.1l-1.6 1.6"
+                 "M27.4 13.9l-1.6-1.6'/></g>")
+    nuvem = ("<g fill='#A9BED2'><circle cx='12' cy='20' r='5.4'/>"
+             "<circle cx='19.6' cy='18' r='7'/>"
+             "<rect x='9.4' y='19.6' width='13' height='5.6' rx='2.8'/></g>")
+    nuvem_escura = nuvem.replace("#A9BED2", "#7E93A8")
+    gotas = ("<g stroke='#4FA3E3' stroke-width='2.2' stroke-linecap='round'>"
+             "<path d='M12 26.6v3.2M17 26.6v3.6M22 26.6v3.2'/></g>")
+    raio = ("<path d='M17.6 25.2h4.2l-2.4 3.4h3l-6.2 5.2 1.8-4.6h-2.6z'"
+            " fill='#F5C518' stroke='#F5C518' stroke-width='.6'/>")
+    neblina = ("<g stroke='#A9BED2' stroke-width='2.2' stroke-linecap='round'>"
+               "<path d='M6 22h20M9 27h16'/></g>")
+
+    if "trovoada" in d or "raio" in d or "tempestade" in d:
+        corpo, titulo = nuvem_escura + raio, descricao or "trovoadas"
+    elif "nevoeiro" in d or "névoa" in d or "nevoa" in d or "neblina" in d:
+        corpo, titulo = nuvem + neblina, descricao or "nevoeiro"
+    elif ("sol" in d or "claro" in d) and ("chuva" in d or "pancada" in d):
+        corpo, titulo = sol_canto + nuvem + gotas, descricao or "pancadas de chuva"
+    elif "sol" in d and ("nuvem" in d or "nuvens" in d or "parcial" in d):
+        corpo, titulo = sol_canto + nuvem, descricao or "sol entre nuvens"
+    elif "chuva" in d or "chuvisco" in d or "garoa" in d or "pancada" in d:
+        corpo, titulo = nuvem_escura + gotas, descricao or "chuva"
+    elif "encoberto" in d or "nublado" in d or "nuvens" in d:
+        corpo, titulo = nuvem, descricao or "nublado"
+    elif "sol" in d or "claro" in d or "limpo" in d:
+        corpo, titulo = sol, descricao or "sol"
+    elif chuva >= 0.5:
+        corpo, titulo = nuvem_escura + gotas, descricao or "chuva"
+    else:
+        corpo, titulo = nuvem, descricao or "condição não informada"
+
+    import html as _html
+    return (f"<svg class='ic-tempo' viewBox='0 0 34 34' role='img' "
+            f"aria-label='{_html.escape(titulo)}'>{corpo}</svg>")
+
+
+def _regua_chuva(mm: float | None, teto: float, cor: str) -> str:
+    """
+    Régua vertical da chuva prevista.
+
+    A barra horizontal já é a linguagem dos cards de rio (nível × cota).
+    Para a chuva usamos a régua em pé — o instrumento do assunto — e a
+    escala é COMPARTILHADA pelos cinco dias, para a altura da água poder
+    ser comparada de um cartão para o outro sem reler os números.
+    """
+    if mm is None:
+        return ("<div class='regua-chuva' title='sem dado'>"
+                "<span class='marca' style='bottom:50%'></span></div>")
+    altura = 0 if mm <= 0 else max(6.0, min(100.0, mm / teto * 100.0))
+    return (f"<div class='regua-chuva' title='{mm:.0f} mm de {teto:.0f} mm "
+            f"(maior valor da semana)'>"
+            f"<span class='marca' style='bottom:50%'></span>"
+            f"<span class='agua' style='height:{altura:.0f}%;background:{cor}'></span>"
+            f"</div>")
+
+
+def _rotulo_dia(data, hoje) -> tuple[str, str]:
+    """('HOJE'|'AMANHÃ'|'QUI', '31/07') — o dia como as pessoas o chamam."""
+    delta = (data.date() - hoje.date()).days
+    if delta == 0:
+        nome = "hoje"
+    elif delta == 1:
+        nome = "amanhã"
+    else:
+        nome = _DIAS_SEMANA[data.weekday()]
+    return nome.upper(), data.strftime("%d/%m")
+
+
+def _bloco_previsao(snapshot: dict, quantos: int = 5) -> str:
+    """
+    Cinco cartões de previsão — a tabela da Catavento no Poaclima, lida em
+    formato de cartão: um dia por cartão, com chuva, temperatura, umidade e
+    vento. É a mesma previsão que a Defesa Civil de POA usa.
+    """
+    import datetime as _dt
+
+    dias_brutos = snapshot.get("previsao_poaclima") or []
+    atualizado = snapshot.get("previsao_atualizada_em")
+    hoje = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    dias = []
+    for d in dias_brutos:
+        data = None
+        for f in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+            try:
+                data = _dt.datetime.strptime(str(d.get("data", ""))[:19], f)
+                break
+            except ValueError:
+                continue
+        if data and data >= hoje:
+            dias.append((data, d))
+    dias.sort(key=lambda p: p[0])
+    dias = dias[:quantos]
+
+    if not dias:
+        # Fonte fora do ar é informação, não motivo para esconder a seção:
+        # quem decide precisa saber que a previsão da Catavento faltou.
+        return ("""
+    <h3 class="titulo-secao">Previsão do tempo — 5 dias</h3>
+    <section class="previsao-vazia">Previsão do Poaclima/Catavento
+      indisponível nesta coleta. Os gráficos de chuva seguem com a fonte
+      de reserva (Open-Meteo).</section>""")
+
+    teto = max([(d.get("precipitacao_total_mm") or 0.0) for _, d in dias] + [10.0])
+
+    cartoes = []
+    for data, d in dias:
+        mm = d.get("precipitacao_total_mm")
+        cor, faixa = _cor_chuva(mm)
+        rot_dia, data_br = _rotulo_dia(data, hoje)
+        e_hoje = data.date() == hoje.date()
+
+        tmax, tmin = d.get("temp_max_c"), d.get("temp_min_c")
+        temp = (f"<b class='t-max'>{tmax}°</b>"
+                f"<span class='barra-temp'>/</span>"
+                f"<b class='t-min'>{tmin}°</b>") if tmax is not None and tmin is not None \
+            else (f"<b class='t-max'>{tmax}°</b>" if tmax is not None else "—")
+
+        umax, umin = d.get("umidade_max_pct"), d.get("umidade_min_pct")
+        umid = (f"{umin}–{umax}%" if umin is not None and umax is not None
+                else (f"{umax}%" if umax is not None else "—"))
+
+        vento_kmh = d.get("vento_kmh")
+        sigla = (d.get("dir_vento") or "").upper()
+        nome_dir, graus = _DIR_VENTO.get(sigla, ("", None))
+        if vento_kmh is None:
+            vento = "—"
+        else:
+            seta = ""
+            if graus is not None:
+                seta = (f"<span class='seta-vento' aria-hidden='true' "
+                        f"style='transform:rotate({(graus + 180) % 360}deg)'>↑</span>")
+            rotulo_dir = (f"<span class='sigla-vento' title='vento de {nome_dir}'>"
+                          f"{sigla}</span>" if sigla else "")
+            vento = f"{vento_kmh} <small>km/h</small> {seta}{rotulo_dir}"
+
+        mm_txt = (f"{mm:.0f}" if mm is not None else "—")
+        cartoes.append(f"""
+        <article class="dia-prev{' hoje' if e_hoje else ''}">
+          <header class="topo-prev">
+            <span class="rot-dia">{rot_dia}</span>
+            <span class="data-dia">{data_br}</span>
+          </header>
+          <div class="corpo-prev">
+            {_icone_tempo(d.get('descricao'), mm)}
+            <div class="chuva-prev">
+              <div class="mm-prev" style="color:{cor}">{mm_txt}<small>mm</small></div>
+              <div class="rot-chuva">{faixa}</div>
+            </div>
+            {_regua_chuva(mm, teto, cor)}
+          </div>
+          <div class="desc-prev">{_texto_html(d.get('descricao') or '—')}</div>
+          <ul class="metricas-prev">
+            <li><span class="rot">Máx / mín</span><span class="val">{temp}</span></li>
+            <li><span class="rot">Umidade</span><span class="val">{umid}</span></li>
+            <li><span class="rot">Vento</span><span class="val">{vento}</span></li>
+          </ul>
+        </article>""")
+
+    fonte = ("Fonte: Poaclima / Catavento Meteorologia e Meio Ambiente"
+             + (f" · boletim de {atualizado}" if atualizado else ""))
+    return f"""
+    <h3 class="titulo-secao">Previsão do tempo — próximos {len(dias)} dias</h3>
+    <div class="fonte-prev">{fonte}</div>
+    <section class="previsao">{''.join(cartoes)}</section>"""
+
+
 def _bloco_gatilhos(snapshot: dict) -> str:
     ativos = snapshot.get("gatilhos_ativos") or []
     if not ativos:
@@ -910,6 +1134,69 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
 .mini{color:var(--txt2);font-size:.8rem;max-width:900px;margin:0 auto}
 @media(max-width:600px){.graficos{grid-template-columns:1fr}}
 
+/* ── Previsão do tempo (Poaclima/Catavento) ──────────────────────────
+   Cinco dias, cinco cartões. A chuva prevista ganha uma RÉGUA VERTICAL em
+   vez de barra horizontal: a régua é o instrumento deste painel — o mesmo
+   desenho que lê o rio lê a água que ainda vai cair — e a barra horizontal
+   já está reservada para nível × cota. A escala da régua é comum aos cinco
+   dias, então a altura da água se compara direto de um cartão ao outro. */
+.fonte-prev{color:var(--txt2);font-size:.8rem;margin:2px 0 10px}
+.previsao{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;
+  margin-bottom:22px}
+@media(max-width:1100px){.previsao{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.previsao{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:430px){.previsao{grid-template-columns:1fr}}
+.dia-prev{background:var(--cartao);border:1px solid var(--borda);
+  border-radius:12px;overflow:hidden;text-align:left;display:flex;
+  flex-direction:column;box-shadow:0 2px 10px var(--sombra)}
+.topo-prev{display:flex;align-items:baseline;justify-content:space-between;
+  gap:6px;padding:7px 11px;border-bottom:1px solid var(--borda-fina);
+  font-family:"Barlow Condensed",sans-serif}
+.rot-dia{font-weight:700;font-size:1rem;letter-spacing:.12em;line-height:1}
+.data-dia{color:var(--txt2);font-size:.82rem;letter-spacing:.04em;
+  font-variant-numeric:tabular-nums}
+/* O dia de hoje é a linha de base de qualquer decisão: recebe a única
+   ênfase da faixa, no azul do CISC. */
+.dia-prev.hoje{border-color:var(--cisc)}
+.dia-prev.hoje .topo-prev{background:var(--cisc);border-bottom-color:transparent}
+.dia-prev.hoje .rot-dia,.dia-prev.hoje .data-dia{color:#fff}
+.corpo-prev{display:flex;align-items:center;gap:9px;padding:11px 11px 7px}
+.ic-tempo{width:42px;height:42px;flex:0 0 auto}
+.chuva-prev{flex:1 1 auto;min-width:0}
+.mm-prev{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:600;
+  font-size:1.5rem;line-height:1.05;font-variant-numeric:tabular-nums}
+.mm-prev small{font-size:.7rem;font-weight:500;opacity:.85;margin-left:2px}
+.rot-chuva{color:var(--txt2);font-size:.7rem;text-transform:uppercase;
+  letter-spacing:.06em;margin-top:2px;line-height:1.2}
+.regua-chuva{position:relative;width:13px;height:54px;border-radius:7px;
+  background:var(--trilho);border:1px solid var(--borda-fina);
+  overflow:hidden;flex:0 0 auto}
+.regua-chuva .agua{position:absolute;left:0;right:0;bottom:0;
+  transition:height .4s ease}
+.regua-chuva .marca{position:absolute;left:0;right:0;height:1px;
+  background:var(--borda-fina)}
+.desc-prev{padding:0 11px 9px;font-size:.85rem;line-height:1.28;
+  min-height:2.4em;color:var(--txt)}
+.metricas-prev{list-style:none;margin:0;padding:0 11px 11px;font-size:.82rem}
+.metricas-prev li{display:flex;align-items:center;justify-content:space-between;
+  gap:8px;padding:5px 0;border-top:1px solid var(--borda-fina)}
+.metricas-prev .rot{color:var(--txt2);font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.07em}
+.metricas-prev .val{font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.metricas-prev .val small{font-size:.68rem;font-weight:500;opacity:.85}
+.t-max{color:#D9603B}
+.t-min{color:#4FA3E3}
+.barra-temp{color:var(--txt2);opacity:.6;padding:0 3px;font-weight:400}
+.seta-vento{display:inline-block;color:var(--txt2);font-weight:700;
+  margin:0 1px}
+.sigla-vento{color:var(--txt2);font-size:.78rem;font-weight:700;
+  letter-spacing:.04em}
+.previsao-vazia{background:var(--cartao);border:1px dashed var(--borda);
+  border-radius:12px;padding:12px 14px;margin-bottom:22px;
+  color:var(--txt2);font-size:.9rem}
+@media(prefers-reduced-motion:reduce){.regua-chuva .agua{transition:none}}
+
 /* ── IMPRESSÃO / PDF ────────────────────────────────────────────────
    O botão 🖨 usa o diálogo do navegador, então é ESTE bloco que define o
    PDF. A4 paisagem, cores fiéis, e quebras controladas: no PDF anterior os
@@ -949,8 +1236,25 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
 
   /* Nada pode ser partido ao meio entre páginas */
   .banner,.card,.tile,.grafico,.bloco-regioes,.linha-regioes,.avisos-inmet,
-  .linha-arvore,.cartao-chuva,.trilho-estagios,.no-arvore{
-      break-inside:avoid;page-break-inside:avoid}
+  .linha-arvore,.cartao-chuva,.trilho-estagios,.no-arvore,.dia-prev,
+  .previsao{break-inside:avoid;page-break-inside:avoid}
+
+  /* Previsão: os cinco dias sempre em uma linha só na folha */
+  .previsao{grid-template-columns:repeat(5,1fr) !important;gap:6px;
+      margin-bottom:10px}
+  .dia-prev{box-shadow:none}
+  .topo-prev{padding:4px 7px}
+  .rot-dia{font-size:.82rem}
+  .data-dia{font-size:.7rem}
+  .corpo-prev{padding:6px 7px 4px;gap:6px}
+  .ic-tempo{width:30px;height:30px}
+  .mm-prev{font-size:1.15rem}
+  .regua-chuva{height:40px;width:11px}
+  .desc-prev{padding:0 7px 5px;font-size:.72rem;min-height:0}
+  .metricas-prev{padding:0 7px 6px;font-size:.7rem}
+  .metricas-prev li{padding:3px 0}
+  .metricas-prev .rot{font-size:.6rem}
+  .fonte-prev{font-size:.66rem;margin-bottom:5px}
 
   .cards{display:grid !important;grid-template-columns:repeat(5,1fr);gap:7px}
   .card{max-width:none;flex:none !important;padding:7px;box-shadow:none}
@@ -1096,6 +1400,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_fontes(snapshot)}
   {_bloco_banner(snapshot)}
   {_bloco_avisos_inmet(snapshot)}
+  {_bloco_previsao(snapshot)}
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
   {_bloco_gatilhos(snapshot)}
