@@ -80,6 +80,19 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
     # ── CHUVA OBSERVADA (cadeia auditada de fontes em solo) ──
     chuva_obs = _chuva_observada(rios, meteo)
 
+    # ── Avisos da DEFESA CIVIL DE POA ────────────────────────
+    # Fora do bloco do Selenium de propósito: a página é HTML estático e
+    # esta é agora a fonte de destaque do painel — ela não pode depender do
+    # navegador subir. Se o Selenium cai, o painel perde o mapa do Poaclima,
+    # mas continua sabendo se a Defesa Civil publicou aviso.
+    avisos_dc = {"vigentes": [], "ultimo": None, "total": 0, "total_ano": 0,
+                 "consultado": False, "fonte": "Defesa Civil de Porto Alegre"}
+    try:
+        from coleta.defesacivil_avisos import coletar_avisos_defesa_civil
+        avisos_dc = coletar_avisos_defesa_civil()
+    except Exception as exc:
+        print(f"[Defesa Civil] Falha: {exc}")
+
     # ── INMET / Poaclima ─────────────────────────────────────
     inmet = {"alertas": [], "max_severidade": None, "fonte": None}
     previsao_poa = {"ok": False, "dias": [], "previsto_48h_mm": None,
@@ -153,6 +166,7 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
     return {"timestamp": ts, "rios": rios, "resumo_rios": resumo_rios,
             "fonte_nivel_guaiba": fonte_nivel_guaiba,
             "meteo": meteo, "inmet": inmet, "poaclima": poaclima,
+            "avisos_defesa_civil": avisos_dc,
             "chuva_obs": chuva_obs, "previsao_poaclima": previsao_poa,
             "estacoes_meteo_poaclima": estacoes_poa}
 
