@@ -162,6 +162,11 @@ def executar_pipeline(usar_selenium: bool = True,
         "previsao_poaclima": [
             {**d, "data": str(d["data"])}
             for d in (brutos.get("previsao_poaclima", {}) or {}).get("dias", [])],
+        # Horário do BOLETIM da Catavento — diferente do horário da nossa
+        # coleta. Os cards de previsão mostram este, para não parecerem
+        # mais recentes do que a origem realmente é.
+        "previsao_atualizada_em": (
+            (brutos.get("previsao_poaclima", {}) or {}).get("atualizado_em")),
         # card de chuva: 5 dias para trás × 5 dias para frente
         # Cards de chuva: janela de 3 DIAS dos dois lados. Simetria importa
         # — comparar 5 dias de chuva já caída com 5 dias de previsão dá peso
