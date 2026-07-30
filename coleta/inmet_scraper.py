@@ -423,6 +423,12 @@ def _tentar_api() -> dict | None:
 # ──────────────────────────────────────────────────────────────────────────
 def _scrape_selenium() -> dict:
     encontrados = []
+    # Sem isto, uma falha no meio do scraping (timeout do renderer, que
+    # acontece bastante no runner do Actions) caía no except lá embaixo e a
+    # função ainda devolvia consultado=True com lista vazia — ou seja, o
+    # painel anunciava "sem avisos do INMET" num momento em que ninguém
+    # tinha conseguido olhar o INMET.
+    leu_a_pagina = False
     try:
         driver = criar_driver()
     except Exception as exc:
@@ -446,6 +452,9 @@ def _scrape_selenium() -> dict:
             By.CSS_SELECTOR,
             "table tr, .card, [class*='aviso'], [class*='alert'], [class*='warning']",
         )
+        # A página abriu e os elementos foram varridos: a partir daqui uma
+        # lista vazia significa mesmo "nenhum aviso", e não "não olhei".
+        leu_a_pagina = True
         termos = ("porto alegre", "metropolitana", "rio grande do sul")
         for el in candidatos:
             texto = el.text.strip()
@@ -472,7 +481,8 @@ def _scrape_selenium() -> dict:
         print(f"[INMET] Falha no scraping Selenium: {exc}")
     finally:
         driver.quit()
-    return {"alertas": encontrados, "fonte": "selenium", "consultado": True}
+    return {"alertas": encontrados, "fonte": "selenium",
+            "consultado": leu_a_pagina}
 
 
 # ──────────────────────────────────────────────────────────────────────────

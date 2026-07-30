@@ -34,7 +34,7 @@ import unicodedata
 from datetime import date, datetime
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString, Tag
 
 URL_AVISOS_DEFESA_CIVIL = os.environ.get(
     "URL_AVISOS_DEFESA_CIVIL",
@@ -46,6 +46,16 @@ URL_AVISOS_DEFESA_CIVIL = os.environ.get(
 VIGENCIA_DIAS = 2
 
 TIMEOUT_S = 20
+
+# User-agent de navegador: com um agente "de robô" o portal pode responder
+# 200 com uma página de bloqueio em vez do conteúdo — e aí a leitura volta
+# vazia sem erro nenhum, que é o pior tipo de falha.
+_CABECALHOS = {
+    "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9",
+}
 
 _MESES = {
     "janeiro": 1, "fevereiro": 2, "marco": 3, "abril": 4, "maio": 5,
@@ -72,68 +82,89 @@ def _limpar_titulo(texto: str) -> str:
 
 
 def _parse_pagina(html: str) -> list[dict]:
-    """Percorre a página em ordem, herdando ano da seção e mês do parágrafo."""
+    """
+    Percorre o documento em ordem, herdando ano da seção e mês do parágrafo.
+
+    A varredura é feita sobre `descendants` — cada texto e cada link na
+    ordem em que aparecem — e não elemento a elemento. A versão anterior
+    iterava por tags e devolvia zero na página real: no HTML da prefeitura
+    os meses e os links não moram na mesma tag que o parser esperava, e um
+    <div> externo que embrulha tudo casava com o ano de 2024 antes de
+    qualquer aviso. Andar pelo documento linearizado não depende de onde a
+    prefeitura resolveu abrir e fechar as tags.
+    """
     sopa = BeautifulSoup(html, "html.parser")
     avisos: list[dict] = []
     ano_atual: int | None = None
     mes_atual: int | None = None
 
-    for elemento in sopa.find_all(["h2", "h3", "h4", "p", "li", "div"]):
-        texto = elemento.get_text(" ", strip=True)
-        if not texto:
-            continue
-
+    def _marcar(texto: str) -> None:
+        nonlocal ano_atual, mes_atual
         m_ano = _RE_ANO.search(texto)
         if m_ano:
             ano_atual = int(m_ano.group(1))
-            # o título da seção não traz aviso; segue para o próximo bloco
-            continue
-
-        # Mês: parágrafo cujo texto COMEÇA com o nome do mês (vem em negrito
-        # e, no HTML da prefeitura, na mesma tag <p> dos links do mês).
-        chave = _sem_acento(texto).split()[0] if texto.split() else ""
+            return
+        chave = _sem_acento(texto).strip(" :*.-–—")
         if chave in _MESES:
             mes_atual = _MESES[chave]
 
+    for no in sopa.descendants:
+        if isinstance(no, NavigableString):
+            texto = str(no).strip()
+            if texto:
+                _marcar(texto)
+            continue
+        if not isinstance(no, Tag):
+            continue
+        # Cabeçalho de ano e rótulo de mês também são lidos pela tag
+        # inteira: cobre o caso de o ano vir quebrado em <strong> no meio
+        # da frase, quando nenhum nó de texto sozinho traz a frase toda.
+        if no.name in ("h1", "h2", "h3", "h4", "strong", "b"):
+            _marcar(no.get_text(" ", strip=True))
+            continue
+        if no.name != "a" or not no.get("href"):
+            continue
+
+        rotulo = no.get_text(" ", strip=True)
+        alvo = _sem_acento(rotulo)
+        if not rotulo or ("alerta" not in alvo and "aviso" not in alvo):
+            continue
+        # Sem ano explícito na página não se registra nada. Deduzir o ano
+        # seria o pior erro possível aqui: um aviso de 2024 carimbado com o
+        # ano corrente entraria no painel como alerta VIGENTE.
         if ano_atual is None or mes_atual is None:
             continue
 
-        for link in elemento.find_all("a", href=True):
-            rotulo = link.get_text(" ", strip=True)
-            if not rotulo or "alerta" not in _sem_acento(rotulo) and \
-                    "aviso" not in _sem_acento(rotulo):
-                continue
-            # A data pode estar no próprio link ou continuar logo depois
-            # dele — em 2025 um aviso ficou partido em dois links, com o
-            # texto terminando em "- 26/0" e o "7" no link seguinte.
-            vizinho = BeautifulSoup(
-                "".join(str(s) for s in link.next_siblings)[:60],
-                "html.parser").get_text(" ", strip=True)[:6]
-            m_data = None
-            for candidato in (rotulo, rotulo + vizinho):
-                for m in _RE_DATA.finditer(candidato):
-                    if 1 <= int(m.group(1)) <= 31 and 1 <= int(m.group(2)) <= 12:
-                        m_data = m
-                if m_data:
-                    break
-            if not m_data:
-                continue
-            dia, mes = int(m_data.group(1)), int(m_data.group(2))
-            try:
-                quando = date(ano_atual, mes, dia)
-            except ValueError:
-                continue
+        # A data pode estar no próprio link ou continuar logo depois
+        # dele — em 2025 um aviso ficou partido em dois links, com o
+        # texto terminando em "- 26/0" e o "7" no link seguinte.
+        vizinho = BeautifulSoup(
+            "".join(str(s) for s in no.next_siblings)[:60],
+            "html.parser").get_text(" ", strip=True)[:6]
+        m_data = None
+        for candidato in (rotulo, rotulo + vizinho):
+            for m in _RE_DATA.finditer(candidato):
+                if 1 <= int(m.group(1)) <= 31 and 1 <= int(m.group(2)) <= 12:
+                    m_data = m
+            if m_data:
+                break
+        if not m_data:
+            continue
+        dia, mes = int(m_data.group(1)), int(m_data.group(2))
+        try:
+            quando = date(ano_atual, mes, dia)
+        except ValueError:
+            continue
 
-            m_cor = _RE_COR.search(rotulo)
-            avisos.append({
-                "data": quando.isoformat(),
-                "data_br": quando.strftime("%d/%m/%Y"),
-                "titulo": _limpar_titulo(rotulo),
-                "cor_declarada": (_sem_acento(m_cor.group(1))
-                                  if m_cor else None),
-                "url": link["href"],
-                "ano": ano_atual,
-            })
+        m_cor = _RE_COR.search(rotulo)
+        avisos.append({
+            "data": quando.isoformat(),
+            "data_br": quando.strftime("%d/%m/%Y"),
+            "titulo": _limpar_titulo(rotulo),
+            "cor_declarada": _sem_acento(m_cor.group(1)) if m_cor else None,
+            "url": no["href"],
+            "ano": ano_atual,
+        })
 
     # Deduplica: a mesma notícia às vezes aparece em dois links seguidos.
     vistos, unicos = set(), []
@@ -167,21 +198,22 @@ def coletar_avisos_defesa_civil(hoje: date | None = None) -> dict:
     hoje = hoje or date.today()
     resultado = {
         "vigentes": [], "ultimo": None, "total": 0, "total_ano": 0,
-        "consultado": False, "fonte": "Defesa Civil de Porto Alegre",
+        "consultado": False, "estrutura_ok": False,
+        "fonte": "Defesa Civil de Porto Alegre",
         "url": URL_AVISOS_DEFESA_CIVIL,
         "verificado_em": datetime.now().strftime("%d/%m/%Y %H:%M"),
     }
     try:
         resposta = requests.get(
-            URL_AVISOS_DEFESA_CIVIL, timeout=TIMEOUT_S,
-            headers={"User-Agent": "CISC-POA/1.0 (painel Plano de Contingência)"})
+            URL_AVISOS_DEFESA_CIVIL, timeout=TIMEOUT_S, headers=_CABECALHOS)
         resposta.raise_for_status()
     except Exception as exc:
         print(f"[Defesa Civil] Falha ao consultar avisos: {exc}")
         return resultado
 
+    html = resposta.text
     try:
-        avisos = _parse_pagina(resposta.text)
+        avisos = _parse_pagina(html)
     except Exception as exc:
         print(f"[Defesa Civil] Falha ao interpretar a página: {exc}")
         return resultado
@@ -189,6 +221,17 @@ def coletar_avisos_defesa_civil(hoje: date | None = None) -> dict:
     resultado["consultado"] = True
     resultado["total"] = len(avisos)
     resultado["total_ano"] = sum(1 for a in avisos if a["ano"] == hoje.year)
+    # Zero avisos numa página que sempre teve dezenas não é "ano calmo": é
+    # leitura que não funcionou — HTML mudou, ou o que voltou não foi a
+    # página (bloqueio por user-agent devolve 200 com outro conteúdo).
+    # Enquanto essa dúvida existir, o painel não pode dizer "sem aviso".
+    resultado["estrutura_ok"] = len(avisos) > 0
+    if not resultado["estrutura_ok"]:
+        print(f"[Defesa Civil] ⚠ NENHUM aviso interpretado. Diagnóstico: "
+              f"{len(html)} chars | 'Alertas emitidos' presente: "
+              f"{'sim' if 'lertas emitidos' in html else 'NÃO'} | "
+              f"links na página: {html.count('<a ')}")
+        return resultado
 
     limite = hoje.toordinal() - (VIGENCIA_DIAS - 1)
     for a in avisos:
