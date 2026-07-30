@@ -106,6 +106,8 @@ def executar_pipeline(usar_selenium: bool = True,
         # camada foi lida é o scraper.
         "Poaclima · alertas": bool(poa.get("alertas_consultados")),
         "Poaclima · níveis": any(v is not None for v in niveis_poa.values()),
+        "Defesa Civil · avisos": bool(
+            (brutos.get("avisos_defesa_civil") or {}).get("consultado")),
     }
     falhas = [n for n, ok in fontes.items() if not ok]
     if falhas:
@@ -118,6 +120,11 @@ def executar_pipeline(usar_selenium: bool = True,
         "timestamp_iso": brutos["timestamp"].isoformat(),
         "fontes": fontes,
         "gatilhos_ativos": [r for _, r in estagios.gatilhos_ativos(infra)],
+        # Avisos da Defesa Civil de POA: fonte de DESTAQUE do painel. Os do
+        # INMET seguem no snapshot, mas entram como complemento — duas
+        # escalas de cor para o mesmo céu geram dúvida na hora de decidir.
+        "avisos_defesa_civil": brutos.get("avisos_defesa_civil") or {
+            "vigentes": [], "ultimo": None, "consultado": False},
         "avisos_inmet": {
             "alertas": (brutos.get("inmet") or {}).get("alertas", []),
             "max_severidade": (brutos.get("inmet") or {}).get("max_severidade"),
