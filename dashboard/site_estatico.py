@@ -835,11 +835,17 @@ def _bloco_graficos(snapshot: dict) -> str:
         partes.append(f"<div class='{classe}' data-w='{larg_print}' "
                       f"data-h='{alt_print}'>{''.join(blocos)}</div>")
     return (f"<section class='graficos'>{''.join(partes)}</section>"
-            + _rodape_chuva(snapshot))
+            + _bloco_previsao(snapshot))
 
 
 def _rodape_chuva(snapshot: dict) -> str:
     """
+    NÃO ESTÁ MONTADO NO PAINEL. Ficava no rodapé, depois dos gráficos, e deu
+    lugar aos cinco cartões de previsão (_bloco_previsao). A função segue aqui
+    porque o número da CHUVA OBSERVADA que ela mostrava não aparece em nenhum
+    outro lugar em forma de número — para trazê-la de volta, basta somá-la ao
+    retorno de _bloco_graficos.
+
     Card de chuva: 5 dias para trás × 5 dias para frente, lado a lado.
 
     As cores dos números espelham as do gráfico de precipitação — laranja
@@ -1400,7 +1406,6 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_fontes(snapshot)}
   {_bloco_banner(snapshot)}
   {_bloco_avisos_inmet(snapshot)}
-  {_bloco_previsao(snapshot)}
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
   {_bloco_gatilhos(snapshot)}
