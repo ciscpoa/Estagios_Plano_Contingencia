@@ -235,7 +235,7 @@ def _bloco_banner(snapshot: dict) -> str:
           <span id="frescor" class="frescor" data-iso="{snapshot.get('timestamp_iso', '')}"></span>
         </div>
       </div>
-      {corpo}{nota}
+      {corpo}{nota}{_complemento_inmet(snapshot)}
     </section>"""
 
 
@@ -428,8 +428,124 @@ def _periodo_aviso(a: dict) -> str:
     return f"em {ini}" if ini else ""
 
 
+def _bloco_avisos_defesa_civil(snapshot: dict) -> str:
+    """
+    Retângulo de destaque: avisos publicados pela DEFESA CIVIL DE POA.
+
+    Tomou o lugar do bloco do INMET no topo. O INMET compõe a análise, mas
+    deixou de ser fonte principal desde 2025, e manter os dois em destaque
+    colocava duas escalas de cor para o mesmo céu — divergência que, num
+    painel de contingência, vira dúvida na hora de decidir. O do INMET
+    agora aparece como complemento, junto do banner de estágio.
+    """
+    av = snapshot.get("avisos_defesa_civil") or {}
+    vigentes = av.get("vigentes") or []
+    ultimo = av.get("ultimo")
+    url_fonte = av.get("url") or "https://prefeitura.poa.br/defesa-civil/avisos-e-alertas"
+
+    if not av.get("consultado"):
+        return ("<section class='avisos-dc indisponivel'>"
+                "<div class='titulo-aviso'>Avisos da Defesa Civil de Porto "
+                "Alegre</div><div class='texto-aviso'>Não foi possível "
+                "consultar a página de avisos nesta atualização — verifique "
+                f"em <a href='{url_fonte}' target='_blank' "
+                "rel='noopener'>prefeitura.poa.br/defesa-civil</a></div>"
+                "</section>")
+
+    if not vigentes:
+        # Dia sem aviso é informação: dizer isso, e dizer QUANDO foi o
+        # último, é o que separa "nada acontecendo" de "ninguém olhou".
+        historico = ""
+        if ultimo:
+            historico = (
+                "<div class='ultimo-aviso'>Último aviso publicado: "
+                f"<a href='{ultimo.get('url', url_fonte)}' target='_blank' "
+                f"rel='noopener'>{_texto_html(ultimo.get('titulo', 'aviso'))}"
+                f"</a> · {ultimo.get('data_br', '—')}</div>")
+        return (f"<section class='avisos-dc sem-aviso'>"
+                f"<div class='titulo-aviso'>Avisos da Defesa Civil de Porto "
+                f"Alegre</div><div class='texto-aviso'><b>Nenhum aviso "
+                f"vigente</b> para Porto Alegre no momento.</div>"
+                f"{historico}</section>")
+
+    itens = []
+    for a in vigentes[:4]:
+        cor_nome = (a.get("cor_declarada") or "").lower()
+        cor = {"vermelho": "#CE1B22", "vermelha": "#CE1B22",
+               "laranja": "#F2830B",
+               "amarelo": "#E3B505", "amarela": "#E3B505"}.get(cor_nome)
+        # Sem cor declarada no texto, nenhum chip de severidade: atribuir
+        # uma cor que a Defesa Civil não publicou seria inventar gravidade.
+        chip = (f"<span class='sev' style='background:{cor}'>"
+                f"{cor_nome.capitalize()}</span>" if cor else "")
+        borda = cor or "#5B9BF3"
+        itens.append(
+            f"<div class='item-aviso' style='border-left:6px solid {borda}'>"
+            f"{chip}<span class='desc'>"
+            f"<a href='{a.get('url', url_fonte)}' target='_blank' "
+            f"rel='noopener'>{_texto_html(str(a.get('titulo', ''))[:160])}</a>"
+            f"</span><div class='periodo'>publicado em "
+            f"{a.get('data_br', '—')}</div></div>")
+
+    return (f"<section class='avisos-dc'>"
+            f"<div class='titulo-aviso'>Avisos vigentes — Defesa Civil de "
+            f"Porto Alegre ({len(vigentes)})</div>{''.join(itens)}</section>")
+
+
+def _complemento_inmet(snapshot: dict) -> str:
+    """
+    Linha discreta com os avisos do INMET, dentro do banner de estágio.
+
+    Regra combinada com o CISC: aparece quando há aviso; some quando não há
+    e o estágio não é normalidade (nesse caso a atenção pertence aos blocos
+    do Plano, não a uma linha que diz "nada"); e em normalidade sem aviso
+    diz explicitamente "sem avisos do INMET", porque num dia calmo a
+    ausência confirmada vale mais do que o silêncio.
+    """
+    av = snapshot.get("avisos_inmet") or {}
+    alertas = av.get("alertas") or []
+    estagio = (snapshot.get("classificacao") or {}).get("estagio", "")
+    normalidade = str(estagio).upper().startswith("NORMAL")
+
+    if not av.get("consultado", True):
+        return ("<div class='compl-inmet'><span class='rot-compl'>INMET</span>"
+                "<span class='txt-compl'>não foi possível consultar os avisos "
+                "nesta atualização</span></div>")
+
+    if not alertas:
+        if not normalidade:
+            return ""
+        return ("<div class='compl-inmet'><span class='rot-compl'>INMET</span>"
+                "<span class='txt-compl'>sem avisos do INMET para Porto "
+                "Alegre</span></div>")
+
+    partes = []
+    for a in alertas[:3]:
+        sev = a.get("severidade") or "Amarelo"
+        cor = config.CORES_AVISO_INMET.get(sev, "#E3B505")
+        tipo = (a.get("tipo") or a.get("descricao") or "aviso").strip()
+        periodo = _periodo_aviso(a)
+        partes.append(
+            f"<span class='chip-inmet' style='border-color:{cor}'>"
+            f"<i style='background:{cor}'></i>"
+            f"{_texto_html(tipo[:70])}"
+            + (f" <small>{periodo}</small>" if periodo else "")
+            + "</span>")
+    return (f"<div class='compl-inmet'><span class='rot-compl'>INMET</span>"
+            f"<span class='txt-compl'>complemento à análise:</span>"
+            f"{''.join(partes)}</div>")
+
+
 def _bloco_avisos_inmet(snapshot: dict) -> str:
-    """Retângulo com os avisos meteorológicos vigentes do INMET para POA."""
+    """
+    NÃO ESTÁ MONTADO NO PAINEL. Era o retângulo de destaque no topo e deu
+    lugar aos avisos da Defesa Civil de POA (_bloco_avisos_defesa_civil);
+    o INMET agora entra como complemento no banner (_complemento_inmet).
+    Mantido porque continua correto e é uma linha para voltar, se o CISC
+    decidir que quer os dois em destaque.
+
+    Retângulo com os avisos meteorológicos vigentes do INMET para POA.
+    """
     av = snapshot.get("avisos_inmet") or {}
     alertas = av.get("alertas") or []
 
@@ -1069,6 +1185,40 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .item-aviso .desc,.item-aviso .detalhe-aviso{overflow-wrap:anywhere;
   word-break:break-word}
 .item-aviso .periodo{font-size:.78rem;color:var(--txt2);margin-top:3px}
+
+/* ── Avisos da Defesa Civil de POA (bloco de destaque) ───────────────
+   Herda a caixa do antigo bloco do INMET de propósito: para quem lê o
+   painel todo dia, o aviso continua no mesmo lugar e com a mesma forma —
+   só a origem mudou, e ela está escrita no título. */
+.avisos-dc{background:var(--cartao);border:1px solid var(--borda);
+  border-radius:12px;padding:10px 14px;margin-bottom:16px;text-align:left}
+.avisos-dc.sem-aviso{border-color:#2E9E44}
+.avisos-dc.indisponivel{border-color:#8B95A1}
+.avisos-dc.sem-aviso .texto-aviso{color:var(--txt)}
+.avisos-dc .item-aviso .desc a{color:var(--txt);text-decoration:none;
+  border-bottom:1px dotted var(--txt2)}
+.avisos-dc .item-aviso .desc a:hover{border-bottom-style:solid}
+.ultimo-aviso{text-align:center;font-size:.82rem;color:var(--txt2);
+  margin-top:6px}
+.ultimo-aviso a{color:var(--txt2)}
+
+/* ── Complemento do INMET, dentro do banner de estágio ───────────────
+   Discreto por decisão: o INMET compõe a análise, não a comanda. Fica na
+   base do banner, com tipografia menor que a dos blocos do Plano, para
+   ler-se como nota de rodapé da decisão — e não como uma segunda decisão. */
+.compl-inmet{display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+  margin:10px 12px 2px;padding-top:8px;
+  border-top:1px dashed var(--borda-fina);font-size:.82rem}
+.rot-compl{font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;font-size:.76rem;
+  color:var(--txt2);border:1px solid var(--borda-fina);border-radius:5px;
+  padding:1px 6px}
+.txt-compl{color:var(--txt2)}
+.chip-inmet{display:inline-flex;align-items:center;gap:5px;
+  border:1px solid;border-radius:999px;padding:2px 9px;font-size:.8rem;
+  background:rgba(127,127,127,.08)}
+.chip-inmet i{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.chip-inmet small{color:var(--txt2);font-size:.72rem}
 .linha-arvore{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:10px 12px;margin-bottom:10px}
 .rotulo-linha{font-weight:800;letter-spacing:.4px}
@@ -1242,6 +1392,7 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
 
   /* Nada pode ser partido ao meio entre páginas */
   .banner,.card,.tile,.grafico,.bloco-regioes,.linha-regioes,.avisos-inmet,
+  .avisos-dc,
   .linha-arvore,.cartao-chuva,.trilho-estagios,.no-arvore,.dia-prev,
   .previsao{break-inside:avoid;page-break-inside:avoid}
 
@@ -1405,7 +1556,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_cabecalho(snapshot)}
   {_bloco_fontes(snapshot)}
   {_bloco_banner(snapshot)}
-  {_bloco_avisos_inmet(snapshot)}
+  {_bloco_avisos_defesa_civil(snapshot)}
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
   {_bloco_gatilhos(snapshot)}
