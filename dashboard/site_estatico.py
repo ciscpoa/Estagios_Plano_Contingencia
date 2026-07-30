@@ -452,6 +452,19 @@ def _bloco_avisos_defesa_civil(snapshot: dict) -> str:
                 "rel='noopener'>prefeitura.poa.br/defesa-civil</a></div>"
                 "</section>")
 
+    # Página respondeu, mas nenhum aviso foi interpretado: a página sempre
+    # teve dezenas deles, então isso é leitura quebrada, não ano calmo.
+    # Anunciar "nenhum aviso vigente" aqui seria transformar uma falha de
+    # coleta em atestado de tranquilidade.
+    if not av.get("estrutura_ok", True):
+        return ("<section class='avisos-dc indisponivel'>"
+                "<div class='titulo-aviso'>Avisos da Defesa Civil de Porto "
+                "Alegre</div><div class='texto-aviso'>A página respondeu, mas "
+                "<b>não foi possível interpretar a lista de avisos</b> nesta "
+                "atualização — consulte direto em "
+                f"<a href='{url_fonte}' target='_blank' rel='noopener'>"
+                "prefeitura.poa.br/defesa-civil</a></div></section>")
+
     if not vigentes:
         # Dia sem aviso é informação: dizer isso, e dizer QUANDO foi o
         # último, é o que separa "nada acontecendo" de "ninguém olhou".
