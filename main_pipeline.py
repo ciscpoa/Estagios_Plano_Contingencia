@@ -106,8 +106,10 @@ def executar_pipeline(usar_selenium: bool = True,
         # camada foi lida é o scraper.
         "Poaclima · alertas": bool(poa.get("alertas_consultados")),
         "Poaclima · níveis": any(v is not None for v in niveis_poa.values()),
+        # Só conta como fonte OK quando a página foi lida E interpretada:
+        # 200 com lista vazia é falha silenciosa, não dia sem aviso.
         "Defesa Civil · avisos": bool(
-            (brutos.get("avisos_defesa_civil") or {}).get("consultado")),
+            (brutos.get("avisos_defesa_civil") or {}).get("estrutura_ok")),
     }
     falhas = [n for n, ok in fontes.items() if not ok]
     if falhas:
