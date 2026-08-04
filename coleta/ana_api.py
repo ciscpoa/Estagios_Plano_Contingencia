@@ -350,13 +350,81 @@ def _consultar_serie(codigo_estacao: str, dias: int = 7) -> pd.DataFrame:
             partes.append(parte)
     if not partes:
         return pd.DataFrame(columns=["datahora", "nivel_m", "chuva_mm"])
-    return (
+    serie = (
         pd.concat(partes, ignore_index=True)
         .drop_duplicates(subset=["datahora"], keep="last")
         .loc[lambda d: d["datahora"] >= inicio_global]
         .sort_values("datahora")
         .reset_index(drop=True)
     )
+    # Filtro aplicado aqui, na série já completa e ordenada: cada consumidor
+    # a jusante (cards, tendência 48h, gráficos, histórico) recebe os mesmos
+    # dados limpos, sem precisar repetir a limpeza.
+    return remover_picos(serie, rotulo=codigo_estacao)
+
+
+def remover_picos(df: pd.DataFrame, rotulo: str = "") -> pd.DataFrame:
+    """
+    Descarta leituras isoladas fisicamente impossíveis (filtro de Hampel).
+
+    O sensor do Cais Mauá manda, esporadicamente, valores ~1,3 m abaixo das
+    leituras vizinhas — em 15 minutos o Guaíba não cai 1,3 m. O ponto vira
+    vazio (None) em vez de sumir da série: assim o gráfico abre um buraco
+    honesto na linha, em vez de ligar dois instantes distantes com um traço
+    reto que dá a impressão de uma queda que não houve.
+
+    Parâmetros em config.FILTRO_PICOS_ANA. Devolve uma CÓPIA.
+    """
+    cfg = getattr(config, "FILTRO_PICOS_ANA", None) or {}
+    if not cfg.get("ativo", True) or df is None or df.empty:
+        return df
+    if "nivel_m" not in df.columns or "datahora" not in df.columns:
+        return df
+
+    # Só nas estações autorizadas (ver comentário no config): o filtro supõe
+    # que a leitura boa é a maioria da janela, e isso não vale em toda régua.
+    permitidas = cfg.get("estacoes")
+    if permitidas:
+        codigos = {str(config.ESTACOES_ANA[n]) for n in permitidas
+                   if n in config.ESTACOES_ANA}
+        codigos |= {str(n) for n in permitidas}
+        if str(rotulo) not in codigos:
+            return df
+
+    valores = pd.to_numeric(df["nivel_m"], errors="coerce")
+    if valores.notna().sum() < int(cfg.get("min_pontos", 8)):
+        return df
+
+    instantes = pd.to_datetime(df["datahora"], errors="coerce")
+    base = pd.DataFrame({"dh": instantes, "v": valores}).reset_index(drop=True)
+    ordem = base.dropna(subset=["dh"]).sort_values("dh").index
+    if len(ordem) < int(cfg.get("min_pontos", 8)):
+        return df
+
+    serie = pd.Series(base.loc[ordem, "v"].to_numpy(),
+                      index=pd.DatetimeIndex(base.loc[ordem, "dh"]))
+    janela = f"{int(cfg.get('janela_h', 3))}h"
+    mediana = serie.rolling(janela, center=True, min_periods=3).median()
+    desvio = (serie - mediana).abs()
+    # MAD local: mediana dos próprios desvios na mesma janela.
+    mad = desvio.rolling(janela, center=True, min_periods=3).median()
+    limite = (float(cfg.get("k_mad", 6.0)) * mad).clip(
+        lower=float(cfg.get("desvio_max_m", 0.30)))
+    suspeitos = (desvio > limite).fillna(False).to_numpy()
+    if not suspeitos.any():
+        return df
+
+    limpo = df.copy()
+    posicoes = ordem.to_numpy()[suspeitos]
+    limpo.loc[limpo.index[posicoes], "nivel_m"] = None
+    if cfg.get("avisar", True):
+        amostra = serie[suspeitos]
+        exemplos = "; ".join(f"{dh:%d/%m %H:%M} {v:.2f} m"
+                             for dh, v in list(amostra.items())[:3])
+        print(f"[ANA] {rotulo or 'estação'}: {int(suspeitos.sum())} leitura(s) "
+              f"descartada(s) por pico irreal ({exemplos}"
+              f"{'; ...' if suspeitos.sum() > 3 else ''}).")
+    return limpo
 
 
 def _itens_para_df(items: list[dict], inicio: datetime) -> pd.DataFrame:
