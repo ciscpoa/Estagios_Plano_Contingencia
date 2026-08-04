@@ -148,13 +148,19 @@ def grafico_guaiba(serie: list[dict], tema: str = "dark",
             annotation_position="top",
             annotation_font_color=p["txt"])
 
-    for cota, nome, cor in (
-        (config.COTA_ATENCAO_GUAIBA, "Cota de Atenção", config.CORES_ESTAGIOS["MOBILIZAÇÃO"]),
-        (config.COTA_ALERTA_GUAIBA, "Cota de Alerta", config.CORES_ESTAGIOS["ALERTA"]),
+    # Traço e espessura crescentes com a gravidade. Impresso em preto e
+    # branco as três cores viram o mesmo cinza; o pontilhado fino, o
+    # tracejado e a linha cheia continuam diferentes entre si.
+    for cota, nome, cor, traco, largura in (
+        (config.COTA_ATENCAO_GUAIBA, "Cota de Atenção",
+         config.CORES_ESTAGIOS["MOBILIZAÇÃO"], "dot", 1.6),
+        (config.COTA_ALERTA_GUAIBA, "Cota de Alerta",
+         config.CORES_ESTAGIOS["ALERTA"], "dash", 2.0),
         (config.COTA_INUNDACAO_GUAIBA, "Cota de Inundação",
-         config.CORES_ESTAGIOS["SITUAÇÃO DE EMERGÊNCIA"]),
+         config.CORES_ESTAGIOS["SITUAÇÃO DE EMERGÊNCIA"], "solid", 2.6),
     ):
-        fig.add_hline(y=cota, line_dash="dash", line_color=cor,
+        fig.add_hline(y=cota, line_dash=traco, line_color=cor,
+                      line_width=largura,
                       annotation_text=f"{nome} ({cota:.2f} m)",
                       annotation_font_color=cor)
     fig.update_layout(
@@ -326,6 +332,17 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
              "Rio_Jacui_TriunfoAmarop": "#9B8CE0", "Rio_Jacui_Triunfo": "#9B8CE0",
              "Rio_Jacui_CachoeiraDoSul": "#C6B9F2",
              "Rio_Taquari_Taquari": "#E86FA9", "Rio_Taquari_Mucum": "#F0A8C8"}
+    # Cada rio com um traço próprio: fotocopiado em cinza, cinco linhas
+    # coloridas viram cinco linhas iguais. O traço sobrevive à cópia.
+    tracos = {"Rio_Gravatai": "solid",
+              "Rio_dos_Sinos_SaoLeopoldo": "dash",
+              "Rio_Cai": "dot", "Rio_Cai_Montenegro": "dot",
+              "Rio_Cai_NovaPalmira": "longdash",
+              "Rio_Jacui_Triunfo": "dashdot",
+              "Rio_Jacui_TriunfoAmarop": "dashdot",
+              "Rio_Jacui_CachoeiraDoSul": "longdashdot",
+              "Rio_Taquari_Taquari": "longdash",
+              "Rio_Taquari_Mucum": "longdashdot"}
     configurados = getattr(config, "AFLUENTES_GUAIBA", {})
     principais = tuple(configurados)
     meta_modelo = (series or {}).get("__meta_alinhamento__", {})
@@ -348,7 +365,8 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
         rotulo = cfg.get("rotulo", nome)
         fig.add_trace(go.Scatter(
             x=df["datahora"], y=df["nivel_m"], mode="lines", name=rotulo,
-            line=dict(color=cores.get(nome, "#AAAAAA"), width=2.5),
+            line=dict(color=cores.get(nome, "#AAAAAA"), width=2.5,
+                      dash=tracos.get(nome, "solid")),
             hovertemplate=f"<b>{rotulo}</b><br>"
                           "Data: %{x|%d/%m/%Y}<br>Hora: %{x|%H:%M}<br>"
                           "Nível observado: %{y:.2f} m<br>"

@@ -144,8 +144,13 @@ def _trilho_estagios(atual: str) -> str:
             estilo = (f"--c:{cor};--c-esc:{claro};"
                       f"background:{_rgba(cor, .20 if i < idx_atual else .14)}")
         curto = "EMERGÊNCIA" if nome.startswith("SITUAÇÃO") else nome
+        # No papel em P&B o amarelo do degrau atual e o cinza dos outros
+        # ficam quase iguais. A palavra resolve o que a cor não resolve.
+        atual_txt = ("<span class='marca-atual'>ETAPA ATUAL</span>"
+                     if i == idx_atual else "")
         passos.append(f"<div class='{classe}' style='{estilo}'>"
-                      f"<span class='grau'>{i + 1}</span>{curto}</div>")
+                      f"<span class='grau'>{i + 1}</span>{curto}"
+                      f"{atual_txt}</div>")
     return f"<div class='trilho-estagios'>{''.join(passos)}</div>"
 
 
@@ -339,8 +344,14 @@ def _bloco_banner(snapshot: dict) -> str:
     </section>"""
 
 
+# Selo textual de cada grau. Existe por causa do papel: impresso em preto e
+# branco, verde, laranja e vermelho viram três cinzas parecidos. A palavra
+# não vira cinza.
+SELOS_GRAU = {0: "NORMAL", 1: "ATENÇÃO", 2: "ALERTA", 3: "INUNDAÇÃO"}
+
+
 def _cor_por_cota(chave: str, nivel: float, cota: float,
-                  pct: float) -> tuple[str, str]:
+                  pct: float) -> tuple[str, str, int]:
     """
     Cor do card pelas COTAS da própria régua (Poaclima), não por % da cota
     de inundação. É o que o gráfico do Guaíba já fazia — antes o card
@@ -354,20 +365,23 @@ def _cor_por_cota(chave: str, nivel: float, cota: float,
     atencao, alerta = c.get("atencao"), c.get("alerta")
 
     if nivel >= cota:
-        return config.CORES_ESTAGIOS["SITUAÇÃO DE EMERGÊNCIA"], "acima da cota de inundação"
+        return (config.CORES_ESTAGIOS["SITUAÇÃO DE EMERGÊNCIA"],
+                "acima da cota de inundação", 3)
     if alerta is not None and nivel >= alerta:
-        return config.CORES_ESTAGIOS["ALERTA"], f"acima da cota de alerta ({alerta:.2f} m)"
+        return (config.CORES_ESTAGIOS["ALERTA"],
+                f"acima da cota de alerta ({alerta:.2f} m)", 2)
     if atencao is not None and nivel >= atencao:
-        return config.CORES_ESTAGIOS["MOBILIZAÇÃO"], f"acima da cota de atenção ({atencao:.2f} m)"
+        return (config.CORES_ESTAGIOS["MOBILIZAÇÃO"],
+                f"acima da cota de atenção ({atencao:.2f} m)", 1)
     if atencao is None and alerta is None:
         # sem cotas publicadas: mantém o comportamento antigo, por faixa
         if pct >= 85:
-            return config.CORES_ESTAGIOS["ALERTA"], ""
+            return config.CORES_ESTAGIOS["ALERTA"], "", 2
         if pct >= 65:
-            return config.CORES_ESTAGIOS["MOBILIZAÇÃO"], ""
+            return config.CORES_ESTAGIOS["MOBILIZAÇÃO"], "", 1
     if atencao is None and pct >= 65:
-        return config.CORES_ESTAGIOS["MOBILIZAÇÃO"], ""
-    return config.CORES_ESTAGIOS["NORMALIDADE"], ""
+        return config.CORES_ESTAGIOS["MOBILIZAÇÃO"], "", 1
+    return config.CORES_ESTAGIOS["NORMALIDADE"], "", 0
 
 
 def _idade_da_leitura(ind: dict, chave: str) -> str:
@@ -427,10 +441,12 @@ def _bloco_cards(snapshot: dict) -> str:
 
         if nivel is not None and cota:
             pct = max(0.0, nivel / cota * 100.0)
-            cor, situacao = _cor_por_cota(info["chave"], nivel, cota, pct)
+            cor, situacao, grau = _cor_por_cota(info["chave"], nivel, cota, pct)
             valor = (f"<div class='valor' style='color:{cor}'>{nivel:.2f} m"
-                     f"<span class='cota'> / {cota:.2f} m</span></div>")
-            barra = (f"<div class='trilho'><div class='barra' style='width:"
+                     f"<span class='cota'> / {cota:.2f} m</span>"
+                     f"<span class='selo g{grau}'>{SELOS_GRAU[grau]}</span>"
+                     f"</div>")
+            barra = (f"<div class='trilho'><div class='barra g{grau}' style='width:"
                      f"{min(pct, 100):.0f}%;background:{cor}'></div></div>")
             rodape = (f"<div class='pct'>{pct:.0f}% da cota de inundação"
                       f"{' · ' + situacao if situacao else ''}</div>")
@@ -491,6 +507,7 @@ def _bloco_regioes(snapshot: dict) -> str:
     def tile(num: int) -> str:
         al = por_regiao.get(num)
         nome = (al or {}).get("regiao_nome") or config.REGIOES_POACLIMA.get(num, "")
+        g = 0 if al is None else grau(al.get("risco"))
         if al is None:
             cor = config.CORES_RISCO_POACLIMA["sem dado"]
             status, detalhe = rotulo_vazio, ""
@@ -504,7 +521,7 @@ def _bloco_regioes(snapshot: dict) -> str:
         # Faixa cheia só no topo: o corpo pastel mantém a leitura confortável
         # e a tarja devolve a cor forte do risco, que é o que se enxerga de
         # longe ao bater o olho na grade das 17 regiões.
-        return (f"<div class='tile' style='background:{_tom_suave(cor)};"
+        return (f"<div class='tile r{g}' style='background:{_tom_suave(cor)};"
                 f"border:1px solid {cor};border-top:6px solid {cor};"
                 f"color:{_TINTA_ESCURA}'>"
                 f"<div class='num'>{num}</div><div class='nome'>{nome}</div>"
@@ -1061,6 +1078,14 @@ def _bloco_cabecalho(snapshot: dict) -> str:
     gauge = _figura_dupla(
         lambda t: componentes.gauge_estagio(
             snapshot.get("classificacao") or {}, t, compacto=True), "215px")
+    # O carimbo só aparece no papel: lá o velocímetro é escondido (invadia o
+    # título) e a folha precisa dizer, já no alto, em que estágio a cidade
+    # está e de quando é o dado.
+    cls_cab = snapshot.get("classificacao") or {}
+    estagio_carimbo = cls_cab.get("rotulo") or cls_cab.get("estagio") or "—"
+    idx_cab = cls_cab.get("indice")
+    posicao_carimbo = (f"{idx_cab + 1} de {len(config.ESTAGIOS)}"
+                       if isinstance(idx_cab, int) else "—")
     return f"""
   <header class="cabecalho">
     <div class="identidade">
@@ -1077,8 +1102,71 @@ def _bloco_cabecalho(snapshot: dict) -> str:
         </div>
       </div>
     </div>
+    <div class="carimbo-print">
+      <div class="cp-rot">Estágio operacional</div>
+      <div class="cp-estagio">{estagio_carimbo}</div>
+      <div class="cp-linha">Etapa {posicao_carimbo} da escala do Plano</div>
+      <div class="cp-linha">Coleta de {snapshot.get('timestamp', '—')}</div>
+    </div>
     <div class="gauge-cabecalho">{gauge}</div>
   </header>"""
+
+
+def _legenda_impressao(snapshot: dict) -> str:
+    """
+    Página final do PDF: como ler o documento.
+
+    Na tela, quem tem dúvida passa o mouse, clica, rola até o rodapé. No
+    papel não há para onde clicar — e o documento circula fora do contexto
+    em que foi gerado, muitas vezes fotocopiado. Por isso as convenções
+    (estágios, cotas, e o que substitui a cor quando a folha é P&B) vêm
+    escritas, uma vez, no fim.
+    """
+    cls = snapshot.get("classificacao") or {}
+    estagio = cls.get("rotulo") or cls.get("estagio") or "—"
+    idx = cls.get("indice")
+    posicao = (f"{idx + 1} de {len(config.ESTAGIOS)}"
+               if isinstance(idx, int) else "—")
+    return f"""
+    <section class="legenda-print">
+      <h3 class="titulo-secao">Como ler este documento</h3>
+      <div class="grade-legenda">
+        <div>
+          <h4>Estágios operacionais</h4>
+          <p>A escala do item 5.1 do Plano de Contingência vai de
+          NORMALIDADE a CRISE. Um estágio só é declarado quando
+          <b>todos</b> os seus blocos estão ativos; um gatilho confirmado em
+          campo eleva o estágio pela regra de piso, mesmo sem os blocos
+          meteorológicos fecharem. Nesta edição: <b>{estagio}</b>, etapa
+          {posicao}.</p>
+        </div>
+        <div>
+          <h4>Cotas de referência</h4>
+          <p><b>Atenção</b>: com o rio em elevação, possibilidade moderada de
+          inundação. <b>Alerta</b>: possibilidade elevada — é o tempo de a
+          Defesa Civil se mobilizar. <b>Inundação</b>: o primeiro ponto de
+          interesse do município é atingido pelas águas. Cada régua tem
+          referência de nível própria: leituras de estações diferentes não
+          se comparam entre si.</p>
+        </div>
+        <div>
+          <h4>Leitura em preto e branco</h4>
+          <p>Onde a cor informa, há reforço em texto e trama: o selo ao lado
+          do nível (NORMAL · ATENÇÃO · ALERTA · INUNDAÇÃO), a hachura da
+          barra de cada estação, a marca ETAPA ATUAL na escala de estágios e
+          o traço distinto de cada rio nos gráficos.</p>
+        </div>
+        <div>
+          <h4>Fontes e periodicidade</h4>
+          <p>Níveis dos rios: ANA (HidroWebService) e Poaclima/Defesa Civil
+          de Porto Alegre. Chuva observada: INMET e ANA. Previsão:
+          Poaclima/Catavento e Open-Meteo. Avisos: INMET e Defesa Civil.
+          Dados da coleta de {snapshot.get('timestamp', '—')}. Documento
+          gerado automaticamente — apoio à decisão, não substitui os canais
+          oficiais da Defesa Civil.</p>
+        </div>
+      </div>
+    </section>"""
 
 
 def _bloco_graficos(snapshot: dict) -> str:
@@ -1480,6 +1568,9 @@ body.claro .fig-claro{position:static;left:auto;width:auto;pointer-events:auto}
 body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
   pointer-events:none}
 .regioes-print{display:none}
+/* Só existem no papel (ver bloco de impressão): selo textual do grau,
+   marca da etapa atual, carimbo do cabeçalho e a legenda final. */
+.selo,.marca-atual,.carimbo-print,.legenda-print{display:none}
 .rodape{margin-top:30px;padding-top:18px;border-top:1px solid var(--borda-fina)}
 .logo-rodape{height:46px;width:40px;opacity:.9;margin:0 auto 6px}
 .cisc{font-weight:700;margin-bottom:6px;font-family:"Barlow Condensed",sans-serif;
@@ -1552,105 +1643,183 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
 
 /* ── IMPRESSÃO / PDF ────────────────────────────────────────────────
    O botão 🖨 usa o diálogo do navegador, então é ESTE bloco que define o
-   PDF. A4 paisagem, cores fiéis, e quebras controladas: no PDF anterior os
-   gráficos eram cortados no meio e os títulos truncavam. */
-@page{size:A4 landscape;margin:9mm}
+   PDF. Duas exigências ao mesmo tempo: bonito em cor e legível quando sai
+   da copiadora em preto e branco.
+
+   O princípio é um só — NADA pode depender só da cor. Onde a cor carrega
+   informação (grau da estação, etapa atual da escala, série de cada rio),
+   existe um segundo canal: a palavra no selo, a trama na barra, a marca
+   ETAPA ATUAL, o traço distinto de cada linha. Em cor, esses reforços
+   somem no desenho; em cinza, são eles que sustentam a leitura.
+
+   O que mudou em relação ao PDF anterior: o velocímetro invadia o título
+   (saía cortado e por cima do texto) e foi substituído por um carimbo de
+   identificação; a escala de estágios quebrava em três fileiras; os
+   títulos de seção ficavam órfãos, separados do conteúdo; e os valores em
+   verde, laranja e vermelho viravam três cinzas iguais. */
+@page{size:A4 landscape;margin:10mm 11mm}
 @media print{
   *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
-  body{background:#fff !important;color:#132030 !important;padding:0;
-       --fundo:#fff;--cartao:#fff;--txt:#132030;--txt2:#54657A;
-       --borda:rgba(0,0,0,.55);--borda-fina:rgba(0,0,0,.18);
-       --trilho:rgba(0,0,0,.10);--sombra:transparent}
+  body{background:#fff !important;color:#0E1A26 !important;padding:0;
+       --fundo:#fff;--cartao:#fff;--txt:#0E1A26;--txt2:#4A5A6B;
+       --borda:rgba(0,0,0,.55);--borda-fina:rgba(0,0,0,.22);
+       --trilho:rgba(0,0,0,.06);--sombra:transparent}
   body::before{display:none !important}
   .acoes,.frescor{display:none !important}
   .fig-dark{position:absolute !important;left:-30000px !important;top:0 !important;
        width:1040px !important}
-  .fig-claro{position:static !important;left:auto !important;width:auto !important}
+  .fig-claro{position:static !important;left:auto !important;width:auto !important;
+       overflow:visible !important;max-width:none !important}
   .wrap{max-width:none}
 
-  /* Cabeçalho compacto na primeira página: identidade + velocímetro */
-  .cabecalho{gap:10px;margin-bottom:4px;flex-wrap:nowrap;
-             break-inside:avoid;page-break-inside:avoid}
-  .identidade{flex:1 1 54%}
-  .gauge-cabecalho{flex:0 0 42%;max-width:42%;min-width:0}
-  .gauge-cabecalho .fig-claro,
-  .gauge-cabecalho .fig-claro .js-plotly-plot,
-  .gauge-cabecalho .fig-claro .plot-container,
-  .gauge-cabecalho .fig-claro .svg-container{height:40mm !important}
-  .logo{height:48px;width:40px}
-  h1{font-size:1.68rem}
-  .sub,.sobretitulo{font-size:.8rem}
+  /* ── CABEÇALHO ──────────────────────────────────────────────────
+     O velocímetro sai: em 40mm o Plotly não recalculava a largura e o
+     desenho vazava por cima do título. No lugar entra um carimbo de
+     identificação, que é o que um documento impresso precisa ter no alto. */
+  .cabecalho{gap:12px;margin-bottom:7px;flex-wrap:nowrap;align-items:flex-start;
+             break-inside:avoid;page-break-inside:avoid;
+             border-bottom:1.6pt solid var(--borda);padding-bottom:7px}
+  .gauge-cabecalho{display:none !important}
+  .identidade{flex:1 1 auto}
+  .logo{height:46px;width:38px}
+  h1{font-size:1.6rem}
+  .sub,.sobretitulo{font-size:.76rem}
+  .carimbo-print{display:block;flex:0 0 62mm;max-width:62mm;text-align:right;
+      border:1.4pt solid var(--borda);border-radius:6px;padding:6px 10px}
+  .cp-rot{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+      color:var(--txt2)}
+  .cp-estagio{font-family:"Barlow Condensed",sans-serif;font-weight:700;
+      font-size:1.32rem;line-height:1.1;letter-spacing:.02em;margin:1px 0 3px}
+  .cp-linha{font-size:.68rem;color:var(--txt2);line-height:1.35}
 
-  .trilho-estagios{margin-bottom:8px}
-  .passo{font-size:.72rem;padding:6px 6px 6px 16px}
-  .banner{padding:10px 14px;margin-bottom:10px;box-shadow:none}
-  .banner h2{font-size:1.45rem}
-  .banner .just{font-size:.82rem}
+  /* ── ESCALA DE ESTÁGIOS ─────────────────────────────────────────
+     Grade de cinco colunas: com flex a fileira quebrava em três linhas na
+     largura da folha. A cor clara de texto (--c-esc) foi feita para o
+     fundo escuro da tela; no papel branco ela some, então volta a original. */
+  .trilho-estagios{display:grid !important;grid-template-columns:repeat(5,1fr);
+      gap:4px;margin-bottom:8px;break-inside:avoid}
+  .passo{flex:none !important;min-width:0 !important;font-size:.72rem;
+      padding:6px 12px 6px 18px;
+      clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,
+                calc(100% - 10px) 100%,0 100%,10px 50%) !important}
+  .passo.antes,.passo.depois{color:var(--c) !important;
+      border-color:var(--c) !important;opacity:.9}
+  .passo.atual{border-width:2.4pt !important;transform:none;box-shadow:none}
+  .marca-atual{display:block;font-size:.55rem;font-weight:800;
+      letter-spacing:.14em;opacity:.95;margin-top:1px}
 
-  /* Nada pode ser partido ao meio entre páginas */
+  /* ── BANNER E BLOCOS ────────────────────────────────────────────── */
+  .banner{margin-bottom:10px;box-shadow:none;border-width:1.4pt}
+  .faixa-estagio{padding:9px 14px 8px}
+  .banner h2{font-size:1.7rem}
+  .banner .ts{font-size:.78rem}
+  .banner .linha-arvore{padding:8px 10px}
+  .no-arvore{font-size:.86rem;padding:8px 10px;line-height:1.3}
+  .motivo-no{font-size:.76rem;line-height:1.32;padding-top:5px}
+  .motivo-lista{padding-left:15px}
+  .motivo-sub{padding-left:13px}
+  .conector{width:26px;height:26px;font-size:1rem;border-width:1.6pt}
+  .sub-arvore{font-size:.72rem;margin-bottom:6px}
+  .aviso-fontes{border:1.2pt solid #6B540F}
+
+  /* ── NADA PARTIDO AO MEIO, NENHUM TÍTULO ÓRFÃO ─────────────────── */
   .banner,.card,.tile,.grafico,.bloco-regioes,.linha-regioes,.avisos-inmet,
-  .avisos-dc,
-  .linha-arvore,.cartao-chuva,.trilho-estagios,.no-arvore,.dia-prev,
-  .previsao{break-inside:avoid;page-break-inside:avoid}
+  .avisos-dc,.linha-arvore,.cartao-chuva,.trilho-estagios,.no-arvore,
+  .dia-prev,.previsao,.legenda-print,.rodape{
+      break-inside:avoid;page-break-inside:avoid}
+  .titulo-secao,.sub-secao,.fonte-prev,.bloco-regioes .sub{
+      break-after:avoid;page-break-after:avoid}
 
-  /* Previsão: os cinco dias sempre em uma linha só na folha */
+  /* ── CARDS DAS ESTAÇÕES ─────────────────────────────────────────── */
+  .cards{display:grid !important;grid-template-columns:repeat(5,1fr);gap:7px}
+  .card{max-width:none;flex:none !important;padding:8px;box-shadow:none;
+        border:1pt solid var(--borda-fina)}
+  .card .rio{font-size:.98rem}
+  .card .est{min-height:0;font-size:.7rem}
+  .card .valor{font-size:1.28rem}
+  .card .pct{font-size:.68rem;line-height:1.3}
+
+  /* ── REFORÇOS PARA O PRETO E BRANCO ─────────────────────────────
+     O selo é a informação em palavra; a trama, a mesma informação em
+     textura. Quem imprime colorido vê os dois discretos; quem imprime em
+     cinza continua distinguindo NORMAL de INUNDAÇÃO sem contar com a cor. */
+  .selo{display:inline-block;margin-left:7px;padding:0 6px;border-radius:999px;
+      border:1pt solid currentColor;font-family:"Barlow Condensed",sans-serif;
+      font-size:.6rem;font-weight:800;letter-spacing:.08em;
+      vertical-align:.22em;white-space:nowrap}
+  .selo.g0{color:#1E6E33}
+  .selo.g1{color:#8A6412}
+  .selo.g2{color:#A04A08}
+  .selo.g3{color:#9E1319}
+  .trilho{border:.6pt solid rgba(0,0,0,.45);background:#fff;height:9px}
+  .barra.g1{background-image:repeating-linear-gradient(45deg,
+      rgba(0,0,0,.34) 0 1.2px,transparent 1.2px 4px)}
+  .barra.g2{background-image:repeating-linear-gradient(45deg,
+      rgba(0,0,0,.46) 0 2px,transparent 2px 4px)}
+  .barra.g3{background-image:repeating-linear-gradient(90deg,
+      rgba(0,0,0,.58) 0 1.6px,transparent 1.6px 3.2px)}
+
+  /* ── REGIÕES ────────────────────────────────────────────────────
+     Sem alerta = célula vazia de trama. Quanto maior o risco, mais densa
+     a hachura — a mesma leitura do mapa, sem depender do tom de cinza. */
+  .regioes-tela{display:none !important}
+  .regioes-print{display:block !important}
+  .linha-regioes{margin-bottom:5px}
+  .linha-regioes .tile{flex:0 0 calc(16.66% - 8px);min-height:0;padding:5px 4px;
+      border-width:1pt}
+  .tile.r1{background-image:repeating-linear-gradient(45deg,
+      rgba(0,0,0,.18) 0 1px,transparent 1px 5px)}
+  .tile.r2{background-image:repeating-linear-gradient(45deg,
+      rgba(0,0,0,.26) 0 1.4px,transparent 1.4px 4px)}
+  .tile.r3{background-image:repeating-linear-gradient(45deg,
+      rgba(0,0,0,.34) 0 2px,transparent 2px 4px)}
+  .tile.r4{background-image:repeating-linear-gradient(90deg,
+      rgba(0,0,0,.42) 0 2px,transparent 2px 3.6px)}
+
+  .titulo-secao{margin:9px 0 2px;font-size:1rem}
+  .sub-secao{font-size:.7rem;margin:1px 0 6px}
+
+  /* ── GRÁFICOS ───────────────────────────────────────────────────
+     Começam em folha nova e ficam com 74mm: três não cabiam nos 190mm
+     úteis da paisagem e o terceiro saía espremido contra o título
+     seguinte. Altura em mm, largura por conta do Plotly (travar a largura
+     com !important faz o gráfico sumir da folha). */
+  .graficos{break-before:page;page-break-before:always;display:block !important}
+  .grafico{border:1pt solid var(--borda-fina);border-radius:8px;margin:0 0 4mm;
+           padding:3px;height:auto;box-shadow:none;overflow:visible}
+  .fig-claro,.fig-claro .js-plotly-plot,.fig-claro .plot-container,
+  .fig-claro .svg-container{height:74mm !important}
+  .grafico .js-plotly-plot,.grafico .plot-container{overflow:visible}
+
+  /* ── PREVISÃO ───────────────────────────────────────────────────── */
   .previsao{grid-template-columns:repeat(5,1fr) !important;gap:6px;
       margin-bottom:10px}
-  .dia-prev{box-shadow:none}
+  .dia-prev{box-shadow:none;border:1pt solid var(--borda-fina)}
   .topo-prev{padding:4px 7px}
   .rot-dia{font-size:.82rem}
   .data-dia{font-size:.7rem}
   .corpo-prev{padding:6px 7px 4px;gap:6px}
   .ic-tempo{width:30px;height:30px}
   .mm-prev{font-size:1.15rem}
-  .regua-chuva{height:40px;width:11px}
+  .regua-chuva{height:40px;width:11px;border:.6pt solid rgba(0,0,0,.4)}
   .desc-prev{padding:0 7px 5px;font-size:.72rem;min-height:0}
   .metricas-prev{padding:0 7px 6px;font-size:.7rem}
   .metricas-prev li{padding:3px 0}
   .metricas-prev .rot{font-size:.6rem}
   .fonte-prev{font-size:.66rem;margin-bottom:5px}
 
-  .cards{display:grid !important;grid-template-columns:repeat(5,1fr);gap:7px}
-  .card{max-width:none;flex:none !important;padding:7px;box-shadow:none}
-  .card .est{min-height:0}
-  .card .valor{font-size:1.3rem}
-
-  .regioes-tela{display:none !important}
-  .regioes-print{display:block !important}
-  .linha-regioes{margin-bottom:5px}
-  /* 6 por linha: 16,66% menos a folga dos 5 vãos de 8px */
-  .linha-regioes .tile{flex:0 0 calc(16.66% - 8px);min-height:0;padding:5px 4px}
-
-  .titulo-secao{margin:10px 0 2px;font-size:1rem}
-  .sub-secao{font-size:.72rem;margin:1px 0 6px}
-  .no-arvore{font-size:.86rem;padding:7px 9px}
-  .motivo-no{font-size:.78rem}
-  .motivo-lista{padding-left:15px}
-  .conector{width:26px;height:26px;font-size:1rem}
-
-  /* A árvore começa em página nova: na versão anterior ela caía partida */
-
-  /* Um gráfico por página, ocupando a folha inteira — antes eles eram
-     espremidos lado a lado e os títulos ficavam truncados. */
-  .graficos{display:block}
-  /* duas colunas: gauge + Guaíba lado a lado; afluentes e chuva em linha
-     cheia. Altura automática — travar em mm cortava o gráfico. */
-  /* uma coluna: cada gráfico ocupa a largura útil da folha; dois por página */
-  .graficos{break-before:page;page-break-before:always;display:block !important}
-  .grafico{border:1px solid var(--borda);border-radius:8px;margin:0 0 4mm;
-           padding:3px;height:auto;box-shadow:none;overflow:visible}
-  /* dois gráficos por folha: 80mm cada + margens cabem nos 192mm úteis */
-  .fig-claro,.fig-claro .js-plotly-plot,.fig-claro .plot-container,
-  .fig-claro .svg-container{height:80mm !important}
-  /* a barra de rolagem do modo claro aparecia impressa no PDF */
-  .fig-claro{overflow:visible !important;max-width:none !important}
-  /* NÃO usar width:!important aqui — sobrepõe o style inline que o
-     Plotly.relayout escreve e o gráfico some da folha. */
-  .grafico .js-plotly-plot,.grafico .plot-container{overflow:visible}
+  /* ── COMO LER ESTE DOCUMENTO ────────────────────────────────────── */
+  .legenda-print{display:block;margin-top:6px}
+  .grade-legenda{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .grade-legenda>div{border:1pt solid var(--borda-fina);border-radius:8px;
+      padding:8px 10px;break-inside:avoid}
+  .grade-legenda h4{margin:0 0 4px;font-family:"Barlow Condensed",sans-serif;
+      font-size:.92rem;letter-spacing:.03em;text-transform:uppercase}
+  .grade-legenda p{margin:0;font-size:.7rem;line-height:1.38;color:var(--txt2)}
 
   .cartao-chuva{box-shadow:none;margin-top:8px}
   .valor-chuva{font-size:1.7rem}
-  .rodape{margin-top:12px;padding-top:8px}
+  .rodape{margin-top:10px;padding-top:8px;border-top:1pt solid var(--borda-fina)}
   .logo-rodape{height:34px;width:29px}
   .mini{font-size:.66rem}
 }
@@ -1684,14 +1853,13 @@ function medidasDeImpressao(){
   // que em 80mm de altura precisam de menos espaço.
   document.querySelectorAll('.grafico .fig-claro .js-plotly-plot').forEach(function(g){
     try{Plotly.relayout(g,{autosize:true,
-      'title.font.size':13,'legend.font.size':10,
-      'margin.l':55,'margin.r':55,'margin.t':44,'margin.b':36});}catch(e){}
+      'title.font.size':13,'legend.font.size':9.5,
+      'xaxis.tickfont.size':9.5,'yaxis.tickfont.size':9.5,
+      'yaxis2.tickfont.size':9.5,'annotations.font.size':9.5,
+      'margin.l':52,'margin.r':52,'margin.t':40,'margin.b':30});}catch(e){}
   });
-  // o velocímetro do cabeçalho tem altura própria (40mm) e margens menores
-  document.querySelectorAll('.gauge-cabecalho .fig-claro .js-plotly-plot').forEach(function(g){
-    try{Plotly.relayout(g,{autosize:true,width:null,height:null,
-      'margin.l':34,'margin.r':34,'margin.t':30,'margin.b':2});}catch(e){}
-  });
+  // O velocímetro não vai para o papel (o carimbo do cabeçalho ocupa o
+  // lugar dele), então não há o que redimensionar aqui.
 }
 function medidasDeTela(){
   document.querySelectorAll('.grafico .fig-claro .js-plotly-plot').forEach(function(g){
@@ -1761,6 +1929,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
   {_bloco_graficos(snapshot)}
+  {_legenda_impressao(snapshot)}
   {_JS_FRESCOR}
   <div class="rodape">
     <div class="logo-rodape" role="img" aria-label="CISC Porto Alegre"></div>
