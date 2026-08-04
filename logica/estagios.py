@@ -655,56 +655,69 @@ def classificar_estagio(
     modo_estrito: bool = False,
 ) -> dict:
     """
-    Classificação final = regras E/OU do Plano + REGRA DE PISO:
-    um gatilho qualitativo CONFIRMADO em campo eleva o estágio, no mínimo,
-    até a coluna do Plano (item 5.1) onde esse gatilho está escrito —
-    o evento confirmado é evidência direta daquela severidade, ainda que
-    os blocos meteorológicos não tenham fechado.
-    Desativável em config.PISO_POR_GATILHO_MANUAL.
+    Classificação final = APENAS as regras E/OU do Plano (item 5.1).
+
+    Os gatilhos confirmados em campo NÃO elevam o estágio por si sós. Eles
+    já entram nas regras onde o Plano os escreve — bloco 3 do ALERTA,
+    blocos 2/3/4 da EMERGÊNCIA, blocos 2/4/5 da CRISE — sempre ligados por
+    E aos blocos de chuva e de nível dos rios. Se esses outros blocos não
+    fecham, a coluna não fecha, e o estágio é o mais grave que realmente
+    fechou: o painel desce sozinho quando o evento passa.
+
+    A antiga "regra de piso" fazia o contrário — um gatilho marcado no txt
+    bastava para segurar o painel em ALERTA com tempo firme e rios baixos.
+    Ela fica desligada em config.PISO_POR_GATILHO_MANUAL; o parâmetro
+    continua existindo para quem quiser reativá-la conscientemente.
+
+    Gatilhos confirmados acima do estágio calculado viram uma OBSERVAÇÃO
+    explícita nas justificativas — informação para a equipe, não decisão.
     """
     resultado = _avaliar_regras(ind, infra=infra, modo_estrito=modo_estrito)
-
-    if not config.PISO_POR_GATILHO_MANUAL or infra is None:
-        return resultado
 
     ativos = gatilhos_ativos(infra)
     if not ativos:
         return resultado
 
-    # piso = coluna mais grave entre os gatilhos confirmados
-    piso_idx, piso_gatilhos = resultado["indice"], []
-    for campo, rotulo in ativos:
-        estagio_piso = config.PISO_GATILHOS.get(campo)
-        if estagio_piso is None:
-            continue
-        idx = config.ESTAGIOS.index(estagio_piso)
-        if idx > resultado["indice"]:
-            piso_gatilhos.append((idx, rotulo, estagio_piso))
-            piso_idx = max(piso_idx, idx)
+    resultado = dict(resultado)
+    justificativas = list(resultado["justificativas"])
+    justificativas.append(
+        "⚙ Gatilhos confirmados em campo: " + "; ".join(r for _, r in ativos))
 
-    if piso_idx <= resultado["indice"]:
-        # gatilhos ativos, mas nenhum acima do estágio já calculado
-        resultado = dict(resultado)
-        resultado["justificativas"] = list(resultado["justificativas"]) + [
-            "⚙ Gatilhos confirmados em campo: "
-            + "; ".join(r for _, r in ativos)]
-        return resultado
+    # Gatilhos de coluna mais grave que o estágio calculado: dizer em voz
+    # alta que eles NÃO mudaram o estágio, e por quê. Sem isso, quem marcou
+    # o txt fica sem entender por que o painel não subiu.
+    acima = [(config.ESTAGIOS.index(config.PISO_GATILHOS[campo]), rotulo,
+              config.PISO_GATILHOS[campo])
+             for campo, rotulo in ativos
+             if config.PISO_GATILHOS.get(campo)
+             and config.ESTAGIOS.index(config.PISO_GATILHOS[campo]) > resultado["indice"]]
 
-    estagio_final = config.ESTAGIOS[piso_idx]
-    responsaveis = [r for i, r, e in piso_gatilhos if i == piso_idx]
-    motivos = list(resultado["justificativas"]) + [
-        f"⚑ Estágio elevado de {resultado['estagio']} para {estagio_final} "
-        f"pela REGRA DE PISO: gatilho(s) da coluna {estagio_final} do Plano "
-        f"confirmado(s) em campo — {'; '.join(responsaveis)}",
-    ]
-    outros = [r for _, r in ativos if r not in responsaveis]
-    if outros:
-        motivos.append("⚙ Outros gatilhos confirmados: " + "; ".join(outros))
+    if acima and not config.PISO_POR_GATILHO_MANUAL:
+        idx_max = max(i for i, _, _ in acima)
+        coluna = config.ESTAGIOS[idx_max]
+        quais = "; ".join(r for i, r, _ in acima if i == idx_max)
+        justificativas.append(
+            f"ℹ Há gatilho(s) da coluna {coluna} confirmado(s) em campo "
+            f"({quais}), mas o estágio permanece {resultado['estagio']}: no "
+            f"Plano esses gatilhos são apenas UMA das alternativas de um dos "
+            f"blocos da coluna {coluna}, e os demais blocos (chuva e nível "
+            f"dos rios) não estão fechando.")
 
-    detalhes = dict(resultado["detalhes"])
-    detalhes["PISO_GATILHOS"] = {"disparou": True,
-                                 "motivos": [r for _, r, _ in piso_gatilhos]}
-    return _montar_saida(estagio_final, motivos, detalhes)
+    if acima and config.PISO_POR_GATILHO_MANUAL:
+        # Comportamento legado, só se reativado no config.
+        idx_max = max(i for i, _, _ in acima)
+        estagio_final = config.ESTAGIOS[idx_max]
+        responsaveis = [r for i, r, _ in acima if i == idx_max]
+        justificativas.append(
+            f"⚑ Estágio elevado de {resultado['estagio']} para {estagio_final} "
+            f"pela REGRA DE PISO: gatilho(s) da coluna {estagio_final} do Plano "
+            f"confirmado(s) em campo — {'; '.join(responsaveis)}")
+        detalhes = dict(resultado["detalhes"])
+        detalhes["PISO_GATILHOS"] = {"disparou": True, "motivos": responsaveis}
+        return _montar_saida(estagio_final, justificativas, detalhes)
+
+    resultado["justificativas"] = justificativas
+    return resultado
 
 
 def ler_gatilhos_txt(caminho=None) -> InputsInfraestrutura:
@@ -764,8 +777,13 @@ def criar_modelo_gatilhos_txt(caminho=None):
         "# Preenchido pela Defesa Civil/SMS quando o evento é CONFIRMADO.",
         "#",
         "# Como usar: troque 'nao' por 'ok' no gatilho confirmado e rode",
-        "# a atualização (célula 4 ou botão do dashboard). O estágio sobe,",
-        "# no mínimo, até a coluna do Plano onde o gatilho aparece.",
+        "# a atualização (célula 4 ou botão do dashboard).",
+        "#",
+        "# O gatilho NÃO define o estágio sozinho: ele entra como UMA das",
+        "# alternativas do bloco em que o Plano o escreve, e esse bloco é",
+        "# ligado por E aos blocos de chuva e de nível dos rios. Se os",
+        "# outros blocos não fecham, o estágio não sobe — e volta a descer",
+        "# sozinho quando o evento passa.",
         "# ============================================================",
         "",
     ]
