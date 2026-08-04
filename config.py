@@ -123,6 +123,9 @@ ESTACOES_ANA = {
 # Cachoeira do Sul (a montante, ~48 h). A antiga 85900000, em Rio Pardo, saiu:
 # era régua de observador, com 2 leituras por dia e ~1 dia de atraso.
 AFLUENTES_GUAIBA = {
+    # UMA estação por rio: a mais próxima do Guaíba. As demais continuam
+    # sendo coletadas e aparecem nos cards — o gráfico é que fica com uma
+    # linha por afluente, senão sete traços disputam a mesma área.
     "Rio_Gravatai": {
         "rotulo": "Gravataí",
         "tempo_viagem_h": 12,
@@ -135,33 +138,21 @@ AFLUENTES_GUAIBA = {
         "faixa_lag_h": (8, 72),
         "provisorio": True,
     },
-    "Rio_Cai": {
-        "rotulo": "Caí (Barca do Caí)",
-        "tempo_viagem_h": 36,
-        "faixa_lag_h": (12, 96),
+    # Caí: Passo Montenegro fica a jusante da Barca do Caí, mais perto da foz.
+    "Rio_Cai_Montenegro": {
+        "rotulo": "Caí (Montenegro)",
+        "tempo_viagem_h": 24,
+        "faixa_lag_h": (8, 72),
         "provisorio": True,
     },
+    # Jacuí: Triunfo é a última régua antes do Delta.
     "Rio_Jacui_Triunfo": {
         "rotulo": "Jacuí (Triunfo)",
         "tempo_viagem_h": 12,
         "faixa_lag_h": (3, 36),
         "provisorio": True,
     },
-    "Rio_Jacui_CachoeiraDoSul": {
-        "rotulo": "Jacuí (Cachoeira do Sul)",
-        "tempo_viagem_h": 48,
-        "faixa_lag_h": (24, 96),
-        "provisorio": True,
-    },
-    # O Taquari desemboca no Jacuí em Triunfo, logo acima do Delta: é o
-    # afluente que faltava no painel. Muçum e Encantado ficam a ~150 km do
-    # Guaíba — os tempos abaixo são PROVISÓRIOS, como os demais.
-    "Rio_Taquari_Mucum": {
-        "rotulo": "Taquari (Muçum)",
-        "tempo_viagem_h": 60,
-        "faixa_lag_h": (24, 120),
-        "provisorio": True,
-    },
+    # Taquari: a estação de Taquari é a última antes da foz no Jacuí.
     "Rio_Taquari_Taquari": {
         "rotulo": "Taquari (Taquari)",
         "tempo_viagem_h": 18,
