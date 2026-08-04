@@ -24,7 +24,7 @@ import pandas as pd
 
 import config
 from coleta import ana_api
-from processamento import alinhamento_afluentes, consolidacao
+from processamento import alinhamento_afluentes, consolidacao, publicacao
 from logica import estagios
 
 
@@ -110,6 +110,7 @@ def executar_pipeline(usar_selenium: bool = True,
         # status de fonte que não alimenta nada visível só gera dúvida.
         # O dado continua sendo coletado e guardado no snapshot.
     }
+    estacoes_ana_ok = publicacao.contar_estacoes_com_dados(brutos["rios"])
     falhas = [n for n, ok in fontes.items() if not ok]
     if falhas:
         print(f"[PIPELINE] ⚠ Fontes SEM dados nesta coleta: {', '.join(falhas)}")
@@ -133,6 +134,9 @@ def executar_pipeline(usar_selenium: bool = True,
             "fonte": (brutos.get("inmet") or {}).get("fonte"),
         },
         "csv_exportado": caminho_csv,
+        # Quantas estações da ANA responderam. É o que a coleta SEGUINTE usa
+        # para saber se degradou (ver processamento/publicacao.py).
+        "estacoes_ana_ok": estacoes_ana_ok,
         # de qual régua saiu o número do card do Guaíba nesta coleta
         "fonte_nivel_guaiba": brutos.get("fonte_nivel_guaiba"),
         "classificacao": {k: v for k, v in resultado.items() if k != "detalhes"},
@@ -195,6 +199,26 @@ def executar_pipeline(usar_selenium: bool = True,
     }
 
     caminho_json = config.DADOS_DIR / "ultimo_snapshot.json"
+
+    # ── GUARDA DE PUBLICAÇÃO ────────────────────────────────────────────
+    # Coleta da ANA degradada não sobrescreve um painel bom: sem os níveis
+    # dos rios a classificação cai para NORMALIDADE e o painel ficaria verde
+    # com carimbo de hora novo — falha de coleta disfarçada de boa notícia.
+    anterior = publicacao.carregar_snapshot(caminho_json)
+    veredito = publicacao.avaliar(brutos, snapshot, anterior)
+    if veredito.congelar:
+        congelado = publicacao.congelar(caminho_json, anterior, veredito)
+        print(f"[PUBLICAÇÃO] ⛔ Snapshot NÃO atualizado: {veredito.motivo}.")
+        print(f"[PUBLICAÇÃO] O painel segue com a coleta de "
+              f"{anterior.get('timestamp')} "
+              f"(tentativa nº {congelado['coleta_congelada']['tentativas']} "
+              f"desde então).")
+        print(f"[PUBLICAÇÃO] >>> ESTÁGIO MANTIDO: "
+              f"{(anterior.get('classificacao') or {}).get('estagio')} <<<")
+        return congelado
+    if veredito.motivo:
+        print(f"[PUBLICAÇÃO] Coleta incompleta ({veredito.motivo}), mas "
+              f"publicando assim mesmo: {'; '.join(veredito.excecoes)}.")
 
     def _json_seguro(obj):
         """Converte NaN residual em None na serialização final."""

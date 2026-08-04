@@ -104,8 +104,10 @@ ESTACOES_ANA = {
     # ═══ Taquari — telemétricas de 15 min, confirmadas na API em 04/08/2026 ═══
     # Códigos conferidos no BOLETIM DO SAH RIO TAQUARI (SGB, 30/07/2026):
     #   86510000 = MUÇUM  ·  86720000 = ENCANTADO  (não o contrário!)
+    # Muçum dá aviso cedo (150 km acima); Taquari/Taquari é a ÚLTIMA régua
+    # antes do Delta — a que importa para Porto Alegre.
     "Rio_Taquari_Mucum":          "86510000",    # Muçum — SGB/SAH Taquari
-    "Rio_Taquari_Encantado":      "86720000",    # Encantado — SGB/SAH Taquari
+    "Rio_Taquari_Taquari":        "86950000",    # Taquari — SGB/SAH Taquari
 }
 
 # Afluentes usados para relacionar as ondas de cheia ao nível do Guaíba.
@@ -149,10 +151,10 @@ AFLUENTES_GUAIBA = {
         "faixa_lag_h": (24, 120),
         "provisorio": True,
     },
-    "Rio_Taquari_Encantado": {
-        "rotulo": "Taquari (Encantado)",
-        "tempo_viagem_h": 54,
-        "faixa_lag_h": (24, 108),
+    "Rio_Taquari_Taquari": {
+        "rotulo": "Taquari (Taquari)",
+        "tempo_viagem_h": 18,
+        "faixa_lag_h": (6, 48),
         "provisorio": True,
     },
 }
@@ -224,7 +226,7 @@ COTAS_AFLUENTES = {
     # ═══ Taquari — SGB/SAH Rio Taquari, boletim de 30/07/2026 ═══
     # (valores lidos nos gráficos do boletim, em cm → m)
     "Rio_Taquari_Mucum":     {"atencao": 5.00, "alerta": 9.00, "inundacao": 18.00},
-    "Rio_Taquari_Encantado": {"atencao": 5.00, "alerta": 9.00, "inundacao": 12.00},
+    "Rio_Taquari_Taquari":   {"atencao": 4.00, "alerta": 6.50, "inundacao": 8.50},
 }
 
 # ── Referências p/ os CARDS do dashboard: Nível × Cota de Inundação ──────
@@ -260,9 +262,9 @@ INFO_RIOS_CARDS = [
     {"chave": "Rio_Taquari_Mucum", "rotulo": "Rio Taquari",
      "municipio": "Muçum", "estacao": "ANA 86510000",
      "cota_inundacao": 18.00},         # SGB/SAH Rio Taquari
-    {"chave": "Rio_Taquari_Encantado", "rotulo": "Rio Taquari",
-     "municipio": "Encantado", "estacao": "ANA 86720000",
-     "cota_inundacao": 12.00},         # SGB/SAH Rio Taquari
+    {"chave": "Rio_Taquari_Taquari", "rotulo": "Rio Taquari",
+     "municipio": "Taquari", "estacao": "ANA 86950000",
+     "cota_inundacao": 8.50},          # SGB/SAH Rio Taquari
     {"chave": "Rio_Gravatai", "rotulo": "Rio Gravataí",
      "municipio": "Gravataí", "estacao": "Passo das Canoas · ANA 87399000",
      "cota_inundacao": 4.75},          # ANA/Defesa Civil (alerta 4,25 m)
@@ -476,7 +478,7 @@ NOMES_EXIBICAO = {
     "Rio_Jacui_Triunfo":           "Jacuí (Rio Pardo)",
     "Rio_Jacui_TriunfoAmarop":     "Jacuí (Rio Pardo)",
     "Rio_Taquari_Mucum":           "Taquari (Muçum)",
-    "Rio_Taquari_Encantado":       "Taquari (Encantado)",
+    "Rio_Taquari_Taquari":         "Taquari (Taquari)",
 }
 
 # Cores dos avisos do INMET (padrão oficial de severidade)
@@ -635,12 +637,39 @@ PERFIL_ESTACOES_ANA = {
         "faixa_m": (1.50, 25.00), "idade_max_h": 30, "cadencia": "convencional",
         "nota": "leitura de régua às 07h e 17h, publicada com ~1 dia de atraso"},
     # Taquari: 15 min de cadência e ~3 h de idade na conferência de 04/08/2026.
-    # Tetos acima da maior cheia registrada em cada régua (26,11 m em Muçum e
-    # 23,14 m em Encantado, ambas em 2023/2024, segundo o boletim do SGB).
+    # Tetos acima da maior cheia registrada em cada régua (26,11 m em Muçum,
+    # 16,99 m em Taquari), segundo o boletim do SGB.
     "Rio_Taquari_Mucum": {
         "faixa_m": (0.00, 30.00), "idade_max_h": 6, "cadencia": "telemétrica"},
-    "Rio_Taquari_Encantado": {
-        "faixa_m": (0.00, 28.00), "idade_max_h": 6, "cadencia": "telemétrica"},
+    "Rio_Taquari_Taquari": {
+        "faixa_m": (0.00, 20.00), "idade_max_h": 6, "cadencia": "telemétrica"},
+}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 11. GUARDA DE PUBLICAÇÃO — coleta ruim não sobrescreve painel bom
+#
+#    Quando a ANA não responde, os níveis chegam vazios, a classificação
+#    perde o sinal hidrológico e cai para NORMALIDADE. O painel então
+#    mostrava verde com "Última atualização" recém-carimbada, dez minutos
+#    depois de estar em MOBILIZAÇÃO. Num painel de contingência, dado
+#    ausente NÃO pode se disfarçar de dado favorável.
+#
+#    Com esta guarda, a coleta degradada não grava nada: cards, estágio,
+#    gráficos e o horário da última atualização ficam como estavam, e o
+#    snapshot só registra que houve uma tentativa malsucedida.
+#
+#    Duas exceções, ambas de segurança (ver processamento/publicacao.py):
+#      · AGRAVAMENTO — se o estágio SOBE mesmo sem a ANA, publica;
+#      · VALIDADE    — passado `horas_max_congelado`, publica o incompleto,
+#                      que já vem com o aviso de fontes fora.
+# ──────────────────────────────────────────────────────────────────────────
+CONGELAR_COLETA_INCOMPLETA = {
+    "ativo": True,
+    "min_estacoes_ana": 2,          # abaixo disso a leitura não sustenta o painel
+    "fracao_minima_vs_anterior": 0.6,   # caiu para menos de 60% do que veio antes
+    "exigir_nivel_guaiba": True,    # sem nível do Guaíba (ANA ou Poaclima), congela
+    "horas_max_congelado": 6,       # teto: além disso, dado velho vira ilusão
 }
 
 
