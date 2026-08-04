@@ -246,45 +246,61 @@ COTAS_AFLUENTES = {
 INFO_RIOS_CARDS = [
     # Cada card usa a cota da SUA régua (os referenciais são diferentes!).
     # Cards sem cota oficial mostram "cota de inundação: não informada".
+    #
+    # `rotulo`  = o corpo d'água          → título do card
+    # `estacao_curta` = o ponto de medição → completa o título (Rio · Estação)
+    # `estacao` = a fonte/código da leitura → rodapé, junto do município
+    # Sem `estacao_curta`, o título fica só com o rótulo (é o caso do
+    # Ipiranga, onde o nome do rio e o do ponto se confundem).
     {"chave": "Guaiba_PortoAlegre_CaisMaua", "rotulo": "Guaíba",
-     "municipio": "Porto Alegre", "estacao": "Cais Mauá · ANA 87450004",
+     "estacao_curta": "Cais Mauá",
+     "municipio": "Porto Alegre", "estacao": "ANA 87450004",
      "cota_inundacao": 3.00},          # Poaclima/SEMA-RS (datum Imbituba)
     {"chave": "poaclima_gasometro", "rotulo": "Guaíba",
-     "municipio": "Porto Alegre", "estacao": "Usina do Gasômetro · Poaclima",
+     "estacao_curta": "Usina do Gasômetro",
+     "municipio": "Porto Alegre", "estacao": "Poaclima",
      "cota_inundacao": 2.60},          # Poaclima/DC-POA (datum local próprio)
-    {"chave": "poaclima_riacho_ipiranga", "rotulo": "Riacho Ipiranga",
+    {"chave": "poaclima_riacho_ipiranga", "rotulo": "Ipiranga",
      "municipio": "Porto Alegre", "estacao": "Arroio Dilúvio · Poaclima",
      "cota_inundacao": 4.00},          # Poaclima/DC-POA (alerta 3,00)
     {"chave": "Rio_dos_Sinos_SaoLeopoldo", "rotulo": "Rio dos Sinos",
+     "estacao_curta": "São Leopoldo",
      "municipio": "São Leopoldo", "estacao": "ANA 87382000",
      "cota_inundacao": 4.50},          # Defesa Civil de São Leopoldo
     {"chave": "Rio_Cai", "rotulo": "Rio Caí",
-     "municipio": "São Sebastião do Caí", "estacao": "Barca do Caí · 87170000",
+     "estacao_curta": "Barca do Caí",
+     "municipio": "São Sebastião do Caí", "estacao": "ANA 87170000",
      "cota_inundacao": 10.50},         # SGB/CPRM — SAH Rio Caí
     {"chave": "Rio_Cai_Montenegro", "rotulo": "Rio Caí",
-     "municipio": "Montenegro", "estacao": "Passo Montenegro · 87270000",
+     "estacao_curta": "Passo Montenegro",
+     "municipio": "Montenegro", "estacao": "ANA 87270000",
      "cota_inundacao": 6.00},          # SGB/CPRM — SAH Rio Caí
     {"chave": "Rio_Cai_NovaPalmira", "rotulo": "Rio Caí",
-     "municipio": "Caxias do Sul", "estacao": "Nova Palmira · 87160000",
+     "estacao_curta": "Nova Palmira",
+     "municipio": "Caxias do Sul", "estacao": "ANA 87160000",
      "cota_inundacao": 4.70},          # SGB/CPRM — SAH Rio Caí
     {"chave": "Rio_Jacui_Triunfo", "rotulo": "Rio Jacuí",
+     "estacao_curta": "Triunfo",
      "municipio": "Triunfo", "estacao": "ANA 87010000",
      "cota_inundacao": 4.67},          # Defesa Civil de Triunfo
     {"chave": "Rio_Jacui_CachoeiraDoSul", "rotulo": "Rio Jacuí",
-     "municipio": "Cachoeira do Sul", "estacao": "Passo São Lourenço · 85642000",
+     "estacao_curta": "Passo São Lourenço",
+     "municipio": "Cachoeira do Sul", "estacao": "ANA 85642000",
      "cota_inundacao": 9.00},          # Defesa Civil / SGB
     {"chave": "Rio_Taquari_Mucum", "rotulo": "Rio Taquari",
+     "estacao_curta": "Muçum",
      "municipio": "Muçum", "estacao": "ANA 86510000",
      "cota_inundacao": 18.00},         # SGB/SAH Rio Taquari
     {"chave": "Rio_Taquari_Taquari", "rotulo": "Rio Taquari",
+     "estacao_curta": "Taquari",
      "municipio": "Taquari", "estacao": "ANA 86950000",
      "cota_inundacao": 8.50},          # SGB/SAH Rio Taquari
     {"chave": "Rio_Gravatai", "rotulo": "Rio Gravataí",
-     "municipio": "Gravataí", "estacao": "Passo das Canoas · ANA 87399000",
+     "estacao_curta": "Passo das Canoas",
+     "municipio": "Gravataí", "estacao": "ANA 87399000",
      "cota_inundacao": 4.75},          # ANA/Defesa Civil (alerta 4,25 m)
 ]
 
-# ──────────────────────────────────────────────────────────────────────────
 # 5. LIMIARES DE CHUVA (mm) — base para os gatilhos dos estágios
 #    Calibrados a partir de práticas INMET/Defesa Civil; ajuste livremente.
 # ──────────────────────────────────────────────────────────────────────────
