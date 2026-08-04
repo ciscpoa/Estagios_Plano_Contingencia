@@ -509,3 +509,42 @@ def cotas_do_card(chave: str) -> dict:
     return {"atencao": base.get("atencao"),
             "alerta": base.get("alerta"),
             "inundacao": base.get("inundacao")}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 9. FILTRO DE PICOS DA TELEMETRIA (ANA)
+#    A estação do Cais Mauá transmite, de vez em quando, leituras isoladas
+#    ~1,3 m abaixo das vizinhas (ex.: 2,45 → 1,13 → 2,42 em 15 min). Não é
+#    o rio: é falha de sensor/transmissão. No gráfico viram aquelas quedas
+#    verticais, e no card viram um nível errado se a falha calhar de ser a
+#    última leitura da coleta.
+#
+#    Método: filtro de Hampel — compara cada ponto com a MEDIANA de uma
+#    janela de tempo centrada nele. Mediana e MAD são estatísticas robustas:
+#    não se deixam puxar pelo próprio pico. O ponto é descartado (vira vazio,
+#    abrindo um buraco na linha) quando se afasta da mediana local mais que
+#    `desvio_max_m` E mais que `k_mad` desvios absolutos medianos.
+#
+#    O segundo critério é o que protege as cheias de verdade: numa subida
+#    rápida e contínua (Caí subindo 0,3 m/h) o MAD da janela é grande, o
+#    limite acompanha, e nada é descartado. Já num pico isolado o MAD segue
+#    minúsculo (as vizinhas concordam entre si) e o ponto cai fora.
+#
+#    ONDE se aplica: só nas estações listadas em "estacoes". O filtro parte
+#    do princípio de que a leitura boa é a MAIORIA da janela — verdadeiro no
+#    Cais Mauá, que transmite de 15 em 15 min e falha em pontos isolados.
+#    NÃO vale para a 85900000 (Rio Pardo/"Jacuí"), que alterna entre duas
+#    escalas (~0,38 m e ~9,8 m) por horas seguidas: ali a leitura boa fica em
+#    minoria e o filtro apagaria justamente a certa. Aquela estação precisa de
+#    outro tratamento (identificar o sensor correto na resposta da ANA), não
+#    deste. Lista vazia (ou None) = aplica em todas.
+# ──────────────────────────────────────────────────────────────────────────
+FILTRO_PICOS_ANA = {
+    "ativo": True,
+    "estacoes": ["Guaiba_PortoAlegre_CaisMaua"],
+    "janela_h": 6,          # janela centrada da mediana móvel
+    "desvio_max_m": 0.30,   # piso: variação real menor que isso nunca é pico
+    "k_mad": 6.0,           # múltiplo do MAD local (robustez em cheia)
+    "min_pontos": 8,        # série curta demais → não filtra
+    "avisar": True,         # imprime no log quantos pontos saíram
+}
