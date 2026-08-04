@@ -209,6 +209,29 @@ def _linha_blocos(blocos: list, cor_linha: str, subtitulo: str,
             f"<div class='nos'>{''.join(caixas)}</div></div>")
 
 
+def _aviso_congelado(snapshot: dict) -> str:
+    """
+    Faixa que só aparece quando a última tentativa de coleta não trouxe os
+    dados da ANA. O painel inteiro é o do último ciclo bom — e precisa DIZER
+    isso, senão o leitor supõe que o número na tela é de agora.
+    """
+    c = snapshot.get("coleta_congelada") or {}
+    if not c:
+        return ""
+    tentativas = c.get("tentativas") or 1
+    plural = "tentativa" if tentativas == 1 else "tentativas"
+    return (
+        '<div class="aviso-fontes">'
+        f"<b>Painel mantido:</b> a coleta das {c.get('tentativa_em', '—')} não "
+        f"atualizou o painel porque {c.get('motivo', 'a coleta falhou')}. "
+        f"Tudo o que está nesta página — estágio, cards e gráficos — é da "
+        f"coleta de {snapshot.get('timestamp', '—')}, a última completa "
+        f"({tentativas} {plural} desde então). Preferimos manter a leitura "
+        "boa a publicar um estágio calculado sem os níveis dos rios."
+        "</div>"
+    )
+
+
 def _bloco_banner(snapshot: dict) -> str:
     cls = snapshot.get("classificacao") or {}
     cor = cls.get("cor", "#2E9E44")
@@ -237,7 +260,7 @@ def _bloco_banner(snapshot: dict) -> str:
           <span id="frescor" class="frescor" data-iso="{snapshot.get('timestamp_iso', '')}"></span>
         </div>
       </div>
-      {corpo}{nota}{_complemento_inmet(snapshot)}
+      {_aviso_congelado(snapshot)}{corpo}{nota}{_complemento_inmet(snapshot)}
     </section>"""
 
 
