@@ -208,12 +208,12 @@ def bloco(snapshot: dict) -> str:
         itens = "".join(f"<li>{_escapa(i)}</li>"
                         for i in conteudo.get(chave, []))
         colunas.append(f"""
-        <div class="faixa-acoes" style="border-color:{borda}">
+        <div class="faixa-acoes" style="border-color:{borda};background:{fundo}">
           <div class="cabeca-acoes" style="background:{borda};color:{tinta}">
             <span class="tit">{titulo}</span>
             <span class="sub">{sub}</span>
           </div>
-          <ul class="lista-acoes" style="background:{fundo}">{itens}</ul>
+          <ul class="lista-acoes">{itens}</ul>
         </div>""")
 
     return f"""
@@ -230,18 +230,27 @@ def bloco(snapshot: dict) -> str:
 # ──────────────────────────────────────────────────────────────────────────
 CSS = """
 .acoes{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;
-       margin-bottom:22px;text-align:left}
+       margin-bottom:22px;text-align:left;align-items:stretch}
+/* O fundo pastel é do CARTÃO, não da lista: as duas colunas esticam juntas
+   (align-items:stretch), então a coluna com menos tópicos terminava com uma
+   faixa do fundo escuro sobrando embaixo da lista. */
 .faixa-acoes{flex:1 1 calc(50% - 12px);min-width:280px;border:2px solid;
-       border-radius:12px;overflow:hidden;background:var(--cartao);
-       box-shadow:0 2px 10px var(--sombra)}
+       border-radius:12px;overflow:hidden;box-shadow:0 2px 10px var(--sombra);
+       display:flex;flex-direction:column}
 .cabeca-acoes{padding:9px 14px 8px}
 .cabeca-acoes .tit{display:block;font-family:"Barlow Condensed",sans-serif;
        font-weight:700;font-size:1.22rem;letter-spacing:.04em;
        text-transform:uppercase;line-height:1.1}
-.cabeca-acoes .sub{display:block;font-size:.76rem;opacity:.88}
-.lista-acoes{margin:0;padding:12px 16px 14px 32px;color:#12202E;
-       font-size:.93rem;line-height:1.45}
+/* color:inherit obrigatório: existe um `.sub{color:var(--txt2)}` global no
+   cabeçalho da página que vencia a herança e pintava este subtítulo de
+   cinza-claro sobre o amarelo — ilegível. Aqui ele volta à tinta escura
+   calculada para a cor do estágio. */
+.cabeca-acoes .sub{display:block;font-size:.78rem;font-weight:600;
+       color:inherit;opacity:1}
+.lista-acoes{flex:1 1 auto;margin:0;padding:12px 16px 14px 32px;
+       background:transparent;color:#12202E;font-size:.93rem;line-height:1.45}
 .lista-acoes li{margin:0 0 6px}
+.lista-acoes li::marker{color:#12202E}
 .lista-acoes li:last-child{margin-bottom:0}
 .aviso-acoes{background:#8a6d1a;color:#fff;border-radius:10px;
        padding:8px 14px;margin-bottom:10px;font-size:.86rem}
@@ -255,7 +264,7 @@ CSS = """
          break-inside:avoid;page-break-inside:avoid}
   .cabeca-acoes{padding:4px 9px 3px}
   .cabeca-acoes .tit{font-size:.95rem}
-  .cabeca-acoes .sub{font-size:.62rem}
+  .cabeca-acoes .sub{font-size:.64rem}
   .lista-acoes{font-size:.68rem;line-height:1.3;padding:6px 10px 7px 22px}
   .lista-acoes li{margin:0 0 3px}
   .aviso-acoes{font-size:.66rem;padding:4px 9px;margin-bottom:5px}
