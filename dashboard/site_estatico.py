@@ -130,7 +130,9 @@ def _trilho_estagios(atual: str) -> str:
     for i, nome in enumerate(config.ESTAGIOS):
         cor = config.CORES_ESTAGIOS[nome]
         if i == idx_atual:
-            classe, estilo = "passo atual", f"background:{cor};border-color:{cor}"
+            classe = "passo atual"
+            estilo = (f"background:{cor};border-color:{cor};"
+                      f"color:{_tinta_sobre(cor)}")
         else:
             # Antes os degraus inativos viviam só de opacidade e sumiam no
             # fundo escuro. Agora cada um leva um preenchimento na própria
@@ -148,6 +150,39 @@ def _trilho_estagios(atual: str) -> str:
 
 
 _TINTA_ESCURA = "#12202E"      # quase-preto azulado, do próprio tema claro
+
+
+def _tinta_sobre(hexa: str) -> str:
+    """
+    Escolhe entre texto claro e escuro pelo CONTRASTE real com o fundo.
+
+    A faixa do estágio era sempre branca sobre a cor do Plano. Isso funciona
+    no roxo da CRISE (7:1) e no vermelho da EMERGÊNCIA (5,5:1), mas quebra
+    justamente nas cores claras: branco sobre o amarelo da MOBILIZAÇÃO dá
+    2,4:1 e sobre o laranja do ALERTA, 2,6:1 — abaixo de qualquer piso
+    legível. As cores vêm do Plano e não mudam; quem muda é a tinta.
+    """
+    def _lin(c: float) -> float:
+        c /= 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    h = (hexa or "#000000").lstrip("#")
+    if len(h) != 6:
+        return "#FFFFFF"
+    try:
+        r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return "#FFFFFF"
+    lum = 0.2126 * _lin(r) + 0.7152 * _lin(g) + 0.0722 * _lin(b)
+
+    def razao(outra: float) -> float:
+        claro, escuro = max(lum, outra), min(lum, outra)
+        return (claro + 0.05) / (escuro + 0.05)
+
+    # luminância do branco = 1,0; a do _TINTA_ESCURA, calculada uma vez
+    lum_escura = (0.2126 * _lin(0x12) + 0.7152 * _lin(0x20)
+                  + 0.0722 * _lin(0x2E))
+    return "#FFFFFF" if razao(1.0) >= razao(lum_escura) else _TINTA_ESCURA
 
 
 def _tom_suave(hexa: str, mistura: float = 0.45) -> str:
@@ -201,7 +236,14 @@ def _linha_blocos(blocos: list, cor_linha: str, subtitulo: str,
             f"<span class='rotulo'>{titulo}</span>"
             f"{html_motivo}</div>")
         if i < len(blocos) - 1:
-            caixas.append("<div class='conector'>E</div>")
+            # O "E" é o operador da regra do Plano: separa condições que
+            # precisam valer TODAS. Como texto miúdo entre dois blocos ele
+            # sumia; aqui ganha corpo e a mesma cor do estágio, para ser lido
+            # junto com os blocos e não como enfeite.
+            caixas.append(
+                f"<div class='conector' style='background:"
+                f"{_tom_suave(cor_linha)};border-color:{cor_linha};"
+                f"color:{_TINTA_ESCURA}'>E</div>")
     cabeca = (f"<div class='rotulo-linha' style='color:{cor_linha}'>{nome}</div>"
               if nome else "")
     return (f"<div class='linha-arvore'>{cabeca}"
@@ -254,7 +296,7 @@ def _bloco_banner(snapshot: dict) -> str:
     return f"""
     {_trilho_estagios(estagio)}
     <section class="banner" style="border-color:{cor}">
-      <div class="faixa-estagio" style="background:{cor}">
+      <div class="faixa-estagio" style="background:{cor};color:{_tinta_sobre(cor)}">
         <h2>ESTÁGIO OPERACIONAL: {cls.get('rotulo') or estagio or '—'}</h2>
         <div class="ts">Última atualização: {snapshot.get('timestamp', '—')}
           <span id="frescor" class="frescor" data-iso="{snapshot.get('timestamp_iso', '')}"></span>
@@ -344,6 +386,11 @@ def _bloco_cards(snapshot: dict) -> str:
         estacao = info["estacao"]
         if info["chave"] == "Guaiba_PortoAlegre_CaisMaua" and fonte_guaiba:
             estacao = fonte_guaiba
+        # Dois cards do Guaíba lado a lado, ambos intitulados "Guaíba", só se
+        # distinguiam pela linha pequena de baixo. O ponto de medição sobe
+        # para o título: é ele que diferencia uma régua da outra.
+        ponto = info.get("estacao_curta")
+        titulo = f"{info['rotulo']} · {ponto}" if ponto else info["rotulo"]
 
         if nivel is not None and cota:
             pct = max(0.0, nivel / cota * 100.0)
@@ -363,11 +410,18 @@ def _bloco_cards(snapshot: dict) -> str:
 
         cards.append(f"""
         <div class="card">
-          <div class="rio">{info['rotulo']}</div>
-          <div class="est">{info['municipio']} · est. {estacao}</div>
+          <div class="rio">{titulo}</div>
+          <div class="est">{info['municipio']} · {estacao}</div>
           {valor}{barra}{rodape}{_idade_da_leitura(ind, info['chave'])}
         </div>""")
-    return f"<section class='cards'>{''.join(cards)}</section>"
+    return (
+        "<h3 class='titulo-secao'>Estações de monitoramento — "
+        "nível dos corpos d'água</h3>"
+        "<div class='sub-secao'>Leitura mais recente de cada régua, "
+        "comparada à cota de inundação daquele ponto. Cada estação tem "
+        "referência de nível própria: os valores não se comparam entre si."
+        "</div>"
+        f"<section class='cards'>{''.join(cards)}</section>")
 
 
 def _bloco_regioes(snapshot: dict) -> str:
@@ -980,7 +1034,8 @@ def _bloco_cabecalho(snapshot: dict) -> str:
       <div class="logo" role="img" aria-label="CISC Porto Alegre"></div>
       <div class="titulos">
         <div class="sobretitulo">Porto Alegre/RS · Secretaria Municipal de Saúde</div>
-        <h1>Plano de Contingência<span class="fina"> — Estágios Operacionais</span></h1>
+        <h1>Plano de Contingência para Chuvas Intensas<span class="fina">
+          — Estágios Operacionais</span></h1>
         <div class="sub">Monitoramento automatizado · ANA · INMET · Poaclima ·
           Open-Meteo</div>
         <div class="acoes">
@@ -1254,6 +1309,7 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .trilho .barra{height:100%;border-radius:4px}
 .card .pct{color:var(--txt2);font-size:.76rem}
 .card .pct.antiga{color:#C77B22;font-weight:600}
+.sub-secao{color:var(--txt2);font-size:.85rem;margin:2px 0 10px}
 .titulo-secao{margin:24px 0 2px;font-size:1.18rem;
       font-family:"Barlow Condensed",sans-serif;font-weight:700;
       letter-spacing:.04em;text-transform:uppercase}
@@ -1324,12 +1380,12 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .linha-arvore{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:10px 12px;margin-bottom:10px}
 .rotulo-linha{font-weight:800;letter-spacing:.4px}
-.sub-arvore{color:var(--txt2);font-size:.78rem;margin-bottom:8px}
+.sub-arvore{color:var(--txt2);font-size:.88rem;margin-bottom:9px}
 .nos{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:6px}
-.no-arvore{flex:1 1 240px;max-width:360px;border:1px solid var(--borda-fina);
-  border-radius:10px;padding:8px 10px;display:grid;
-  grid-template-columns:auto 1fr;gap:4px 8px;align-items:start;
-  text-align:left;font-size:.84rem}
+.no-arvore{flex:1 1 260px;max-width:380px;border:1px solid var(--borda-fina);
+  border-radius:10px;padding:11px 13px;display:grid;
+  grid-template-columns:auto 1fr;gap:5px 9px;align-items:start;
+  text-align:left;font-size:1rem;line-height:1.32}
 .no-arvore{align-content:start}
 /* fundo pastel + texto escuro: o par de maior contraste. O branco sobre
    laranja saturado tinha só ~2,3:1, abaixo de qualquer piso legível. */
@@ -1338,11 +1394,14 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .no-arvore.inativo{opacity:.45}
 .no-arvore .marca{font-weight:800}
 .no-arvore .rotulo{grid-column:2}
-.motivo-no{grid-column:2;font-size:.74rem;font-weight:400;line-height:1.35;
+.motivo-no{grid-column:2;font-size:.88rem;font-weight:400;line-height:1.4;
   opacity:.85;border-top:1px solid rgba(255,255,255,.22);padding-top:5px;
   margin-top:2px}
 .no-arvore.inativo .motivo-no{border-top-color:var(--borda-fina)}
-.conector{align-self:center;font-weight:800;color:var(--txt2);padding:0 2px}
+.conector{align-self:center;flex:0 0 auto;display:flex;align-items:center;
+  justify-content:center;width:38px;height:38px;border-radius:999px;
+  border:2px solid;font-family:"Barlow Condensed",sans-serif;font-weight:800;
+  font-size:1.25rem;letter-spacing:.06em}
 /* 'OU' dentro do motivo de um bloco: é operador da regra, não palavra da
    frase — por isso recebe caixa alta, peso e um leve respiro em volta. */
 .ou{font-weight:800;font-size:.92em;letter-spacing:.06em;opacity:.95;
@@ -1524,6 +1583,10 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
   .linha-regioes .tile{flex:0 0 calc(16.66% - 8px);min-height:0;padding:5px 4px}
 
   .titulo-secao{margin:10px 0 2px;font-size:1rem}
+  .sub-secao{font-size:.72rem;margin:1px 0 6px}
+  .no-arvore{font-size:.82rem;padding:7px 9px}
+  .motivo-no{font-size:.72rem}
+  .conector{width:26px;height:26px;font-size:1rem}
 
   /* A árvore começa em página nova: na versão anterior ela caía partida */
 
