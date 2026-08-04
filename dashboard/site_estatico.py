@@ -209,6 +209,63 @@ def _tom_suave(hexa: str, mistura: float = 0.45) -> str:
     return "#%02X%02X%02X" % tuple(round(c + (255 - c) * m) for c in (r, g, b))
 
 
+def _motivo_html(texto: str) -> str:
+    """
+    Transforma o motivo de um bloco em título + tópicos.
+
+    O motivo chega como uma frase corrida — "Rio(s) atingindo a Cota de
+    Atenção: Sinos (São Leopoldo) 4,75 m (≥ 3,50); Taquari (Taquari) 5,22 m
+    (≥ 4,00)" — e é justamente a parte que alguém precisa conferir item a
+    item para decidir. Em bloco de texto, os pontos-e-vírgulas somem e o
+    olho não separa um rio do outro.
+
+    Regra: o que vem antes do primeiro dois-pontos vira TÍTULO; o resto é
+    partido nos ponto-e-vírgulas, um tópico cada. Quando um tópico traz um
+    parêntese com vários detalhes separados por "·", esses detalhes descem
+    como sub-tópicos, em vez de esticarem a linha.
+    """
+    if not texto:
+        return ""
+
+    def _sub(item: str) -> str:
+        # "previsão de chuvas mais intensas (15 mm em 48h · 40 mm em 5 dias)"
+        if "(" in item and item.rstrip().endswith(")"):
+            cabeca, _, cauda = item.partition("(")
+            detalhes = [d.strip() for d in cauda.rstrip().rstrip(")").split("·")]
+            if len(detalhes) > 1:
+                subs = "".join(f"<li>{_texto_html(d)}</li>"
+                               for d in detalhes if d)
+                return (f"{_texto_html(cabeca.strip())}"
+                        f"<ul class='motivo-sub'>{subs}</ul>")
+        return _texto_html(item)
+
+    partes = []
+    for linha in [l.strip() for l in str(texto).split("\n") if l.strip()]:
+        titulo, corpo = "", linha
+        cabeca, sep, resto = linha.partition(":")
+        # Só é título se o dois-pontos vier cedo e FORA de parênteses. O teste
+        # é o balanceamento: "Rio(s) atingindo a Cota de Atenção" fecha o que
+        # abre e vale como título; já "…(15 mm em 48h · aviso do INMET
+        # vigente" ficou com um parêntese aberto — ali o dois-pontos é do
+        # detalhe, não do rótulo.
+        if (sep and resto.strip() and len(cabeca) <= 70
+                and ";" not in cabeca
+                and cabeca.count("(") == cabeca.count(")")):
+            titulo, corpo = cabeca.strip(), resto.strip()
+        itens = [i.strip() for i in corpo.split(";") if i.strip()]
+        html_titulo = (f"<span class='motivo-titulo'>{_texto_html(titulo)}:</span>"
+                       if titulo else "")
+        if len(itens) > 1 or titulo:
+            corpo_html = ("<ul class='motivo-lista'>"
+                          + "".join(f"<li>{_sub(i)}</li>" for i in itens)
+                          + "</ul>")
+        else:
+            corpo_html = f"<span>{_sub(corpo)}</span>"
+        partes.append(html_titulo + corpo_html)
+
+    return f"<div class='motivo-no'>{''.join(partes)}</div>"
+
+
 def _linha_blocos(blocos: list, cor_linha: str, subtitulo: str,
                   nome: str | None = None) -> str:
     """Fileira BLOCO · E · BLOCO · E · BLOCO de um estágio."""
@@ -224,8 +281,7 @@ def _linha_blocos(blocos: list, cor_linha: str, subtitulo: str,
         motivo = (b.get("motivo") or "").strip()
         # o motivo explica POR QUE o bloco está (ou não) ativo — sem ele
         # a árvore vira um "sim/não" sem auditoria
-        html_motivo = (f"<span class='motivo-no'>{_texto_html(motivo)}</span>"
-                       if motivo else "")
+        html_motivo = _motivo_html(motivo)
         dica = motivo.replace("\n", " · ").replace("'", "&#39;")
         # o OU do título também é operador da regra, e recebe o mesmo destaque
         titulo = str(b["titulo"]).replace(
@@ -249,29 +305,6 @@ def _linha_blocos(blocos: list, cor_linha: str, subtitulo: str,
     return (f"<div class='linha-arvore'>{cabeca}"
             f"<div class='sub-arvore'>{subtitulo}</div>"
             f"<div class='nos'>{''.join(caixas)}</div></div>")
-
-
-def _aviso_congelado(snapshot: dict) -> str:
-    """
-    Faixa que só aparece quando a última tentativa de coleta não trouxe os
-    dados da ANA. O painel inteiro é o do último ciclo bom — e precisa DIZER
-    isso, senão o leitor supõe que o número na tela é de agora.
-    """
-    c = snapshot.get("coleta_congelada") or {}
-    if not c:
-        return ""
-    tentativas = c.get("tentativas") or 1
-    plural = "tentativa" if tentativas == 1 else "tentativas"
-    return (
-        '<div class="aviso-fontes">'
-        f"<b>Painel mantido:</b> a coleta das {c.get('tentativa_em', '—')} não "
-        f"atualizou o painel porque {c.get('motivo', 'a coleta falhou')}. "
-        f"Tudo o que está nesta página — estágio, cards e gráficos — é da "
-        f"coleta de {snapshot.get('timestamp', '—')}, a última completa "
-        f"({tentativas} {plural} desde então). Preferimos manter a leitura "
-        "boa a publicar um estágio calculado sem os níveis dos rios."
-        "</div>"
-    )
 
 
 def _bloco_banner(snapshot: dict) -> str:
@@ -302,7 +335,7 @@ def _bloco_banner(snapshot: dict) -> str:
           <span id="frescor" class="frescor" data-iso="{snapshot.get('timestamp_iso', '')}"></span>
         </div>
       </div>
-      {_aviso_congelado(snapshot)}{corpo}{nota}{_complemento_inmet(snapshot)}
+      {corpo}{nota}{_complemento_inmet(snapshot)}
     </section>"""
 
 
@@ -1285,12 +1318,12 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
               margin-bottom:12px;font-size:.88rem;text-align:center}
 .banner{border-radius:14px;margin-bottom:18px;background:var(--cartao);
       border:2px solid;box-shadow:0 4px 18px var(--sombra);overflow:hidden}
-.faixa-estagio{color:#fff;padding:14px 20px 12px}
+.faixa-estagio{color:#fff;padding:16px 20px 14px}
 .banner .linha-arvore{border:none;background:transparent;margin:0;padding:12px}
 .nota-piso{font-size:.82rem;color:var(--txt2);padding:0 12px 12px}
-.banner h2{margin:0 0 2px;font-size:2rem;letter-spacing:.03em;
+.banner h2{margin:0 0 3px;font-size:2.5rem;letter-spacing:.03em;
       font-family:"Barlow Condensed",sans-serif;font-weight:700}
-.banner .ts{font-size:.85rem;opacity:.9;margin-bottom:0}
+.banner .ts{font-size:.95rem;opacity:.92;margin-bottom:0}
 .banner .just{font-size:.95rem;margin:3px 0}
 .cards{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:22px}
 .card{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;
@@ -1385,7 +1418,7 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .no-arvore{flex:1 1 260px;max-width:380px;border:1px solid var(--borda-fina);
   border-radius:10px;padding:11px 13px;display:grid;
   grid-template-columns:auto 1fr;gap:5px 9px;align-items:start;
-  text-align:left;font-size:1rem;line-height:1.32}
+  text-align:left;font-size:1.1rem;line-height:1.34}
 .no-arvore{align-content:start}
 /* fundo pastel + texto escuro: o par de maior contraste. O branco sobre
    laranja saturado tinha só ~2,3:1, abaixo de qualquer piso legível. */
@@ -1394,9 +1427,15 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .no-arvore.inativo{opacity:.45}
 .no-arvore .marca{font-weight:800}
 .no-arvore .rotulo{grid-column:2}
-.motivo-no{grid-column:2;font-size:.88rem;font-weight:400;line-height:1.4;
-  opacity:.85;border-top:1px solid rgba(255,255,255,.22);padding-top:5px;
-  margin-top:2px}
+.motivo-no{grid-column:2;font-size:.98rem;font-weight:400;line-height:1.42;
+  opacity:.9;border-top:1px solid rgba(255,255,255,.22);padding-top:7px;
+  margin-top:3px}
+.motivo-titulo{display:block;font-weight:700;margin-bottom:4px}
+.motivo-lista{margin:0;padding-left:17px;list-style:disc}
+.motivo-lista>li{margin:2px 0}
+.motivo-sub{margin:3px 0 4px;padding-left:15px;list-style:circle;
+  font-size:.92em;opacity:.92}
+.motivo-sub>li{margin:1px 0}
 .no-arvore.inativo .motivo-no{border-top-color:var(--borda-fina)}
 .conector{align-self:center;flex:0 0 auto;display:flex;align-items:center;
   justify-content:center;width:38px;height:38px;border-radius:999px;
@@ -1584,8 +1623,9 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
 
   .titulo-secao{margin:10px 0 2px;font-size:1rem}
   .sub-secao{font-size:.72rem;margin:1px 0 6px}
-  .no-arvore{font-size:.82rem;padding:7px 9px}
-  .motivo-no{font-size:.72rem}
+  .no-arvore{font-size:.86rem;padding:7px 9px}
+  .motivo-no{font-size:.78rem}
+  .motivo-lista{padding-left:15px}
   .conector{width:26px;height:26px;font-size:1rem}
 
   /* A árvore começa em página nova: na versão anterior ela caía partida */

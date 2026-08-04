@@ -317,10 +317,15 @@ def grafico_afluentes(series: dict, tema: str = "dark") -> go.Figure:
     da ANA). Previsão hidrológica de nível não é atribuição deste painel.
     """
     p = paleta(tema)
+    # Uma cor por régua. Sem entrada aqui a linha sai cinza — foi o que
+    # aconteceu com o Taquari e com o segundo Jacuí, três traços cinzentos
+    # indistinguíveis no mesmo gráfico.
     cores = {"Rio_Gravatai": "#F2B90B", "Rio_dos_Sinos_SaoLeopoldo": "#5FD068",
              "Rio_Cai": "#F2830B", "Rio_Cai_Montenegro": "#E85D24",
              "Rio_Cai_NovaPalmira": "#C98A3D",
-             "Rio_Jacui_TriunfoAmarop": "#9B8CE0", "Rio_Jacui_Triunfo": "#9B8CE0"}
+             "Rio_Jacui_TriunfoAmarop": "#9B8CE0", "Rio_Jacui_Triunfo": "#9B8CE0",
+             "Rio_Jacui_CachoeiraDoSul": "#C6B9F2",
+             "Rio_Taquari_Taquari": "#E86FA9", "Rio_Taquari_Mucum": "#F0A8C8"}
     configurados = getattr(config, "AFLUENTES_GUAIBA", {})
     principais = tuple(configurados)
     meta_modelo = (series or {}).get("__meta_alinhamento__", {})
