@@ -468,3 +468,35 @@ CORES_ESTAGIOS = {
     "SITUAÇÃO DE EMERGÊNCIA": "#CE1B22",  # vermelho
     "CRISE":                  "#6B3FA0",  # roxo
 }
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 8. COTAS DE CADA CARD (atenção · alerta · inundação) — FONTE: POACLIMA
+#    O card coloria por FAIXA DE PORCENTAGEM da cota de inundação
+#    (65% / 85% / 100%), o que não é a régua de ninguém: com 2,54 m no Cais
+#    Mauá ele pintava amarelo (85% de 3,00 m) enquanto o gráfico já mostrava
+#    o nível ACIMA da cota de alerta (2,50 m). Agora card e gráfico leem as
+#    MESMAS cotas do Poaclima.
+#
+#    É função (e não dicionário) de propósito: as constantes do Riacho
+#    Ipiranga só são definidas mais abaixo no arquivo, e função só é
+#    avaliada na hora da chamada — assim nada depende da ordem das linhas.
+# ──────────────────────────────────────────────────────────────────────────
+def cotas_do_card(chave: str) -> dict:
+    """Cotas da régua DAQUELE card. Cada régua tem referencial próprio."""
+    if chave == "Guaiba_PortoAlegre_CaisMaua":
+        return {"atencao": COTA_ATENCAO_GUAIBA,
+                "alerta": COTA_ALERTA_GUAIBA,
+                "inundacao": COTA_INUNDACAO_GUAIBA}
+    if chave == "poaclima_gasometro":
+        return {"atencao": COTA_ATENCAO_GASOMETRO,
+                "alerta": COTA_ALERTA_GASOMETRO,
+                "inundacao": COTA_INUNDACAO_GASOMETRO}
+    if chave == "poaclima_riacho_ipiranga":
+        return {"atencao": COTA_ATENCAO_RIACHO_IPIRANGA,
+                "alerta": COTA_ALERTA_RIACHO_IPIRANGA,
+                "inundacao": COTA_INUNDACAO_RIACHO_IPIRANGA}
+    base = COTAS_AFLUENTES.get(chave) or {}
+    return {"atencao": base.get("atencao"),
+            "alerta": base.get("alerta"),
+            "inundacao": base.get("inundacao")}
