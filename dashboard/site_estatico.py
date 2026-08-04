@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
+
 import config
 from dashboard import componentes
 
@@ -270,6 +272,42 @@ def _cor_por_cota(chave: str, nivel: float, cota: float,
     return config.CORES_ESTAGIOS["NORMALIDADE"], ""
 
 
+def _idade_da_leitura(ind: dict, chave: str) -> str:
+    """
+    Linha de procedência temporal do card.
+
+    Nem toda estação da ANA transmite em tempo real. A 85900000 (Rio Pardo,
+    exibida como "Jacuí") é CONVENCIONAL: observador lê a régua às 07h e às
+    17h e a ANA publica com cerca de um dia de atraso. Sem esta linha o card
+    mostrava 10,89 m de 03/08 07:00 ao lado do Caí de 15 minutos atrás, com
+    a mesma aparência de dado ao vivo.
+    """
+    dados = (ind.get("afluentes") or {}).get(chave) or {}
+    ultima = dados.get("ultima_leitura")
+    if not ultima:
+        return ""
+    try:
+        quando = pd.to_datetime(ultima)
+    except Exception:
+        return ""
+
+    idade = dados.get("idade_h")
+    if idade is None:
+        idade_txt = ""
+    elif idade < 1:
+        idade_txt = " · agora há pouco"
+    elif idade < 48:
+        idade_txt = f" · há {idade:.0f} h"
+    else:
+        idade_txt = f" · há {idade / 24:.0f} dias"
+
+    partes = [f"leitura de {quando:%d/%m %H:%M}{idade_txt}"]
+    if dados.get("cadencia") == "convencional":
+        partes.append("régua lida 2×/dia")
+    classe = "pct antiga" if dados.get("desatualizada") else "pct"
+    return f"<div class='{classe}'>{' · '.join(partes)}</div>"
+
+
 def _bloco_cards(snapshot: dict) -> str:
     ind = snapshot.get("indicadores") or {}
     # Quando a ANA está fora, o nível do Guaíba vem do Poaclima (mesma
@@ -304,7 +342,7 @@ def _bloco_cards(snapshot: dict) -> str:
         <div class="card">
           <div class="rio">{info['rotulo']}</div>
           <div class="est">{info['municipio']} · est. {estacao}</div>
-          {valor}{barra}{rodape}
+          {valor}{barra}{rodape}{_idade_da_leitura(ind, info['chave'])}
         </div>""")
     return f"<section class='cards'>{''.join(cards)}</section>"
 
@@ -1192,6 +1230,7 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .trilho{height:8px;border-radius:4px;background:var(--trilho);overflow:hidden;margin:6px 0}
 .trilho .barra{height:100%;border-radius:4px}
 .card .pct{color:var(--txt2);font-size:.76rem}
+.card .pct.antiga{color:#C77B22;font-weight:600}
 .titulo-secao{margin:24px 0 2px;font-size:1.18rem;
       font-family:"Barlow Condensed",sans-serif;font-weight:700;
       letter-spacing:.04em;text-transform:uppercase}
