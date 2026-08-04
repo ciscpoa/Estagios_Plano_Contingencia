@@ -330,7 +330,7 @@ def _consultar_janela_30d(codigo_estacao: str,
                 print(f"[ANA] Dialeto de parâmetros validado: '{nome_dialeto}' "
                       f"(será usado nas próximas consultas).")
             if items:
-                return _itens_para_df(items, inicio)
+                return _itens_para_df(items, inicio, codigo_estacao)
             print(f"[ANA]{ctx} 200 porém sem registros; tentando próximo endpoint.")
             break  # dialeto ok, mas endpoint sem dados → próximo endpoint
 
@@ -427,30 +427,80 @@ def remover_picos(df: pd.DataFrame, rotulo: str = "") -> pd.DataFrame:
     return limpo
 
 
-def _itens_para_df(items: list[dict], inicio: datetime) -> pd.DataFrame:
-    """Normaliza o JSON da ANA em DataFrame com datahora, nivel_m e chuva_mm."""
-    registros = []
+def _itens_para_df(items: list[dict], inicio: datetime,
+                   codigo_estacao: str = "") -> pd.DataFrame:
+    """
+    Normaliza o JSON da ANA em DataFrame com datahora, nivel_m e chuva_mm.
+
+    Três cuidados que a versão anterior não tinha:
+
+    1. DEDUPLICAÇÃO. A ANA devolve a mesma medição mais de uma vez (na
+       85900000 foram 113 registros para 58 horários distintos). Fica a
+       revisão com `Data_Atualizacao` mais recente — a série publicada é
+       corrigida depois, e a correção é que vale.
+
+    2. FAIXA PLAUSÍVEL por estação (config.PERFIL_ESTACOES_ANA). Em 29–30/07
+       a 85900000 publicou leituras de 0,00–0,40 m com o rio em 9,8 m. O
+       filtro de Hampel não pega isso porque o lixo era maioria da janela.
+       Leitura fora da faixa vira vazio, não some: o gráfico abre um buraco.
+
+    3. Ordem explícita dos campos de cota. `Cota_Adotada` é a validada pela
+       ANA e vem primeiro; `Cota_Manual` (régua lida por observador) entra
+       como último recurso, mas registrada — é o que sustenta a 85900000.
+    """
+    perfil = config.perfil_estacao(codigo_estacao) if codigo_estacao else {}
+    faixa = perfil.get("faixa_m")
+
+    registros, fora_da_faixa = [], 0
     for it in items:
         dh = (it.get("Data_Hora_Medicao") or it.get("Data_Atualizacao")
               or it.get("dataHora") or it.get("data"))
         # nível vem em cm na maioria das estações telemétricas
-        cota = it.get("Cota_Adotada") or it.get("Cota_Sensor") or it.get("cota")
-        chuva = it.get("Chuva_Adotada") or it.get("Chuva_Acumulada") or it.get("chuva")
+        cota = _primeiro_preenchido(it, "Cota_Adotada", "Cota_Sensor",
+                                    "Cota_Manual", "cota")
+        chuva = _primeiro_preenchido(it, "Chuva_Adotada", "Chuva_Acumulada", "chuva")
         try:
             dh = pd.to_datetime(dh)
         except Exception:
             continue
+
+        try:
+            nivel = float(cota) / 100.0 if cota is not None else None
+        except (TypeError, ValueError):
+            nivel = None
+        if nivel is not None and faixa and not (faixa[0] <= nivel <= faixa[1]):
+            fora_da_faixa += 1
+            nivel = None
+
         registros.append({
             "datahora": dh,
-            "nivel_m": float(cota) / 100.0 if cota not in (None, "") else None,
-            "chuva_mm": float(chuva) if chuva not in (None, "") else None,
+            "nivel_m": nivel,
+            "chuva_mm": float(chuva) if chuva is not None else None,
+            "_revisao": pd.to_datetime(it.get("Data_Atualizacao"), errors="coerce"),
         })
+
+    if fora_da_faixa:
+        print(f"[ANA] {codigo_estacao or 'estação'}: {fora_da_faixa} leitura(s) "
+              f"fora da faixa plausível {faixa[0]:.2f}–{faixa[1]:.2f} m "
+              f"— descartada(s).")
 
     df = pd.DataFrame(registros)
     if df.empty:
         return df
+    df = (df.sort_values(["datahora", "_revisao"], na_position="first")
+            .drop_duplicates(subset=["datahora"], keep="last")
+            .drop(columns=["_revisao"]))
     df = df[df["datahora"] >= inicio].sort_values("datahora").reset_index(drop=True)
     return df
+
+
+def _primeiro_preenchido(item: dict, *campos: str):
+    """Primeiro campo não-nulo/não-vazio. Zero é valor, não é ausência."""
+    for campo in campos:
+        valor = item.get(campo)
+        if valor is not None and str(valor).strip() != "":
+            return valor
+    return None
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -509,10 +559,22 @@ def coletar_niveis_rios(dias: int = 7,
     return resultado
 
 
-def resumo_estacao(df: pd.DataFrame) -> dict:
-    """Extrai nível atual e tendência 48h de uma série de estação."""
+def resumo_estacao(df: pd.DataFrame, estacao: str = "") -> dict:
+    """
+    Extrai nível atual e tendência 48h de uma série de estação.
+
+    Passa a devolver também a IDADE da leitura. Sem isso o painel exibia o
+    número da 85900000 (2 leituras por dia, publicadas com ~1 dia de atraso)
+    do mesmo jeito que o do Cais Mauá, que transmite de 15 em 15 min — o card
+    do "Jacuí" mostrava 10,89 m como se fosse de agora quando o dado tinha
+    30 h. Um número certo com idade errada é pior que um número ausente.
+    """
+    perfil = config.perfil_estacao(estacao) if estacao else {}
+    vazio = {"nivel_atual_m": None, "tendencia_48h_m": None, "ultima_leitura": None,
+             "idade_h": None, "desatualizada": None,
+             "cadencia": perfil.get("cadencia"), "nota_estacao": perfil.get("nota")}
     if df.empty or df["nivel_m"].dropna().empty:
-        return {"nivel_atual_m": None, "tendencia_48h_m": None, "ultima_leitura": None}
+        return vazio
 
     serie = df.dropna(subset=["nivel_m"])
     nivel_atual = serie["nivel_m"].iloc[-1]
@@ -522,14 +584,21 @@ def resumo_estacao(df: pd.DataFrame) -> dict:
     anteriores = serie[serie["datahora"] <= corte]
     nivel_48h = anteriores["nivel_m"].iloc[-1] if not anteriores.empty else serie["nivel_m"].iloc[0]
 
+    idade_h = (datetime.now() - pd.Timestamp(ultima).to_pydatetime()).total_seconds() / 3600
+    idade_max = float(perfil.get("idade_max_h", 6))
+
     return {
         "nivel_atual_m": round(float(nivel_atual), 2),
         "tendencia_48h_m": round(float(nivel_atual - nivel_48h), 2),
         "ultima_leitura": ultima,
+        "idade_h": round(idade_h, 1),
+        "desatualizada": bool(idade_h > idade_max),
+        "cadencia": perfil.get("cadencia"),
+        "nota_estacao": perfil.get("nota"),
     }
 
 
 if __name__ == "__main__":
     dados = coletar_niveis_rios(dias=7)
     for nome, df in dados.items():
-        print(nome, resumo_estacao(df))
+        print(nome, resumo_estacao(df, nome))
