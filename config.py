@@ -100,7 +100,12 @@ ESTACOES_ANA = {
     "Rio_Cai":                    "87170000",    # Barca do Caí (SACE)
     "Rio_Cai_Montenegro":         "87270000",    # Passo Montenegro (SACE)
     "Rio_Cai_NovaPalmira":        "87160000",    # Nova Palmira (SACE)
-    "Rio_Jacui_Triunfo":          "85900000",    # Jacuí — CONFIRMAR código c/ SGB
+    "Rio_Jacui_Triunfo":          "85900000",    # Jacuí — RIO PARDO (convencional)
+    # ═══ Taquari — telemétricas de 15 min, confirmadas na API em 04/08/2026 ═══
+    # Códigos conferidos no BOLETIM DO SAH RIO TAQUARI (SGB, 30/07/2026):
+    #   86510000 = MUÇUM  ·  86720000 = ENCANTADO  (não o contrário!)
+    "Rio_Taquari_Mucum":          "86510000",    # Muçum — SGB/SAH Taquari
+    "Rio_Taquari_Encantado":      "86720000",    # Encantado — SGB/SAH Taquari
 }
 
 # Afluentes usados para relacionar as ondas de cheia ao nível do Guaíba.
@@ -133,6 +138,21 @@ AFLUENTES_GUAIBA = {
         "rotulo": "Jacuí (Rio Pardo)",
         "tempo_viagem_h": 72,
         "faixa_lag_h": (24, 120),
+        "provisorio": True,
+    },
+    # O Taquari desemboca no Jacuí em Triunfo, logo acima do Delta: é o
+    # afluente que faltava no painel. Muçum e Encantado ficam a ~150 km do
+    # Guaíba — os tempos abaixo são PROVISÓRIOS, como os demais.
+    "Rio_Taquari_Mucum": {
+        "rotulo": "Taquari (Muçum)",
+        "tempo_viagem_h": 60,
+        "faixa_lag_h": (24, 120),
+        "provisorio": True,
+    },
+    "Rio_Taquari_Encantado": {
+        "rotulo": "Taquari (Encantado)",
+        "tempo_viagem_h": 54,
+        "faixa_lag_h": (24, 108),
         "provisorio": True,
     },
 }
@@ -190,12 +210,21 @@ COTAS_AFLUENTES = {
     # ═══ Gravataí (Passo das Canoas) — ANA/estação, via Defesa Civil ═══
     # Cota de ATENÇÃO não localizada em fonte oficial → None (não inventar).
     "Rio_Gravatai":       {"atencao": None, "alerta": 4.25, "inundacao": 4.75},
-    # ═══ Jacuí — ATENÇÃO: o código 85900000 é a estação RIO PARDO, ═══
-    # NÃO Triunfo (fonte: SGB, relatório da inundação de maio/2024).
-    # A cota de inundação do Jacuí em TRIUNFO é 4,67 m (Defesa Civil de
-    # Triunfo), mas o código ANA de Triunfo ainda precisa ser confirmado no
-    # HidroWeb/SNIRH. Enquanto isso, sem cota para a estação lida.
-    "Rio_Jacui_Triunfo":  {"atencao": None, "alerta": None, "inundacao": None},
+    # ═══ Jacuí — o código 85900000 é a estação RIO PARDO, NÃO Triunfo ═══
+    # (fonte: SGB, relatório da inundação de maio/2024). O próprio SAH Guaíba
+    # do SGB usa RIO PARDO como estação de referência do Jacuí nos boletins de
+    # 23/07/2026 e 26/07/2026 — ou seja, a estação está certa; o que faltava
+    # era a cota da RÉGUA DELA.
+    # Cota de inundação em Rio Pardo = 12,50 m (Defesa Civil de Rio Pardo,
+    # citada na Gazeta do Sul em 24/07/2026; mesma cota usada pelos painéis
+    # que leem a 85900000). Pico histórico: 20,04 m em 05/05/2024.
+    # Atenção e alerta ainda NÃO localizadas em fonte oficial → None.
+    # CONFIRMAR as três com o SAH Guaíba (alerta.guaiba@sgb.gov.br).
+    "Rio_Jacui_Triunfo":  {"atencao": None, "alerta": None, "inundacao": 12.50},
+    # ═══ Taquari — SGB/SAH Rio Taquari, boletim de 30/07/2026 ═══
+    # (valores lidos nos gráficos do boletim, em cm → m)
+    "Rio_Taquari_Mucum":     {"atencao": 5.00, "alerta": 9.00, "inundacao": 18.00},
+    "Rio_Taquari_Encantado": {"atencao": 5.00, "alerta": 9.00, "inundacao": 12.00},
 }
 
 # ── Referências p/ os CARDS do dashboard: Nível × Cota de Inundação ──────
@@ -227,7 +256,13 @@ INFO_RIOS_CARDS = [
      "cota_inundacao": 4.70},          # SGB/CPRM — SAH Rio Caí
     {"chave": "Rio_Jacui_Triunfo", "rotulo": "Rio Jacuí",
      "municipio": "Rio Pardo", "estacao": "ANA 85900000",
-     "cota_inundacao": None},          # 85900000 = Rio Pardo (não Triunfo)
+     "cota_inundacao": 12.50},         # Defesa Civil de Rio Pardo
+    {"chave": "Rio_Taquari_Mucum", "rotulo": "Rio Taquari",
+     "municipio": "Muçum", "estacao": "ANA 86510000",
+     "cota_inundacao": 18.00},         # SGB/SAH Rio Taquari
+    {"chave": "Rio_Taquari_Encantado", "rotulo": "Rio Taquari",
+     "municipio": "Encantado", "estacao": "ANA 86720000",
+     "cota_inundacao": 12.00},         # SGB/SAH Rio Taquari
     {"chave": "Rio_Gravatai", "rotulo": "Rio Gravataí",
      "municipio": "Gravataí", "estacao": "Passo das Canoas · ANA 87399000",
      "cota_inundacao": 4.75},          # ANA/Defesa Civil (alerta 4,25 m)
@@ -440,6 +475,8 @@ NOMES_EXIBICAO = {
     "Rio_Cai_NovaPalmira":         "Caí (Nova Palmira)",
     "Rio_Jacui_Triunfo":           "Jacuí (Rio Pardo)",
     "Rio_Jacui_TriunfoAmarop":     "Jacuí (Rio Pardo)",
+    "Rio_Taquari_Mucum":           "Taquari (Muçum)",
+    "Rio_Taquari_Encantado":       "Taquari (Encantado)",
 }
 
 # Cores dos avisos do INMET (padrão oficial de severidade)
@@ -597,6 +634,13 @@ PERFIL_ESTACOES_ANA = {
     "Rio_Jacui_Triunfo": {
         "faixa_m": (1.50, 25.00), "idade_max_h": 30, "cadencia": "convencional",
         "nota": "leitura de régua às 07h e 17h, publicada com ~1 dia de atraso"},
+    # Taquari: 15 min de cadência e ~3 h de idade na conferência de 04/08/2026.
+    # Tetos acima da maior cheia registrada em cada régua (26,11 m em Muçum e
+    # 23,14 m em Encantado, ambas em 2023/2024, segundo o boletim do SGB).
+    "Rio_Taquari_Mucum": {
+        "faixa_m": (0.00, 30.00), "idade_max_h": 6, "cadencia": "telemétrica"},
+    "Rio_Taquari_Encantado": {
+        "faixa_m": (0.00, 28.00), "idade_max_h": 6, "cadencia": "telemétrica"},
 }
 
 
