@@ -61,7 +61,8 @@ def coletar_tudo(usar_selenium: bool = True) -> dict:
         rios = {nome: pd.DataFrame(columns=["datahora", "nivel_m", "chuva_mm"])
                 for nome in config.ESTACOES_ANA}
 
-    resumo_rios = {nome: ana_api.resumo_estacao(df) for nome, df in rios.items()}
+    resumo_rios = {nome: ana_api.resumo_estacao(df, nome)
+                   for nome, df in rios.items()}
 
 
     # ── Fallback do nível do Guaíba (ordem importa: MESMO referencial!) ──
