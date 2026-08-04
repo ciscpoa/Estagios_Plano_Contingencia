@@ -20,6 +20,7 @@ import pandas as pd
 
 import config
 from dashboard import componentes
+from dashboard import acoes_estagio
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -1926,6 +1927,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>{_CSS}</style>
+<style>{acoes_estagio.CSS}</style>
 <style>
   /* logo embutido uma única vez e reaproveitado nos dois lugares */
   .logo,.logo-rodape{{background-image:url("{_ativo_b64('cisc_logo.png','image/png')}");
@@ -1942,6 +1944,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_cabecalho(snapshot)}
   {_bloco_fontes(snapshot)}
   {_bloco_banner(snapshot)}
+  {acoes_estagio.bloco(snapshot)}
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
   {_bloco_graficos(snapshot)}
