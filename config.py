@@ -548,3 +548,64 @@ FILTRO_PICOS_ANA = {
     "min_pontos": 8,        # série curta demais → não filtra
     "avisar": True,         # imprime no log quantos pontos saíram
 }
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 10. PERFIL DE CADA ESTAÇÃO DA ANA (cadência, frescor e faixa plausível)
+#
+#    Nem toda estação do HidroWebService é telemétrica de verdade. Conferido
+#    em 04/08/2026, direto na API (30 dias, estação 85900000):
+#
+#      · Cota_Sensor e Cota_Display vêm SEMPRE vazias;
+#      · Cota_Adotada é idêntica a Cota_Manual em 100% dos registros;
+#      · há 2 leituras por dia — 07:00 e 17:00 (intervalos de 10 h e 14 h);
+#      · Data_Atualizacao 30/07 14:20 para a medição de 29/07 17:00, ou seja,
+#        ~21 h de atraso entre medir e publicar.
+#
+#    Isto é uma estação CONVENCIONAL (observador lê a régua duas vezes por
+#    dia), não telemétrica. O card do "Jacuí" mostrava 10,89 m sem dizer que
+#    o número tinha 30 h de idade. Daí `idade_max_h`: acima disso o painel
+#    marca a leitura como antiga em vez de exibi-la como se fosse de agora.
+#
+#    `faixa_m` é a faixa fisicamente possível NA RÉGUA DAQUELA ESTAÇÃO (cada
+#    uma tem seu referencial). Serve contra a publicação transitória de lixo:
+#    em 29–30/07 a ANA publicou, de 15 em 15 min, leituras de 0,00–0,40 m na
+#    85900000 enquanto o rio estava em 9,8 m; depois ela mesma corrigiu a
+#    série (por isso a consulta de hoje não traz mais esses valores). O filtro
+#    de Hampel não pega esse caso — o lixo era MAIORIA. A faixa pega.
+#    Leitura fora da faixa vira vazio (buraco honesto), não some da série.
+#
+#    Os limites abaixo são folgados de propósito. Se algum dia uma cheia real
+#    passar do teto, é o teto que está errado — corrija aqui.
+# ──────────────────────────────────────────────────────────────────────────
+PERFIL_ESTACOES_ANA = {
+    "Guaiba_PortoAlegre_CaisMaua": {
+        "faixa_m": (-0.50, 8.00), "idade_max_h": 6, "cadencia": "telemétrica"},
+    "Rio_Gravatai": {
+        "faixa_m": (0.00, 12.00), "idade_max_h": 6, "cadencia": "telemétrica"},
+    "Rio_dos_Sinos_SaoLeopoldo": {
+        "faixa_m": (0.00, 15.00), "idade_max_h": 6, "cadencia": "telemétrica"},
+    "Rio_Cai": {
+        "faixa_m": (0.00, 20.00), "idade_max_h": 6, "cadencia": "telemétrica"},
+    "Rio_Cai_Montenegro": {
+        "faixa_m": (0.00, 15.00), "idade_max_h": 6, "cadencia": "telemétrica"},
+    "Rio_Cai_NovaPalmira": {
+        "faixa_m": (0.00, 12.00), "idade_max_h": 6, "cadencia": "telemétrica"},
+    # Piso 1,50 m: em 371 dias de série a leitura de régua nunca ficou abaixo
+    # de 2,00 m, e o lixo do sensor se concentra entre 0,00 e 0,40 m.
+    # CONFERIR o mínimo histórico com o SGB antes de tratar como definitivo.
+    "Rio_Jacui_Triunfo": {
+        "faixa_m": (1.50, 25.00), "idade_max_h": 30, "cadencia": "convencional",
+        "nota": "leitura de régua às 07h e 17h, publicada com ~1 dia de atraso"},
+}
+
+
+def perfil_estacao(nome_ou_codigo) -> dict:
+    """Perfil da estação a partir do nome amigável OU do código da ANA."""
+    chave = str(nome_ou_codigo)
+    if chave in PERFIL_ESTACOES_ANA:
+        return PERFIL_ESTACOES_ANA[chave]
+    for nome, codigo in ESTACOES_ANA.items():
+        if str(codigo) == chave:
+            return PERFIL_ESTACOES_ANA.get(nome, {})
+    return {}
