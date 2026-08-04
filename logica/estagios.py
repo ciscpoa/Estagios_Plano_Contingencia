@@ -135,12 +135,83 @@ def _nivel_de(dados: dict) -> float | None:
     return v if v is not None else dados.get("nivel_atual_m")
 
 
+# As três cotas do SAH, da menos grave para a mais grave. A ordem é o que
+# permite dizer que quem passou da INUNDAÇÃO obviamente passou da atenção.
+ORDEM_COTAS = ("atencao", "alerta", "inundacao")
+ROTULO_COTA = {"atencao": "atenção", "alerta": "alerta",
+               "inundacao": "inundação"}
+
+
+def _cota_atingida(refs: dict, nivel: float | None) -> tuple[str, float] | None:
+    """
+    A cota MAIS GRAVE que aquela régua já ultrapassou — ou None.
+
+    Nem toda estação tem as três cotas publicadas: o Gravataí não tem cota de
+    atenção, e o Jacuí em Triunfo só tem a de inundação. Antes, a checagem
+    procurava a chave "atencao" e, não encontrando, ignorava a estação: o
+    Gravataí a 4,68 m (acima da própria cota de ALERTA, 4,25 m) simplesmente
+    não aparecia na lista de rios em cota de atenção. Um rio acima da cota de
+    alerta está, por definição, acima da de atenção — a ausência da cota
+    intermediária não pode apagar o rio da lista.
+    """
+    if nivel is None:
+        return None
+    achada = None
+    for chave in ORDEM_COTAS:
+        ref = (refs or {}).get(chave)
+        if ref is not None and nivel >= ref:
+            achada = (chave, ref)      # fica com a última (mais grave)
+    return achada
+
+
+def _refs_afluente(nome: str) -> dict:
+    return config.COTAS_AFLUENTES.get(nome) or {}
+
+
+def _refs_guaiba() -> dict:
+    return {"atencao": config.COTA_ATENCAO_GUAIBA,
+            "alerta": config.COTA_ALERTA_GUAIBA,
+            "inundacao": config.COTA_INUNDACAO_GUAIBA}
+
+
+def _refs_riacho() -> dict:
+    return {"atencao": getattr(config, "COTA_ATENCAO_RIACHO_IPIRANGA", None),
+            "alerta": getattr(config, "COTA_ALERTA_RIACHO_IPIRANGA", None),
+            "inundacao": getattr(config, "COTA_INUNDACAO_RIACHO_IPIRANGA", None)}
+
+
+def _frase_cota(rotulo: str, nivel: float, atingida: tuple[str, float]) -> str:
+    """'Gravataí 4,68 m (≥ alerta 4,25 m)' — sempre dizendo QUAL cota é."""
+    chave, ref = atingida
+    return f"{rotulo} {nivel:.2f} m (≥ {ROTULO_COTA[chave]} {ref:.2f} m)"
+
+
+def _rios_em_cota(ind: IndicadoresNumericos, nivel_guaiba: float | None,
+                  minima: str = "atencao") -> list[str]:
+    """
+    Todas as réguas que já passaram pelo menos a cota `minima`, cada uma com
+    a cota que efetivamente atingiu. Lista completa, sem corte: quem lê o
+    painel precisa saber quantos rios estão na faixa, não uma amostra.
+    """
+    piso = ORDEM_COTAS.index(minima)
+    frases = []
+    pares = [("Guaíba", _refs_guaiba(), nivel_guaiba),
+             ("Ipiranga", _refs_riacho(), ind.poaclima_riacho_ipiranga_m)]
+    pares += [(_nome(nome), _refs_afluente(nome), _nivel_de(dados))
+              for nome, dados in ind.afluentes.items()]
+    for rotulo, refs, nivel in pares:
+        atingida = _cota_atingida(refs, nivel)
+        if atingida and ORDEM_COTAS.index(atingida[0]) >= piso:
+            frases.append(_frase_cota(rotulo, nivel, atingida))
+    return frases
+
+
 def _afluente_atingiu(ind: IndicadoresNumericos, cota: str) -> bool:
-    """True se algum afluente atingiu a cota ('atencao'/'alerta'/'inundacao')."""
+    """True se algum afluente atingiu PELO MENOS a cota pedida."""
+    piso = ORDEM_COTAS.index(cota)
     for nome, dados in ind.afluentes.items():
-        ref = (config.COTAS_AFLUENTES.get(nome) or {}).get(cota)
-        nivel = _nivel_de(dados)
-        if ref is not None and nivel is not None and nivel >= ref:
+        atingida = _cota_atingida(_refs_afluente(nome), _nivel_de(dados))
+        if atingida and ORDEM_COTAS.index(atingida[0]) >= piso:
             return True
     return False
 
@@ -486,14 +557,9 @@ def _avaliar_regras(
         motivos.append(f"Guaíba em Cota de Alerta de Inundação "
                        f"({nivel:.2f} m ≥ {config.COTA_ALERTA_GUAIBA} m)")
     elif cond_afl:
-        quais_afl = []
-        for nome_a, dados_a in ind.afluentes.items():
-            ref_a = (config.COTAS_AFLUENTES.get(nome_a) or {}).get("alerta")
-            nv_a = _nivel_de(dados_a)
-            if ref_a is not None and nv_a is not None and nv_a >= ref_a:
-                quais_afl.append(f"{_nome(nome_a)}: {nv_a:.2f} m (alerta {ref_a:.2f} m)")
+        quais_afl = _rios_em_cota(ind, None, "alerta")
         motivos.append("Afluente em cota de alerta, com tendência de alta nas "
-                       "próximas 48h\n" + _lista(quais_afl[:3]))
+                       "próximas 48h\n" + _lista(quais_afl))
     elif cond_corregos and motivo_corregos:
         motivos.append(motivo_corregos)
     elif cond_regional:
@@ -553,27 +619,20 @@ def _avaliar_regras(
             fatores.append(f"alerta Poaclima vigente ({ind.poaclima_alerta})")
         motivos.append("Avisos/previsão em vigor: " + "; ".join(fatores))
     # Bloco 2: tendência de aumento dos rios / cota de ATENÇÃO  OU  RM em alerta
-    cond_riacho_atencao = (ind.poaclima_riacho_ipiranga_m is not None
-                           and config.COTA_ATENCAO_RIACHO_IPIRANGA is not None
-                           and ind.poaclima_riacho_ipiranga_m >= config.COTA_ATENCAO_RIACHO_IPIRANGA)
-    cond_atencao = ((nivel is not None and nivel >= config.COTA_ATENCAO_GUAIBA)
-                    or _afluente_atingiu(ind, "atencao") or cond_riacho_atencao)
+    cond_riacho_atencao = bool(_cota_atingida(_refs_riacho(),
+                                              ind.poaclima_riacho_ipiranga_m))
+    # Uma lista só, montada uma vez: Guaíba, Ipiranga e todos os afluentes que
+    # passaram pelo menos a cota de atenção (ou a menor cota publicada da
+    # própria régua, quando não há atenção cadastrada).
+    rios_atencao = _rios_em_cota(ind, nivel, "atencao")
+    cond_atencao = bool(rios_atencao)
     cond_alerta_inundacao = reg["n_inundacao_risco_elevado"] >= 1
     b2 = ((subindo and cond_atencao) or cond_atencao or subindo
           or _afluente_subindo(ind) or ind.metropole_em_alerta
           or cond_alerta_inundacao)
     if cond_atencao:
-        quais = []
-        if nivel is not None and nivel >= config.COTA_ATENCAO_GUAIBA:
-            quais.append(f"Guaíba {nivel:.2f} m")
-        for nome_afl, dados_afl in ind.afluentes.items():
-            ref_a = (config.COTAS_AFLUENTES.get(nome_afl) or {}).get("atencao")
-            nv_a = _nivel_de(dados_afl)
-            if ref_a is not None and nv_a is not None and nv_a >= ref_a:
-                quais.append(f"{_nome(nome_afl)} {nv_a:.2f} m (≥ {ref_a:.2f})")
-        if cond_riacho_atencao:
-            quais.append(f"Riacho Ipiranga {ind.poaclima_riacho_ipiranga_m:.2f} m")
-        motivos.append("Rio(s) atingindo a Cota de Atenção: " + "; ".join(quais[:4]))
+        motivos.append("Rio(s) na Cota de Atenção ou acima: "
+                       + "; ".join(rios_atencao))
     elif subindo or _afluente_subindo(ind):
         motivos.append(f"Tendência de aumento dos rios que deságuam no Guaíba (+{tend:.2f} m/48h)")
     elif ind.metropole_em_alerta:
@@ -602,14 +661,8 @@ def _avaliar_regras(
     # Justificativa hidrológica honesta + observações de quase-gatilho:
     quase = []
     if cond_atencao:
-        quase.append("rio(s) na Cota de Atenção"
-                     + (f" (Guaíba {nivel:.2f} m)" if nivel is not None
-                        and nivel >= config.COTA_ATENCAO_GUAIBA else ""))
-        for nome, dados in ind.afluentes.items():
-            ref = (config.COTAS_AFLUENTES.get(nome) or {}).get("atencao")
-            nv = _nivel_de(dados)
-            if ref is not None and nv is not None and nv >= ref:
-                quase.append(f"{_nome(nome)} em {nv:.2f} m (≥ atenção {ref:.2f} m)")
+        quase.append("rio(s) na Cota de Atenção ou acima: "
+                     + "; ".join(rios_atencao))
     if subindo:
         quase.append(f"Guaíba em subida (+{tend:.2f} m/48h)")
     elif _afluente_subindo(ind):
