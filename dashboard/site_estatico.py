@@ -529,17 +529,18 @@ def _bloco_regioes(snapshot: dict) -> str:
                 f"<div class='detalhe'>{detalhe}</div></div>")
 
     # Tela: triângulo 8 / 6 / 3
-    # Impressão: 6 / 6 / 5. A divisão anterior era 7 / 6 / 4, mas as sete
-    # células da primeira linha não cabiam na largura útil da A4 e a sétima
-    # quebrava sozinha — o PDF saía 6 / 1 / 6 / 4, com uma linha órfã. Com
-    # seis por linha as três fileiras ficam equilibradas e nada quebra.
+    # Impressão: 9 / 8. Eram três fileiras de seis, que ocupavam meia folha
+    # para dizer dezessete vezes "sem alerta" e ainda empurravam os gráficos
+    # para a página seguinte — o PDF ficava com uma página quase inteira em
+    # branco. Com nove por fileira o bloco cabe em duas linhas rasas e sobra
+    # espaço útil embaixo.
     def grade(faixas):
         return "".join(
             f"<div class='linha-regioes'>{''.join(tile(n) for n in faixa)}</div>"
             for faixa in faixas)
 
     html_linhas = (f"<div class='regioes-tela'>{grade([range(1, 9), range(9, 15), range(15, 18)])}</div>"
-                   f"<div class='regioes-print'>{grade([range(1, 7), range(7, 13), range(13, 18)])}</div>")
+                   f"<div class='regioes-print'>{grade([range(1, 10), range(10, 18)])}</div>")
 
     return f"""
     <section class="bloco-regioes">
@@ -1764,9 +1765,20 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
      a hachura — a mesma leitura do mapa, sem depender do tom de cinza. */
   .regioes-tela{display:none !important}
   .regioes-print{display:block !important}
-  .linha-regioes{margin-bottom:5px}
-  .linha-regioes .tile{flex:0 0 calc(16.66% - 8px);min-height:0;padding:5px 4px;
-      border-width:1pt}
+  .regioes{margin-bottom:8px}
+  .linha-regioes{gap:5px;margin-bottom:5px}
+  .linha-regioes .tile{flex:0 0 calc(11.11% - 5px);min-height:0;
+      padding:3px 5px;border-width:.9pt;
+      border-top-width:2.6pt !important;border-radius:6px}
+  /* Número e nome na mesma linha: em duas linhas separadas eram 17 quebras
+     de linha só para repetir o que o cabeçalho da célula já diz. */
+  .tile .num,.tile .nome{display:inline}
+  .tile .num{font-size:.62rem;opacity:.75}
+  .tile .num::after{content:" · "}
+  .tile .nome{font-size:.7rem;line-height:1.12}
+  .tile .status{font-size:.64rem;line-height:1.15}
+  .tile .detalhe{font-size:.58rem;line-height:1.12}
+  .tile .detalhe:empty{display:none}
   .tile.r1{background-image:repeating-linear-gradient(45deg,
       rgba(0,0,0,.18) 0 1px,transparent 1px 5px)}
   .tile.r2{background-image:repeating-linear-gradient(45deg,
@@ -1784,7 +1796,11 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
      úteis da paisagem e o terceiro saía espremido contra o título
      seguinte. Altura em mm, largura por conta do Plotly (travar a largura
      com !important faz o gráfico sumir da folha). */
-  .graficos{break-before:page;page-break-before:always;display:block !important}
+  /* Sem quebra forçada: com a folha começando em gráfico, a metade de baixo
+     da página das regiões ficava vazia. Cada .grafico já se recusa a ser
+     partido ao meio, então quem não couber desce sozinho para a folha
+     seguinte — sem deixar buraco atrás. */
+  .graficos{display:block !important}
   .grafico{border:1pt solid var(--borda-fina);border-radius:8px;margin:0 0 4mm;
            padding:3px;height:auto;box-shadow:none;overflow:visible}
   .fig-claro,.fig-claro .js-plotly-plot,.fig-claro .plot-container,

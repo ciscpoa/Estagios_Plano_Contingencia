@@ -250,12 +250,43 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
                            showarrow=False, xref="paper", yref="paper",
                            x=0.5, y=0.5, font=dict(color=p["txt"], size=14))
 
+    # ── Onde cada barra é desenhada ─────────────────────────────────
+    # Antes o Plotly agrupava as duas séries e empurrava a medida para a
+    # esquerda e a previsão para a direita do dia — mesmo nos dias em que
+    # só uma delas existe, que é a esmagadora maioria. O resultado era um
+    # painel com todas as barras deslocadas do próprio rótulo.
+    #
+    # Agora a posição é dada barra a barra: dia com uma série só, barra
+    # cheia centrada no dia; dia com as duas (hoje, em que o medido é
+    # parcial e a previsão é do dia inteiro), duas meias-barras lado a
+    # lado, dividindo o mesmo espaço. As unidades são milissegundos
+    # porque o eixo é de datas.
+    DIA = 86_400_000.0
+    LARG_CHEIA, LARG_MEIA, FOLGA = 0.62 * DIA, 0.30 * DIA, 0.02 * DIA
+    dias_divididos = (set(dfo["data"]) & set(dfp["data"])
+                      if not dfo.empty and not dfp.empty else set())
+
+    def _geometria(datas, lado: str):
+        """Devolve (larguras, deslocamentos) em ms, uma entrada por barra."""
+        larguras, deslocs = [], []
+        for d in datas:
+            if d in dias_divididos:
+                larguras.append(LARG_MEIA)
+                deslocs.append(-LARG_MEIA - FOLGA / 2 if lado == "esq"
+                               else FOLGA / 2)
+            else:
+                larguras.append(LARG_CHEIA)
+                deslocs.append(-LARG_CHEIA / 2)     # centraliza no meio-dia
+        return larguras, deslocs
+
     teto = 0.0
     if not dfo.empty:
         teto = max(teto, float(dfo["precipitacao_total_mm"].max() or 0))
+        larg_o, desl_o = _geometria(dfo["data"], "esq")
         fig.add_trace(go.Bar(
             x=dfo["data"] + pd.Timedelta(hours=12),
             y=dfo["precipitacao_total_mm"],
+            width=larg_o, offset=desl_o,
             name=f"Chuva medida — {rotulo_obs}",
             marker=dict(color=COR_MEDIDA),
             text=[f"{v:.0f}" for v in dfo["precipitacao_total_mm"]],
@@ -270,9 +301,11 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
                      if previsao_poa else None)
         dados_extra = (descricao.fillna("").tolist()[:len(dfp)]
                        if descricao is not None else [""] * len(dfp))
+        larg_p, desl_p = _geometria(dfp["data"], "dir")
         fig.add_trace(go.Bar(
             x=dfp["data"] + pd.Timedelta(hours=12),
             y=dfp["precipitacao_total_mm"],
+            width=larg_p, offset=desl_p,
             name=f"Chuva prevista — {rotulo_prev}",
             # Barra hachurada é a convenção de "ainda não aconteceu": a cor
             # separa as duas séries, a textura diz que uma delas é aposta.
@@ -287,10 +320,14 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
                           "%{customdata}<br>%{y:.0f} mm no dia"
                           "<extra></extra>"))
 
-    # Divisor entre o que foi medido e o que é aposta
-    fig.add_shape(type="line", x0=agora, x1=agora, y0=0, y1=1, yref="paper",
+    # Divisor entre o que foi medido e o que é aposta. Quando hoje tem as
+    # duas barras, a linha vai para a divisa entre elas — no relógio real
+    # ela atravessaria a barra da previsão pelo meio.
+    x_divisor = (hoje + pd.Timedelta(hours=12)) if dias_divididos else agora
+    fig.add_shape(type="line", x0=x_divisor, x1=x_divisor, y0=0, y1=1,
+                  yref="paper",
                   line=dict(dash="dot", color=p["txt"], width=1))
-    fig.add_annotation(x=agora, y=1, yref="paper", text="agora",
+    fig.add_annotation(x=x_divisor, y=1, yref="paper", text="agora",
                        showarrow=False, yshift=8,
                        font=dict(color=p["txt"], size=11))
 
@@ -302,7 +339,10 @@ def grafico_precipitacao(horaria: list[dict], diaria: list[dict],
             x=0.5, xanchor="center", y=0.94, yanchor="top",
             font=dict(size=19)),
         hoverlabel=p["hover"],
-        barmode="group", bargap=0.35, bargroupgap=0.08,
+        # Com largura e deslocamento definidos barra a barra, o agrupamento
+        # automático do Plotly só atrapalharia: 'overlay' respeita o que
+        # foi calculado acima.
+        barmode="overlay",
         yaxis=dict(title="mm no dia", gridcolor=p["grade"],
                    range=[0, (teto or 1) * 1.22], zeroline=False),
         xaxis=dict(gridcolor=p["grade"], tickformat="%d/%m",
