@@ -239,6 +239,37 @@ def _bloco_banner(snapshot: dict) -> str:
     </section>"""
 
 
+def _cor_por_cota(chave: str, nivel: float, cota: float,
+                  pct: float) -> tuple[str, str]:
+    """
+    Cor do card pelas COTAS da própria régua (Poaclima), não por % da cota
+    de inundação. É o que o gráfico do Guaíba já fazia — antes o card
+    pintava amarelo com 2,54 m (85% de 3,00 m) enquanto a linha laranja da
+    cota de alerta, 2,50 m, já tinha sido cruzada no gráfico ao lado.
+
+    Régua sem cota intermediária publicada (Gravataí não tem atenção) cai
+    para as faixas de porcentagem antigas — inventar cota seria pior.
+    """
+    c = config.cotas_do_card(chave)
+    atencao, alerta = c.get("atencao"), c.get("alerta")
+
+    if nivel >= cota:
+        return config.CORES_ESTAGIOS["SITUAÇÃO DE EMERGÊNCIA"], "acima da cota de inundação"
+    if alerta is not None and nivel >= alerta:
+        return config.CORES_ESTAGIOS["ALERTA"], f"acima da cota de alerta ({alerta:.2f} m)"
+    if atencao is not None and nivel >= atencao:
+        return config.CORES_ESTAGIOS["MOBILIZAÇÃO"], f"acima da cota de atenção ({atencao:.2f} m)"
+    if atencao is None and alerta is None:
+        # sem cotas publicadas: mantém o comportamento antigo, por faixa
+        if pct >= 85:
+            return config.CORES_ESTAGIOS["ALERTA"], ""
+        if pct >= 65:
+            return config.CORES_ESTAGIOS["MOBILIZAÇÃO"], ""
+    if atencao is None and pct >= 65:
+        return config.CORES_ESTAGIOS["MOBILIZAÇÃO"], ""
+    return config.CORES_ESTAGIOS["NORMALIDADE"], ""
+
+
 def _bloco_cards(snapshot: dict) -> str:
     ind = snapshot.get("indicadores") or {}
     # Quando a ANA está fora, o nível do Guaíba vem do Poaclima (mesma
@@ -255,19 +286,13 @@ def _bloco_cards(snapshot: dict) -> str:
 
         if nivel is not None and cota:
             pct = max(0.0, nivel / cota * 100.0)
-            if pct >= 100:
-                cor = config.CORES_ESTAGIOS["SITUAÇÃO DE EMERGÊNCIA"]
-            elif pct >= 85:
-                cor = config.CORES_ESTAGIOS["ALERTA"]
-            elif pct >= 65:
-                cor = config.CORES_ESTAGIOS["MOBILIZAÇÃO"]
-            else:
-                cor = config.CORES_ESTAGIOS["NORMALIDADE"]
+            cor, situacao = _cor_por_cota(info["chave"], nivel, cota, pct)
             valor = (f"<div class='valor' style='color:{cor}'>{nivel:.2f} m"
                      f"<span class='cota'> / {cota:.2f} m</span></div>")
             barra = (f"<div class='trilho'><div class='barra' style='width:"
                      f"{min(pct, 100):.0f}%;background:{cor}'></div></div>")
-            rodape = f"<div class='pct'>{pct:.0f}% da cota de inundação</div>"
+            rodape = (f"<div class='pct'>{pct:.0f}% da cota de inundação"
+                      f"{' · ' + situacao if situacao else ''}</div>")
         else:
             texto = f"{nivel:.2f} m" if nivel is not None else "—"
             valor = f"<div class='valor neutro'>{texto}</div>"
@@ -1577,7 +1602,6 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_bloco_banner(snapshot)}
   {_bloco_cards(snapshot)}
   {_bloco_regioes(snapshot)}
-  {_bloco_gatilhos(snapshot)}
   {_bloco_graficos(snapshot)}
   {_JS_FRESCOR}
   <div class="rodape">
