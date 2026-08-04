@@ -7427,6 +7427,7 @@ Guaiba_PortoAlegre_CaisMaua,2026-08-03 22:00:00,2.06
 Guaiba_PortoAlegre_CaisMaua,2026-08-03 22:15:00,2.06
 Guaiba_PortoAlegre_CaisMaua,2026-08-03 22:30:00,2.06
 Guaiba_PortoAlegre_CaisMaua,2026-08-03 22:45:00,2.06
+Guaiba_PortoAlegre_CaisMaua,2026-08-03 23:45:00,2.06
 Rio_Cai,2025-07-29 14:00:00,5.99
 Rio_Cai,2025-07-29 14:15:00,6.02
 Rio_Cai,2025-07-29 14:30:00,6.04
@@ -42766,6 +42767,10 @@ Rio_Cai,2026-08-03 22:30:00,4.67
 Rio_Cai,2026-08-03 22:45:00,4.66
 Rio_Cai,2026-08-03 23:00:00,4.66
 Rio_Cai,2026-08-03 23:15:00,4.65
+Rio_Cai,2026-08-03 23:30:00,4.64
+Rio_Cai,2026-08-03 23:45:00,4.64
+Rio_Cai,2026-08-04 00:00:00,4.63
+Rio_Cai,2026-08-04 00:15:00,4.62
 Rio_Gravatai,2025-07-29 14:00:00,3.76
 Rio_Gravatai,2025-07-29 14:15:00,3.76
 Rio_Gravatai,2025-07-29 14:30:00,3.76
@@ -78222,6 +78227,10 @@ Rio_Gravatai,2026-08-03 22:30:00,4.75
 Rio_Gravatai,2026-08-03 22:45:00,4.75
 Rio_Gravatai,2026-08-03 23:00:00,4.75
 Rio_Gravatai,2026-08-03 23:15:00,4.75
+Rio_Gravatai,2026-08-03 23:30:00,4.74
+Rio_Gravatai,2026-08-03 23:45:00,4.74
+Rio_Gravatai,2026-08-04 00:00:00,4.74
+Rio_Gravatai,2026-08-04 00:15:00,4.74
 Rio_Jacui_Triunfo,2025-07-29 14:00:00,6.56
 Rio_Jacui_Triunfo,2025-07-29 14:15:00,6.57
 Rio_Jacui_Triunfo,2025-07-29 14:30:00,6.57
@@ -123151,3 +123160,7 @@ Rio_dos_Sinos_SaoLeopoldo,2026-08-03 22:30:00,4.94
 Rio_dos_Sinos_SaoLeopoldo,2026-08-03 22:45:00,4.93
 Rio_dos_Sinos_SaoLeopoldo,2026-08-03 23:00:00,4.93
 Rio_dos_Sinos_SaoLeopoldo,2026-08-03 23:15:00,4.92
+Rio_dos_Sinos_SaoLeopoldo,2026-08-03 23:30:00,4.93
+Rio_dos_Sinos_SaoLeopoldo,2026-08-03 23:45:00,4.92
+Rio_dos_Sinos_SaoLeopoldo,2026-08-04 00:00:00,4.92
+Rio_dos_Sinos_SaoLeopoldo,2026-08-04 00:15:00,4.91
