@@ -861,18 +861,14 @@ def _bloco_previsao(snapshot: dict, quantos: int = 5) -> str:
     <section class="previsao">{''.join(cartoes)}</section>"""
 
 
-def _bloco_gatilhos(snapshot: dict) -> str:
-    ativos = snapshot.get("gatilhos_ativos") or []
-    if not ativos:
-        return ""
-    cor = (snapshot.get("classificacao") or {}).get("cor", "#F2830B")
-    badges = "".join(
-        f"<span class='badge' style='background:{_tom_suave(cor)};"
-        f"border:1px solid {cor};color:{_TINTA_ESCURA}'>{a}</span>"
-        for a in ativos)
-    return f"""
-    <h3 class="titulo-secao">Gatilhos de campo confirmados (SMS/Defesa Civil/CISC)</h3>
-    <section class="gatilhos">{badges}</section>"""
+# A seção "Gatilhos de campo confirmados" foi retirada do corpo da página.
+# Ela repetia, no meio do painel, uma informação que já aparece onde ela de
+# fato significa alguma coisa: dentro do 3º bloco do banner ("Famílias
+# deixando casas OU demanda por abrigo OU bloqueio de vias OU demanda na
+# saúde"), listada como a evidência que ativa aquele bloco. Solta no meio da
+# página, a lista sugeria um peso próprio que os gatilhos não têm — eles são
+# uma das alternativas de UM bloco, não um veredito. Quem monta o painel edita
+# o gatilhos_manuais.txt; quem lê o painel precisa é do estágio e do porquê.
 
 
 def _figura_dupla(constroi, altura_css: str) -> str:
@@ -1308,9 +1304,6 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
   font-size:.72rem;font-weight:700;vertical-align:middle}
 .frescor.velho{display:inline-block;background:#FFD166;color:#3A2E00}
 .frescor.parado{display:inline-block;background:#D62828;color:#fff}
-.gatilhos{margin-bottom:20px}
-.badge{display:inline-block;border-radius:10px;padding:8px 14px;
-       margin:4px;font-weight:700;font-size:.9rem}
 .graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px}
 .grafico{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;
          padding:8px;min-width:0;overflow:hidden;position:relative;
