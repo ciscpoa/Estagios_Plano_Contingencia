@@ -1376,7 +1376,11 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;
      align-self:center}
 @media(max-width:820px){.identidade,.gauge-cabecalho{flex:1 1 100%;max-width:none}
   .cabecalho{justify-content:center}}
-.logo{height:70px;width:59px;flex:0 0 auto}
+/* Logo do CISC em dobro: a 70px ele virava um selo decorativo ao lado de um
+   h1 de 2,45rem. Em 140px ele lê como identidade do órgão, que é o papel
+   dele num painel público. */
+.logo{height:140px;width:118px;flex:0 0 auto}
+@media(max-width:520px){.logo{height:100px;width:84px}}
 .sobretitulo{font-family:"Barlow Condensed",sans-serif;font-weight:600;
      font-size:.95rem;letter-spacing:.14em;text-transform:uppercase;
      color:var(--cisc)}
@@ -1574,6 +1578,13 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
    marca da etapa atual, carimbo do cabeçalho e a legenda final. */
 .selo,.marca-atual,.carimbo-print,.legenda-print{display:none}
 .rodape{margin-top:30px;padding-top:18px;border-top:1px solid var(--borda-fina)}
+/* Faixa institucional: o arquivo é JPEG com fundo branco, então ganha um
+   cartão branco próprio. Sem isso, no tema escuro, ele aparece como um
+   retângulo branco solto no meio do rodapé. */
+.logos-inst{margin:16px auto 0;max-width:560px;background:#FFFFFF;
+      border-radius:10px;padding:12px 18px;box-shadow:0 2px 10px var(--sombra)}
+.logos-inst img{display:block;width:100%;height:auto}
+@media(max-width:620px){.logos-inst{max-width:92%;padding:10px 12px}}
 .logo-rodape{height:46px;width:40px;opacity:.9;margin:0 auto 6px}
 .cisc{font-weight:700;margin-bottom:6px;font-family:"Barlow Condensed",sans-serif;
   font-size:1.05rem;letter-spacing:.03em}
@@ -1683,7 +1694,7 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
              border-bottom:1.6pt solid var(--borda);padding-bottom:7px}
   .gauge-cabecalho{display:none !important}
   .identidade{flex:1 1 auto}
-  .logo{height:46px;width:38px}
+  .logo{height:64px;width:54px}
   h1{font-size:1.6rem}
   .sub,.sobretitulo{font-size:.76rem}
   .carimbo-print{display:block;flex:0 0 62mm;max-width:62mm;text-align:right;
@@ -1838,6 +1849,8 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
   .valor-chuva{font-size:1.7rem}
   .rodape{margin-top:10px;padding-top:8px;border-top:1pt solid var(--borda-fina)}
   .logo-rodape{height:34px;width:29px}
+  .logos-inst{max-width:118mm;padding:3px 8px;margin-top:7px;
+      box-shadow:none;background:#fff}
   .mini{font-size:.66rem}
 }
 """
@@ -1916,6 +1929,16 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
         "estagio": (snapshot.get("classificacao") or {}).get("estagio", ""),
     }, ensure_ascii=False), encoding="utf-8")
 
+    # Faixa institucional do rodapé: DVS/SMS · SUS · Prefeitura de Porto
+    # Alegre. Só entra se o arquivo estiver em assets/ — <img> apontando
+    # para vazio é pior que ausência, porque deixa um buraco no documento
+    # impresso sem dizer por quê.
+    _inst = _ativo_b64("Logo_prefeitura_sus_dvs.jpeg", "image/jpeg")
+    faixa_logos = (
+        f'<div class="logos-inst"><img src="{_inst}" alt="DVS · SMS/PMPA · '
+        'SUS · Prefeitura de Porto Alegre — Secretaria de Saúde"></div>'
+    ) if _inst else ""
+
     html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1960,6 +1983,7 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
       leituras de estações diferentes não são comparáveis entre si.
       Ferramenta de apoio à decisão — não substitui os canais oficiais da
       Defesa Civil.</div>
+    {faixa_logos}
   </div>
 </div>
 <script>{_JS}</script>
