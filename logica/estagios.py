@@ -385,6 +385,10 @@ def _perfil_chuva(ind: IndicadoresNumericos) -> dict:
         "alerta_ativo": ativo, "alerta_caminho": caminho,
         "alerta_motivo": motivo,
         "obs_txt": _obs_txt(), "prev_txt": " · ".join(_prev_linhas()),
+        # A lista crua serve a quem precisa remover um item específico antes
+        # de montar o texto — hoje, o aviso do INMET na MOBILIZAÇÃO, que já
+        # aparece como fator próprio e vinha repetido aqui dentro.
+        "prev_linhas": _prev_linhas(),
     }
 
 
@@ -605,8 +609,14 @@ def _avaliar_regras(
           or reg["n_total"] >= 1)
     if b1:
         fatores = []
-        if chuva["prev_continua"]:
-            fatores.append(f"previsão de chuvas mais intensas ({chuva['prev_txt']})")
+        # O aviso do INMET tem fator próprio logo abaixo. Se ele também
+        # ficasse na lista da previsão, a mesma informação apareceria duas
+        # vezes no mesmo bloco — uma como item, outra como subitem.
+        prev_itens = [l for l in chuva.get("prev_linhas", [])
+                      if not l.lower().startswith("aviso do inmet")]
+        if chuva["prev_continua"] and prev_itens:
+            fatores.append("previsão de chuvas mais intensas ("
+                           + " · ".join(prev_itens) + ")")
         if chuva["ja_muito"]:
             fatores.append(f"chuva forte já registrada ({chuva['obs_txt']})")
         if ind.inmet_max_severidade:
