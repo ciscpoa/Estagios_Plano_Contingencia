@@ -100,7 +100,11 @@ ESTACOES_ANA = {
     "Rio_Cai":                    "87170000",    # Barca do Caí (SACE)
     "Rio_Cai_Montenegro":         "87270000",    # Passo Montenegro (SACE)
     "Rio_Cai_NovaPalmira":        "87160000",    # Nova Palmira (SACE)
-    "Rio_Jacui_Triunfo":          "85900000",    # Jacuí — RIO PARDO (convencional)
+    # ═══ Jacuí — DUAS telemétricas, achadas no inventário em 04/08/2026 ═══
+    # A 85900000 (Rio Pardo) saiu: é régua de observador, 2 leituras/dia
+    # publicadas com ~1 dia de atraso — não serve de gatilho operacional.
+    "Rio_Jacui_Triunfo":          "87010000",    # Triunfo — última antes do Delta
+    "Rio_Jacui_CachoeiraDoSul":   "85642000",    # Passo São Lourenço — a montante
     # ═══ Taquari — telemétricas de 15 min, confirmadas na API em 04/08/2026 ═══
     # Códigos conferidos no BOLETIM DO SAH RIO TAQUARI (SGB, 30/07/2026):
     #   86510000 = MUÇUM  ·  86720000 = ENCANTADO  (não o contrário!)
@@ -115,8 +119,9 @@ ESTACOES_ANA = {
 # chegada ao Guaíba. Os valores abaixo são OPERACIONAIS/PROVISÓRIOS: devem ser
 # recalibrados com séries históricas e medições de velocidade/vazão.
 #
-# A estação 85900000 fica em Rio Pardo (não em Triunfo); por isso o tempo do
-# Jacuí é especialmente incerto e sua identificação permanece explícita.
+# O Jacuí agora entra por Triunfo (última régua antes do Delta, ~12 h) e por
+# Cachoeira do Sul (a montante, ~48 h). A antiga 85900000, em Rio Pardo, saiu:
+# era régua de observador, com 2 leituras por dia e ~1 dia de atraso.
 AFLUENTES_GUAIBA = {
     "Rio_Gravatai": {
         "rotulo": "Gravataí",
@@ -137,9 +142,15 @@ AFLUENTES_GUAIBA = {
         "provisorio": True,
     },
     "Rio_Jacui_Triunfo": {
-        "rotulo": "Jacuí (Rio Pardo)",
-        "tempo_viagem_h": 72,
-        "faixa_lag_h": (24, 120),
+        "rotulo": "Jacuí (Triunfo)",
+        "tempo_viagem_h": 12,
+        "faixa_lag_h": (3, 36),
+        "provisorio": True,
+    },
+    "Rio_Jacui_CachoeiraDoSul": {
+        "rotulo": "Jacuí (Cachoeira do Sul)",
+        "tempo_viagem_h": 48,
+        "faixa_lag_h": (24, 96),
         "provisorio": True,
     },
     # O Taquari desemboca no Jacuí em Triunfo, logo acima do Delta: é o
@@ -212,17 +223,17 @@ COTAS_AFLUENTES = {
     # ═══ Gravataí (Passo das Canoas) — ANA/estação, via Defesa Civil ═══
     # Cota de ATENÇÃO não localizada em fonte oficial → None (não inventar).
     "Rio_Gravatai":       {"atencao": None, "alerta": 4.25, "inundacao": 4.75},
-    # ═══ Jacuí — o código 85900000 é a estação RIO PARDO, NÃO Triunfo ═══
-    # (fonte: SGB, relatório da inundação de maio/2024). O próprio SAH Guaíba
-    # do SGB usa RIO PARDO como estação de referência do Jacuí nos boletins de
-    # 23/07/2026 e 26/07/2026 — ou seja, a estação está certa; o que faltava
-    # era a cota da RÉGUA DELA.
-    # Cota de inundação em Rio Pardo = 12,50 m (Defesa Civil de Rio Pardo,
-    # citada na Gazeta do Sul em 24/07/2026; mesma cota usada pelos painéis
-    # que leem a 85900000). Pico histórico: 20,04 m em 05/05/2024.
-    # Atenção e alerta ainda NÃO localizadas em fonte oficial → None.
-    # CONFIRMAR as três com o SAH Guaíba (alerta.guaiba@sgb.gov.br).
-    "Rio_Jacui_Triunfo":  {"atencao": None, "alerta": None, "inundacao": 12.50},
+    # ═══ Jacuí ═══
+    # Triunfo: 4,67 m é a cota de inundação usada pela Defesa Civil de
+    # Triunfo (imprensa local, 23/07/2026, com o rio em 4,65 m). Bate com a
+    # série da 87010000, que foi a 6,28 m na cheia de julho.
+    "Rio_Jacui_Triunfo":  {"atencao": None, "alerta": None, "inundacao": 4.67},
+    # Cachoeira do Sul (Passo São Lourenço): 9,00 m, confirmada duas vezes na
+    # cheia de julho/2026 ("9,52 m, 52 cm acima da cota"). Série bate: 10,13 m
+    # de máxima em 30 dias.
+    "Rio_Jacui_CachoeiraDoSul": {"atencao": None, "alerta": None, "inundacao": 9.00},
+    # Atenção/alerta das duas NÃO localizadas em fonte oficial → None.
+    # CONFIRMAR com o SAH Guaíba (alerta.guaiba@sgb.gov.br).
     # ═══ Taquari — SGB/SAH Rio Taquari, boletim de 30/07/2026 ═══
     # (valores lidos nos gráficos do boletim, em cm → m)
     "Rio_Taquari_Mucum":     {"atencao": 5.00, "alerta": 9.00, "inundacao": 18.00},
@@ -257,8 +268,11 @@ INFO_RIOS_CARDS = [
      "municipio": "Caxias do Sul", "estacao": "Nova Palmira · 87160000",
      "cota_inundacao": 4.70},          # SGB/CPRM — SAH Rio Caí
     {"chave": "Rio_Jacui_Triunfo", "rotulo": "Rio Jacuí",
-     "municipio": "Rio Pardo", "estacao": "ANA 85900000",
-     "cota_inundacao": 12.50},         # Defesa Civil de Rio Pardo
+     "municipio": "Triunfo", "estacao": "ANA 87010000",
+     "cota_inundacao": 4.67},          # Defesa Civil de Triunfo
+    {"chave": "Rio_Jacui_CachoeiraDoSul", "rotulo": "Rio Jacuí",
+     "municipio": "Cachoeira do Sul", "estacao": "Passo São Lourenço · 85642000",
+     "cota_inundacao": 9.00},          # Defesa Civil / SGB
     {"chave": "Rio_Taquari_Mucum", "rotulo": "Rio Taquari",
      "municipio": "Muçum", "estacao": "ANA 86510000",
      "cota_inundacao": 18.00},         # SGB/SAH Rio Taquari
@@ -475,8 +489,9 @@ NOMES_EXIBICAO = {
     "Rio_Cai":                     "Caí (Barca do Caí)",
     "Rio_Cai_Montenegro":          "Caí (Montenegro)",
     "Rio_Cai_NovaPalmira":         "Caí (Nova Palmira)",
-    "Rio_Jacui_Triunfo":           "Jacuí (Rio Pardo)",
-    "Rio_Jacui_TriunfoAmarop":     "Jacuí (Rio Pardo)",
+    "Rio_Jacui_Triunfo":           "Jacuí (Triunfo)",
+    "Rio_Jacui_CachoeiraDoSul":    "Jacuí (Cachoeira do Sul)",
+    "Rio_Jacui_TriunfoAmarop":     "Jacuí (Triunfo)",
     "Rio_Taquari_Mucum":           "Taquari (Muçum)",
     "Rio_Taquari_Taquari":         "Taquari (Taquari)",
 }
@@ -572,11 +587,12 @@ def cotas_do_card(chave: str) -> dict:
 #    ONDE se aplica: só nas estações listadas em "estacoes". O filtro parte
 #    do princípio de que a leitura boa é a MAIORIA da janela — verdadeiro no
 #    Cais Mauá, que transmite de 15 em 15 min e falha em pontos isolados.
-#    NÃO vale para a 85900000 (Rio Pardo/"Jacuí"), que alterna entre duas
-#    escalas (~0,38 m e ~9,8 m) por horas seguidas: ali a leitura boa fica em
-#    minoria e o filtro apagaria justamente a certa. Aquela estação precisa de
-#    outro tratamento (identificar o sensor correto na resposta da ANA), não
-#    deste. Lista vazia (ou None) = aplica em todas.
+#    NÃO valia para a antiga 85900000 (Rio Pardo), que alternava entre duas
+#    escalas (~0,38 m e ~9,8 m) por horas seguidas: ali a leitura boa ficava
+#    em minoria e o filtro apagaria justamente a certa. Aquela estação saiu do
+#    painel, mas a lição fica para qualquer régua nova: antes de ligar o
+#    filtro numa estação, confira se a leitura boa é a maioria da janela.
+#    Lista vazia (ou None) = aplica em todas.
 # ──────────────────────────────────────────────────────────────────────────
 FILTRO_PICOS_ANA = {
     "ativo": True,
@@ -592,24 +608,23 @@ FILTRO_PICOS_ANA = {
 # ──────────────────────────────────────────────────────────────────────────
 # 10. PERFIL DE CADA ESTAÇÃO DA ANA (cadência, frescor e faixa plausível)
 #
-#    Nem toda estação do HidroWebService é telemétrica de verdade. Conferido
-#    em 04/08/2026, direto na API (30 dias, estação 85900000):
+#    Nem toda estação do HidroWebService é telemétrica de verdade — e o nome
+#    não diz qual é qual. O teste, feito no inventário do RS em 04/08/2026,
+#    é a CADÊNCIA REAL entre medições e o preenchimento de Cota_Sensor:
 #
-#      · Cota_Sensor e Cota_Display vêm SEMPRE vazias;
-#      · Cota_Adotada é idêntica a Cota_Manual em 100% dos registros;
-#      · há 2 leituras por dia — 07:00 e 17:00 (intervalos de 10 h e 14 h);
-#      · Data_Atualizacao 30/07 14:20 para a medição de 29/07 17:00, ou seja,
-#        ~21 h de atraso entre medir e publicar.
+#      · telemétrica → 15 a 45 min entre leituras, Cota_Sensor preenchida;
+#      · convencional → 720 a 840 min (07h e 17h), Cota_Sensor sempre vazia,
+#        Cota_Adotada idêntica a Cota_Manual, publicação ~1 dia depois.
 #
-#    Isto é uma estação CONVENCIONAL (observador lê a régua duas vezes por
-#    dia), não telemétrica. O card do "Jacuí" mostrava 10,89 m sem dizer que
-#    o número tinha 30 h de idade. Daí `idade_max_h`: acima disso o painel
-#    marca a leitura como antiga em vez de exibi-la como se fosse de agora.
+#    Foi assim que a 85900000 (Rio Pardo) e a 87020000 (São Jerônimo) foram
+#    identificadas como convencionais e trocadas por telemétricas. Daí
+#    `idade_max_h`: acima disso o painel marca a leitura como antiga em vez
+#    de exibi-la como se fosse de agora.
 #
 #    `faixa_m` é a faixa fisicamente possível NA RÉGUA DAQUELA ESTAÇÃO (cada
 #    uma tem seu referencial). Serve contra a publicação transitória de lixo:
 #    em 29–30/07 a ANA publicou, de 15 em 15 min, leituras de 0,00–0,40 m na
-#    85900000 enquanto o rio estava em 9,8 m; depois ela mesma corrigiu a
+#    antiga 85900000 enquanto o rio estava em 9,8 m; depois ela mesma corrigiu a
 #    série (por isso a consulta de hoje não traz mais esses valores). O filtro
 #    de Hampel não pega esse caso — o lixo era MAIORIA. A faixa pega.
 #    Leitura fora da faixa vira vazio (buraco honesto), não some da série.
@@ -630,12 +645,13 @@ PERFIL_ESTACOES_ANA = {
         "faixa_m": (0.00, 15.00), "idade_max_h": 6, "cadencia": "telemétrica"},
     "Rio_Cai_NovaPalmira": {
         "faixa_m": (0.00, 12.00), "idade_max_h": 6, "cadencia": "telemétrica"},
-    # Piso 1,50 m: em 371 dias de série a leitura de régua nunca ficou abaixo
-    # de 2,00 m, e o lixo do sensor se concentra entre 0,00 e 0,40 m.
-    # CONFERIR o mínimo histórico com o SGB antes de tratar como definitivo.
+    # Jacuí telemétrico: Triunfo transmite de 45 em 45 min; Cachoeira do Sul,
+    # de 15 em 15. Tetos folgados acima das máximas de julho/2026 (6,28 m e
+    # 10,13 m) — se uma cheia real passar do teto, é o teto que está errado.
     "Rio_Jacui_Triunfo": {
-        "faixa_m": (1.50, 25.00), "idade_max_h": 30, "cadencia": "convencional",
-        "nota": "leitura de régua às 07h e 17h, publicada com ~1 dia de atraso"},
+        "faixa_m": (0.00, 12.00), "idade_max_h": 6, "cadencia": "telemétrica"},
+    "Rio_Jacui_CachoeiraDoSul": {
+        "faixa_m": (0.00, 20.00), "idade_max_h": 6, "cadencia": "telemétrica"},
     # Taquari: 15 min de cadência e ~3 h de idade na conferência de 04/08/2026.
     # Tetos acima da maior cheia registrada em cada régua (26,11 m em Muçum,
     # 16,99 m em Taquari), segundo o boletim do SGB.
