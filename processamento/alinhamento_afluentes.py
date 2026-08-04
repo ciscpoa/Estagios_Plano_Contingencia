@@ -88,6 +88,20 @@ def atualizar_historico(rios_recentes: dict[str, pd.DataFrame],
     }
 
 
+def _recorte_recente(df: pd.DataFrame | None,
+                     dias: int = 8) -> pd.DataFrame | None:
+    """Últimos `dias` de uma série do histórico, no formato da coleta."""
+    if df is None or df.empty or not {"datahora", "nivel_m"}.issubset(df.columns):
+        return None
+    recorte = df.loc[:, ["datahora", "nivel_m"]].copy()
+    recorte["datahora"] = pd.to_datetime(recorte["datahora"], errors="coerce")
+    recorte = recorte.dropna(subset=["datahora"])
+    if recorte.empty:
+        return None
+    corte = recorte["datahora"].max() - pd.Timedelta(days=dias)
+    return recorte[recorte["datahora"] >= corte].reset_index(drop=True)
+
+
 def _serie_horaria(df: pd.DataFrame, limite_gap_h: int) -> pd.Series:
     """Converte uma série ANA irregular em mediana horária, sem preencher
     lacunas longas."""
@@ -409,9 +423,17 @@ def preparar_series_afluentes(rios: dict[str, pd.DataFrame],
     meta = {"metodo": "ridge_hibrido_lags_fisicos", "experimental": True,
             "afluentes": {}}
 
+    faltantes = []
     for nome, cfg in configurados.items():
         df = rios.get(nome)
         if df is None or df.empty:
+            # A coleta desta rodada não trouxe a estação. Em vez de abrir um
+            # buraco no gráfico — foi o que aconteceu com o Caí quando a
+            # estação de referência do rio mudou — recorremos ao histórico
+            # já persistido, que cobre os mesmos dias.
+            df = _recorte_recente(base_modelo.get(nome))
+        if df is None or df.empty:
+            faltantes.append(nome)
             continue
 
         # Mantém os registros brutos para as quatro curvas observadas.
@@ -427,6 +449,11 @@ def preparar_series_afluentes(rios: dict[str, pd.DataFrame],
         horaria = _serie_horaria(df_modelo, limite)
         horarias_modelo[nome] = horaria
         horarias_recentes[nome] = _serie_horaria(df, limite)
+
+    if faltantes:
+        print("[AFLUENTES] Sem série nesta rodada (nem na coleta, nem no "
+              f"histórico): {', '.join(faltantes)} — o gráfico sai sem essas "
+              "linhas até a próxima coleta boa.")
 
     guaiba = _serie_horaria(base_modelo.get(CHAVE_GUAIBA), limite)
     # Os atrasos não são escolhidos por correlação simples. Essa calibração
