@@ -3,8 +3,13 @@
 # Preenchido pela Defesa Civil/SMS quando o evento é CONFIRMADO.
 #
 # Como usar: troque 'nao' por 'ok' no gatilho confirmado e rode
-# a atualização (célula 4 ou botão do dashboard). O estágio sobe,
-# no mínimo, até a coluna do Plano onde o gatilho aparece.
+# a atualização (célula 4 ou botão do dashboard).
+#
+# O gatilho NÃO define o estágio sozinho: ele entra como UMA das
+# alternativas do bloco em que o Plano o escreve, e esse bloco é
+# ligado por E aos blocos de chuva e de nível dos rios. Se os
+# outros blocos não fecham, o estágio não sobe — e volta a descer
+# sozinho quando o evento passa.
 # ============================================================
 
 # ── Coluna ALERTA ──────────────────────────────────
@@ -12,7 +17,7 @@
 familias_deixando_casas = nao
 
 # Aumento na demanda por abrigo
-aumento_demanda_abrigo = ok
+aumento_demanda_abrigo = nao
 
 # Abrigos temporários instalados
 abrigos_temporarios_instalados = nao

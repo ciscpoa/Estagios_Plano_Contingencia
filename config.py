@@ -375,10 +375,19 @@ REGIOES_POACLIMA = {
 GATILHOS_TXT = Path(os.environ.get(
     "GATILHOS_TXT", BASE_DIR / "gatilhos_manuais.txt"))
 
-# Regra de PISO: gatilho confirmado eleva o estágio, no mínimo, até a
-# coluna do Plano (item 5.1) onde o gatilho aparece. Desative com False
-# para voltar ao modo estritamente E/OU.
-PISO_POR_GATILHO_MANUAL = True
+# Regra de PISO (DESATIVADA): antes, um gatilho confirmado em campo elevava
+# o estágio até a coluna do Plano onde o gatilho aparece, MESMO com os blocos
+# E/OU daquela coluna abertos. Isso quebrava a leitura do Plano: no item 5.1
+# cada coluna é uma conjunção de blocos ligados por E, e o gatilho de campo é
+# apenas UMA das alternativas DENTRO de um desses blocos — nunca a coluna
+# inteira. Um único gatilho marcado deixava o painel travado em ALERTA com
+# céu limpo e rios baixos, e ele só descia quando alguém lembrava de voltar o
+# txt para "nao".
+#
+# Com False, os gatilhos continuam entrando normalmente nas regras (são o
+# bloco 3 do ALERTA, os blocos 2/3/4 da EMERGÊNCIA e os 2/3/4/5 da CRISE) —
+# só perderam o poder de decidir o estágio sozinhos.
+PISO_POR_GATILHO_MANUAL = False
 
 ROTULOS_GATILHOS = {
     # coluna ALERTA
