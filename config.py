@@ -203,6 +203,13 @@ COTA_INUNDACAO_GASOMETRO = 2.60
 
 # Cotas de referência dos afluentes (m). None = sem referência cadastrada,
 # nesse caso a lógica usa apenas a TENDÊNCIA de subida.
+#
+# A chave opcional "estimadas" lista quais das três cotas NÃO vieram de
+# fonte oficial. Ela não muda a matemática — a régua funciona igual —, mas
+# o painel escreve "(estimada)" ao lado da cota na justificativa, para que
+# quem decide saiba distinguir o número publicado pela Defesa Civil do
+# número que o CISC arbitrou. Toda cota estimada precisa ter, no comentário
+# acima da linha, o critério que a produziu.
 COTAS_AFLUENTES = {
     # ═══ VERIFICADAS — SGB/CPRM, Boletim do SAH Rio Caí ═══
     "Rio_Cai":            {"atencao": 5.00, "alerta": 7.00, "inundacao": 10.50},
@@ -212,19 +219,35 @@ COTAS_AFLUENTES = {
     # (inundação 4,50 m confirmada; 4,30 m = risco de transbordamento)
     "Rio_dos_Sinos_SaoLeopoldo": {"atencao": 3.50, "alerta": 4.30, "inundacao": 4.50},
     # ═══ Gravataí (Passo das Canoas) — ANA/estação, via Defesa Civil ═══
-    # Cota de ATENÇÃO não localizada em fonte oficial → None (não inventar).
-    "Rio_Gravatai":       {"atencao": None, "alerta": 4.25, "inundacao": 4.75},
+    # ALERTA 4,25 m e INUNDAÇÃO 4,75 m são OFICIAIS: são as cotas que as
+    # Defesas Civis de Gravataí e de Cachoeirinha citam nos boletins da
+    # estação hidrometeorológica da ANA no Passo das Canoas (boletins de
+    # 25/07, 27/07 e 31/07/2026 — "4,57 m, acima da cota de alerta de
+    # 4,25 m, abaixo da cota de inundação de 4,75 m").
+    # ATENÇÃO 3,75 m é ESTIMATIVA DO CISC (ver "estimadas" abaixo): não há
+    # cota de atenção publicada para esta régua. Critério: repetir para
+    # baixo o mesmo degrau que a própria régua usa entre alerta e inundação
+    # (0,50 m). Fica conservador — dispara antes — e não inventa um número
+    # fora da escala da estação.
+    "Rio_Gravatai":       {"atencao": 3.75, "alerta": 4.25, "inundacao": 4.75,
+                           "estimadas": ["atencao"]},
     # ═══ Jacuí ═══
     # Triunfo: 4,67 m é a cota de inundação usada pela Defesa Civil de
     # Triunfo (imprensa local, 23/07/2026, com o rio em 4,65 m). Bate com a
     # série da 87010000, que foi a 6,28 m na cheia de julho.
-    "Rio_Jacui_Triunfo":  {"atencao": None, "alerta": None, "inundacao": 4.67},
-    # Cachoeira do Sul (Passo São Lourenço): 9,00 m, confirmada duas vezes na
-    # cheia de julho/2026 ("9,52 m, 52 cm acima da cota"). Série bate: 10,13 m
-    # de máxima em 30 dias.
-    "Rio_Jacui_CachoeiraDoSul": {"atencao": None, "alerta": None, "inundacao": 9.00},
-    # Atenção/alerta das duas NÃO localizadas em fonte oficial → None.
-    # CONFIRMAR com o SAH Guaíba (alerta.guaiba@sgb.gov.br).
+    # ATENÇÃO e ALERTA são ESTIMATIVAS DO CISC. Critério: aplicar a esta
+    # régua a MESMA proporção da régua oficial do Passo São Lourenço, a
+    # outra estação do Jacuí (atenção = 78% e alerta = 89% da cota de
+    # inundação) → 0,78 × 4,67 = 3,64 e 0,89 × 4,67 = 4,15.
+    "Rio_Jacui_Triunfo":  {"atencao": 3.65, "alerta": 4.15, "inundacao": 4.67,
+                           "estimadas": ["atencao", "alerta"]},
+    # Cachoeira do Sul (Passo São Lourenço): as TRÊS cotas são OFICIAIS,
+    # informadas em 05/08/2026 pela referência da estação (700 / 800 / 900
+    # cm → 7,00 / 8,00 / 9,00 m). A de inundação já era usada aqui e está
+    # confirmada duas vezes na cheia de julho/2026 ("9,52 m, 52 cm acima da
+    # cota"); a série bate, com máxima de 10,13 m em 30 dias.
+    "Rio_Jacui_CachoeiraDoSul": {"atencao": 7.00, "alerta": 8.00,
+                                 "inundacao": 9.00},
     # ═══ Taquari — SGB/SAH Rio Taquari, boletim de 30/07/2026 ═══
     # (valores lidos nos gráficos do boletim, em cm → m)
     "Rio_Taquari_Mucum":     {"atencao": 5.00, "alerta": 9.00, "inundacao": 18.00},
