@@ -28,6 +28,11 @@ from dashboard import acoes_estagio
 # ──────────────────────────────────────────────────────────────────────────
 _RAIZ = Path(__file__).resolve().parent.parent
 
+# Formulário público de notificação de eventos (Google Forms). O painel só
+# enxerga sensores e alertas oficiais; ocorrência vista em campo entra por
+# aqui. Trocar de formulário = trocar só esta linha.
+URL_FORMULARIO_NOTIFICACAO = "https://forms.gle/JkbL2fiCBmFdeyPC7"
+
 
 def _ativo_b64(nome: str, mime: str) -> str:
     """
@@ -549,6 +554,14 @@ def _bloco_regioes(snapshot: dict) -> str:
       <div class="sub">Status capturado dos marcadores do mapa oficial ·
         cinza = {"região sem alerta vigente" if poaclima_ok
                  else "Poaclima não respondeu nesta coleta"}</div>
+      <div class="acao-notificar">
+        <a class="btn-notificar" href="{URL_FORMULARIO_NOTIFICACAO}"
+           target="_blank" rel="noopener">NOTIFICAR SMS/DC</a>
+        <span class="dica-notificar">Registre aqui um evento observado em
+          campo (alagamento, deslizamento, descarga elétrica, vendaval…).
+          O painel monitora sensores; o que só a equipe vê precisa ser
+          notificado.</span>
+      </div>
       <div class="regioes">{html_linhas}</div>
     </section>"""
 
@@ -1440,6 +1453,25 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .titulo-secao{margin:24px 0 2px;font-size:1.18rem;
       font-family:"Barlow Condensed",sans-serif;font-weight:700;
       letter-spacing:.04em;text-transform:uppercase}
+/* ── Botão de notificação de evento ────────────────────────────────
+   Fica junto do risco por região porque é ali que o operador compara o
+   que o painel mostra com o que ele viu na rua. Cor própria (não é uma
+   das cinco cores de estágio) para não ser confundido com classificação. */
+.acao-notificar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  margin:10px 0 14px}
+.btn-notificar{display:inline-flex;align-items:center;gap:8px;
+  padding:9px 18px;border-radius:999px;text-decoration:none;
+  background:#1D4E89;color:#fff;border:1.5px solid #14375F;
+  font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:1rem;letter-spacing:.06em;text-transform:uppercase;
+  box-shadow:0 2px 8px var(--sombra);transition:filter .15s,transform .15s}
+.btn-notificar::before{content:"⚑";font-size:1.05em;letter-spacing:0}
+.btn-notificar:hover{filter:brightness(1.14);transform:translateY(-1px)}
+.btn-notificar:focus-visible{outline:3px solid #8FB8E8;outline-offset:2px}
+.dica-notificar{color:var(--txt2);font-size:.82rem;max-width:520px;
+  line-height:1.4}
+@media(max-width:560px){.acao-notificar{flex-direction:column;
+  align-items:flex-start}.btn-notificar{width:100%;justify-content:center}}
 .regioes{margin-bottom:22px}
 .linha-regioes{display:flex;gap:8px;justify-content:center;margin-bottom:8px}
 .linha-regioes .tile{flex:0 0 calc(12.5% - 8px);min-width:0}
@@ -1536,9 +1568,15 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
   border:2px solid;font-family:"Barlow Condensed",sans-serif;font-weight:800;
   font-size:1.25rem;letter-spacing:.06em}
 /* 'OU' dentro do motivo de um bloco: é operador da regra, não palavra da
-   frase — por isso recebe caixa alta, peso e um leve respiro em volta. */
-.ou{font-weight:800;font-size:.92em;letter-spacing:.06em;opacity:.95;
-    padding:0 2px;white-space:nowrap}
+   frase. Ganha um anel em volta — o mesmo desenho do conector 'E' entre os
+   blocos — para que a leitura da regra seja imediata: onde há anel, basta
+   UMA das condições; onde há 'E', todas precisam valer. O currentColor
+   garante contraste tanto no bloco ativo (tinta escura sobre pastel)
+   quanto no inativo (tinta clara sobre fundo escuro). */
+.ou{display:inline-block;font-weight:800;font-size:.8em;letter-spacing:.08em;
+    line-height:1.35;padding:0 7px;margin:0 3px;white-space:nowrap;
+    border:1.6px solid currentColor;border-radius:999px;opacity:1;
+    vertical-align:baseline}
 .nota-arvore{font-size:.82rem;color:var(--txt2);margin-top:6px}
 .cartao-chuva{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:16px 20px;margin:10px 0;display:flex;
@@ -1751,6 +1789,11 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
   .card .est{min-height:0;font-size:.7rem}
   .card .valor{font-size:1.28rem}
   .card .pct{font-size:.68rem;line-height:1.3}
+
+  /* Botão só faz sentido em tela: no papel vira retângulo azul inerte.
+     O anel do 'OU', ao contrário, é informação da regra e vai junto. */
+  .acao-notificar{display:none !important}
+  .ou{border-width:.9pt;padding:0 5px;margin:0 2px;font-size:.78em}
 
   /* ── REFORÇOS PARA O PRETO E BRANCO ─────────────────────────────
      O selo é a informação em palavra; a trama, a mesma informação em
