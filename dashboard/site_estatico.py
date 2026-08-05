@@ -556,11 +556,9 @@ def _bloco_regioes(snapshot: dict) -> str:
                  else "Poaclima não respondeu nesta coleta"}</div>
       <div class="acao-notificar">
         <a class="btn-notificar" href="{URL_FORMULARIO_NOTIFICACAO}"
-           target="_blank" rel="noopener">NOTIFICAR SMS/DC</a>
-        <span class="dica-notificar">Registre aqui um evento observado em
-          campo (alagamento, deslizamento, descarga elétrica, vendaval…).
-          O painel monitora sensores; o que só a equipe vê precisa ser
-          notificado.</span>
+           target="_blank" rel="noopener">Notificar SMS/DC</a>
+        <span class="dica-notificar">Viu em campo o que o painel não vê?
+          Registre a ocorrência.</span>
       </div>
       <div class="regioes">{html_linhas}</div>
     </section>"""
@@ -1455,23 +1453,28 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
       letter-spacing:.04em;text-transform:uppercase}
 /* ── Botão de notificação de evento ────────────────────────────────
    Fica junto do risco por região porque é ali que o operador compara o
-   que o painel mostra com o que ele viu na rua. Cor própria (não é uma
-   das cinco cores de estágio) para não ser confundido com classificação. */
-.acao-notificar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-  margin:10px 0 14px}
-.btn-notificar{display:inline-flex;align-items:center;gap:8px;
-  padding:9px 18px;border-radius:999px;text-decoration:none;
-  background:#1D4E89;color:#fff;border:1.5px solid #14375F;
+   que o painel mostra com o que ele viu na rua. Segue o eixo central do
+   título e o raio de canto dos tiles — pílula solta à esquerda brigava
+   com a grade. Azul próprio: nenhuma das cinco cores de estágio, para
+   não ser lido como classificação. */
+.acao-notificar{display:flex;flex-direction:column;align-items:center;
+  gap:7px;margin:14px 0 18px}
+.btn-notificar{display:inline-flex;align-items:center;gap:9px;
+  padding:10px 24px;border-radius:10px;text-decoration:none;
+  background:#1D4E89;color:#fff;border:1px solid rgba(255,255,255,.16);
   font-family:"Barlow Condensed",sans-serif;font-weight:700;
-  font-size:1rem;letter-spacing:.06em;text-transform:uppercase;
-  box-shadow:0 2px 8px var(--sombra);transition:filter .15s,transform .15s}
-.btn-notificar::before{content:"⚑";font-size:1.05em;letter-spacing:0}
-.btn-notificar:hover{filter:brightness(1.14);transform:translateY(-1px)}
-.btn-notificar:focus-visible{outline:3px solid #8FB8E8;outline-offset:2px}
-.dica-notificar{color:var(--txt2);font-size:.82rem;max-width:520px;
-  line-height:1.4}
-@media(max-width:560px){.acao-notificar{flex-direction:column;
-  align-items:flex-start}.btn-notificar{width:100%;justify-content:center}}
+  font-size:1.02rem;letter-spacing:.07em;text-transform:uppercase;
+  line-height:1.2;box-shadow:0 3px 12px rgba(16,42,74,.38);
+  transition:background .15s,box-shadow .15s,transform .15s}
+.btn-notificar::before{content:"⚑";font-size:1.1em;letter-spacing:0;
+  opacity:.85}
+.btn-notificar:hover{background:#22609F;transform:translateY(-1px);
+  box-shadow:0 5px 16px rgba(16,42,74,.46)}
+.btn-notificar:active{transform:translateY(0)}
+.btn-notificar:focus-visible{outline:3px solid #8FB8E8;outline-offset:3px}
+.dica-notificar{color:var(--txt2);font-size:.78rem;text-align:center;
+  max-width:460px;line-height:1.4}
+@media(max-width:560px){.btn-notificar{width:100%;justify-content:center}}
 .regioes{margin-bottom:22px}
 .linha-regioes{display:flex;gap:8px;justify-content:center;margin-bottom:8px}
 .linha-regioes .tile{flex:0 0 calc(12.5% - 8px);min-width:0}
