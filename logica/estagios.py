@@ -184,10 +184,19 @@ def _refs_riacho() -> dict:
             "inundacao": getattr(config, "COTA_INUNDACAO_RIACHO_IPIRANGA", None)}
 
 
-def _frase_cota(rotulo: str, nivel: float, atingida: tuple[str, float]) -> str:
-    """'Gravataí 4,68 m (≥ alerta 4,25 m)' — sempre dizendo QUAL cota é."""
+def _frase_cota(rotulo: str, nivel: float, atingida: tuple[str, float],
+                refs: dict | None = None) -> str:
+    """
+    'Gravataí 4,68 m (≥ alerta 4,25 m)' — sempre dizendo QUAL cota é.
+
+    Quando a cota atingida está marcada como estimada no `config`, a frase
+    diz isso na cara: num painel de proteção civil, número arbitrado pelo
+    CISC e número publicado pela Defesa Civil não podem sair iguais.
+    """
     chave, ref = atingida
-    return f"{rotulo} {nivel:.2f} m (≥ {ROTULO_COTA[chave]} {ref:.2f} m)"
+    estimadas = (refs or {}).get("estimadas") or ()
+    marca = ", estimada" if chave in estimadas else ""
+    return f"{rotulo} {nivel:.2f} m (≥ {ROTULO_COTA[chave]} {ref:.2f} m{marca})"
 
 
 def _rios_em_cota(ind: IndicadoresNumericos, nivel_guaiba: float | None,
@@ -206,7 +215,28 @@ def _rios_em_cota(ind: IndicadoresNumericos, nivel_guaiba: float | None,
     for rotulo, refs, nivel in pares:
         atingida = _cota_atingida(refs, nivel)
         if atingida and ORDEM_COTAS.index(atingida[0]) >= piso:
-            frases.append(_frase_cota(rotulo, nivel, atingida))
+            frases.append(_frase_cota(rotulo, nivel, atingida, refs))
+    return frases
+
+
+def _rios_subindo(ind: IndicadoresNumericos,
+                  tend_guaiba: float | None = None) -> list[str]:
+    """
+    TODAS as réguas com tendência de subida relevante, nomeadas.
+
+    O bloco do Plano diz "rios em cota de atenção OU em elevação": até aqui
+    o painel provava a primeira metade com a lista dos rios e a segunda com
+    um número solto (+0,12 m/48h), sem dizer de quem era. Quem lê precisa
+    saber QUAIS rios sustentam cada perna do OU.
+    """
+    limiar = config.TENDENCIA_SUBIDA_RELEVANTE_M
+    frases = []
+    if tend_guaiba is not None and tend_guaiba >= limiar:
+        frases.append(f"Guaíba +{tend_guaiba:.2f} m/48h")
+    for nome, dados in ind.afluentes.items():
+        t = dados.get("tendencia_48h_m")
+        if t is not None and t >= limiar:
+            frases.append(f"{_nome(nome)} +{t:.2f} m/48h")
     return frases
 
 
@@ -561,27 +591,32 @@ def _avaliar_regras(
     cond_corregos, motivo_corregos = _corregos_subindo(ind)
     cond_regional = reg["n_inundacao_risco_elevado"] >= 1
     b2 = cond_guaiba or cond_afl or cond_corregos or cond_regional
+    # Mesma correção do bloco 2 da MOBILIZAÇÃO: todas as pernas ativas do OU
+    # são escritas, com a lista completa dos rios e regiões de cada uma.
+    partes_b2 = []
     if cond_guaiba:
-        motivos.append(f"Guaíba em Cota de Alerta de Inundação "
-                       f"({nivel:.2f} m ≥ {config.COTA_ALERTA_GUAIBA} m)")
-    elif cond_afl:
-        quais_afl = _rios_em_cota(ind, None, "alerta")
-        motivos.append("Afluente em cota de alerta, com tendência de alta nas "
-                       "próximas 48h\n" + _lista(quais_afl))
-    elif cond_corregos and motivo_corregos:
-        motivos.append(motivo_corregos)
-    elif cond_regional:
-        motivos.append(
-            f"Defesa Civil (Poaclima) com alerta de risco elevado de Inundação em "
-            f"{reg['n_inundacao_risco_elevado']} região(ões): "
-            f"{', '.join(reg['regioes_inundacao'][:5])}")
+        partes_b2.append(f"Guaíba em Cota de Alerta de Inundação "
+                         f"({nivel:.2f} m ≥ {config.COTA_ALERTA_GUAIBA} m)")
+    if cond_afl:
+        partes_b2.append("Afluente(s) em cota de alerta, com tendência de alta "
+                         "nas próximas 48h: "
+                         + "; ".join(_rios_em_cota(ind, None, "alerta")))
+    if cond_corregos and motivo_corregos:
+        partes_b2.append(motivo_corregos)
+    if cond_regional:
+        partes_b2.append(
+            f"Defesa Civil (Poaclima) com alerta de risco elevado de Inundação "
+            f"em {reg['n_inundacao_risco_elevado']} região(ões): "
+            + "; ".join(reg["regioes_inundacao"]))
+    if partes_b2:
+        motivos.append("\n".join(partes_b2))
     # Bloco 3 (E): famílias/abrigos/vias/saúde (OU entre eles) — proxy: b1 E b2 fortes
     b3 = (infra.familias_deixando_casas or infra.aumento_demanda_abrigo
           or infra.abrigos_temporarios_instalados or infra.bloqueio_vias_principais
           or infra.aumento_demanda_saude_clima
           or (not modo_estrito and b1 and b2))
     disparou_alerta = b1 and b2 and b3
-    motivo_b2 = next((m for m in motivos if m is not motivo_b1), "") if b2 else \
+    motivo_b2 = "\n".join(partes_b2) if b2 and partes_b2 else \
         ("Nenhum rio atingiu cota de alerta e a Defesa Civil não tem "
          "região em risco elevado de inundação.")
     _conf = [config.ROTULOS_GATILHOS[c] for c in
@@ -644,21 +679,32 @@ def _avaliar_regras(
     # própria régua, quando não há atenção cadastrada).
     rios_atencao = _rios_em_cota(ind, nivel, "atencao")
     cond_atencao = bool(rios_atencao)
+    rios_subindo = _rios_subindo(ind, tend)
+    cond_subindo = bool(rios_subindo)
     cond_alerta_inundacao = reg["n_inundacao_risco_elevado"] >= 1
-    b2 = ((subindo and cond_atencao) or cond_atencao or subindo
-          or _afluente_subindo(ind) or ind.metropole_em_alerta
+    b2 = (cond_atencao or cond_subindo or ind.metropole_em_alerta
           or cond_alerta_inundacao)
+    # Antes era um if/elif: fechada a primeira perna do OU, as outras nem
+    # eram escritas. O bloco dizia "rios em cota de atenção OU em elevação
+    # OU região da RM em alerta" e mostrava só os rios em cota — quem lia
+    # não tinha como saber se as demais também valiam. Agora TODAS as
+    # pernas ativas aparecem, cada uma com os rios/regiões que a sustentam.
+    partes_b2 = []
     if cond_atencao:
-        motivos.append("Rio(s) na Cota de Atenção ou acima: "
-                       + "; ".join(rios_atencao))
-    elif subindo or _afluente_subindo(ind):
-        motivos.append(f"Tendência de aumento dos rios que deságuam no Guaíba (+{tend:.2f} m/48h)")
-    elif ind.metropole_em_alerta:
-        motivos.append("Cidade(s) da Região Metropolitana já em estágio de alerta")
-    elif cond_alerta_inundacao:
-        regs = ", ".join(reg.get("regioes_inundacao", [])[:5])
-        motivos.append("Região(ões) da cidade já em alerta de risco de "
-                       f"inundação pela Defesa Civil: {regs}")
+        partes_b2.append("Rio(s) na Cota de Atenção ou acima: "
+                         + "; ".join(rios_atencao))
+    if cond_subindo:
+        partes_b2.append("Rio(s) em elevação (48 h): " + "; ".join(rios_subindo))
+    if ind.metropole_em_alerta:
+        partes_b2.append("Cidade(s) da Região Metropolitana já em estágio "
+                         "de alerta")
+    if cond_alerta_inundacao:
+        partes_b2.append("Região(ões) da cidade em alerta de risco de "
+                         "inundação pela Defesa Civil: "
+                         + "; ".join(reg.get("regioes_inundacao", [])))
+    motivo_b2 = "\n".join(partes_b2)
+    if partes_b2:
+        motivos.append(motivo_b2)
     disparou_mob = b1 and b2
     detalhes["MOBILIZAÇÃO"] = {"disparou": disparou_mob, "motivos": motivos,
         "blocos": [
@@ -668,7 +714,7 @@ def _avaliar_regras(
                         else f"sem previsão relevante ({chuva['prev_txt']})")},
             {"n": 2, "titulo": "Rios em cota de atenção OU em elevação OU região da RM já em alerta",
              "ativo": bool(b2),
-             "motivo": (motivos[-1] if b2 and motivos
+             "motivo": (motivo_b2 if b2 and motivo_b2
                         else "rios abaixo da cota de atenção e sem tendência de subida")}]}
     if disparou_mob:
         return _montar_saida("MOBILIZAÇÃO", motivos, detalhes)
@@ -681,10 +727,8 @@ def _avaliar_regras(
     if cond_atencao:
         quase.append("rio(s) na Cota de Atenção ou acima: "
                      + "; ".join(rios_atencao))
-    if subindo:
-        quase.append(f"Guaíba em subida (+{tend:.2f} m/48h)")
-    elif _afluente_subindo(ind):
-        quase.append("afluente(s) em tendência de subida")
+    if rios_subindo:
+        quase.append("rio(s) em elevação (48 h): " + "; ".join(rios_subindo))
 
     if quase:
         motivos.append(
