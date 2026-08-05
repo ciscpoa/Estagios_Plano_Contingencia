@@ -33,6 +33,12 @@ _RAIZ = Path(__file__).resolve().parent.parent
 # aqui. Trocar de formulário = trocar só esta linha.
 URL_FORMULARIO_NOTIFICACAO = "https://forms.gle/JkbL2fiCBmFdeyPC7"
 
+# Documento completo do Plano de Contingência (PDF no Drive da SMS). O painel
+# mostra o RECORTE do item 5.1; quem precisa da íntegra — quadros de ações,
+# fluxos, responsáveis — abre daqui.
+URL_PLANO_CONTINGENCIA = (
+    "https://drive.google.com/file/d/1alb5S34GN-bEqlZb3h0rvitRQbRRaRT8/view")
+
 
 def _ativo_b64(nome: str, mime: str) -> str:
     """
@@ -220,6 +226,47 @@ def _tom_suave(hexa: str, mistura: float = 0.45) -> str:
     return "#%02X%02X%02X" % tuple(round(c + (255 - c) * m) for c in (r, g, b))
 
 
+def _tom_escuro(hexa: str, mistura: float = 0.42) -> str:
+    """
+    Escurece uma cor do Plano misturando-a com preto.
+
+    Serve ao botão de notificação, que agora vive DENTRO da faixa do estágio.
+    Pintá-lo da mesma cor da faixa o faria sumir; pintá-lo de outra cor o
+    faria mentir sobre o estágio. Escurecendo a própria cor, ele continua
+    sendo "o amarelo da MOBILIZAÇÃO", mas se destaca do fundo e aceita
+    texto branco com folga de contraste.
+    """
+    h = (hexa or "#888888").lstrip("#")
+    if len(h) != 6:
+        return hexa
+    try:
+        r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return hexa
+    m = max(0.0, min(1.0, mistura))
+    return "#%02X%02X%02X" % tuple(round(c * (1 - m)) for c in (r, g, b))
+
+
+def _botao_notificar(cor_estagio: str, classe_extra: str = "") -> str:
+    """
+    Botão público de notificação de ocorrência, tingido pelo estágio.
+
+    Rótulo: "Notificar SMS". O "/DC" saiu — o formulário é da Secretaria
+    Municipal de Saúde, e a barra fazia o leitor supor que a Defesa Civil
+    também recebe o registro por este canal.
+    """
+    fundo = _tom_escuro(cor_estagio)
+    tinta = _tinta_sobre(fundo)
+    return (
+        f"<div class='acao-notificar {classe_extra}'>"
+        f"<a class='btn-notificar' href='{URL_FORMULARIO_NOTIFICACAO}' "
+        f"target='_blank' rel='noopener' "
+        f"style='background:{fundo};color:{tinta};"
+        f"border-color:{_tom_suave(cor_estagio, .25)}'>Notificar SMS</a>"
+        f"<span class='dica-notificar'>Viu em campo o que o painel não vê? "
+        f"Registre a ocorrência.</span></div>")
+
+
 def _motivo_html(texto: str) -> str:
     """
     Transforma o motivo de um bloco em título + tópicos.
@@ -341,10 +388,13 @@ def _bloco_banner(snapshot: dict) -> str:
     {_trilho_estagios(estagio)}
     <section class="banner" style="border-color:{cor}">
       <div class="faixa-estagio" style="background:{cor};color:{_tinta_sobre(cor)}">
-        <h2>ESTÁGIO OPERACIONAL: {cls.get('rotulo') or estagio or '—'}</h2>
-        <div class="ts">Última atualização: {snapshot.get('timestamp', '—')}
-          <span id="frescor" class="frescor" data-iso="{snapshot.get('timestamp_iso', '')}"></span>
+        <div class="faixa-texto">
+          <h2>ESTÁGIO OPERACIONAL: {cls.get('rotulo') or estagio or '—'}</h2>
+          <div class="ts">Última atualização: {snapshot.get('timestamp', '—')}
+            <span id="frescor" class="frescor" data-iso="{snapshot.get('timestamp_iso', '')}"></span>
+          </div>
         </div>
+        {_botao_notificar(cor, "acao-banner")}
       </div>
       {corpo}{nota}{_complemento_inmet(snapshot)}
     </section>"""
@@ -554,12 +604,6 @@ def _bloco_regioes(snapshot: dict) -> str:
       <div class="sub">Status capturado dos marcadores do mapa oficial ·
         cinza = {"região sem alerta vigente" if poaclima_ok
                  else "Poaclima não respondeu nesta coleta"}</div>
-      <div class="acao-notificar">
-        <a class="btn-notificar" href="{URL_FORMULARIO_NOTIFICACAO}"
-           target="_blank" rel="noopener">Notificar SMS/DC</a>
-        <span class="dica-notificar">Viu em campo o que o painel não vê?
-          Registre a ocorrência.</span>
-      </div>
       <div class="regioes">{html_linhas}</div>
     </section>"""
 
@@ -1110,6 +1154,8 @@ def _bloco_cabecalho(snapshot: dict) -> str:
         <div class="sub">Monitoramento automatizado · ANA · INMET · Poaclima ·
           Open-Meteo</div>
         <div class="acoes">
+          <a class="btn-link" href="{URL_PLANO_CONTINGENCIA}" target="_blank"
+             rel="noopener">📄 Plano de contingência completo</a>
           <button id="btn-tema">☀ Modo claro</button>
           <button id="btn-print">🖨 Imprimir / PDF</button>
         </div>
@@ -1399,12 +1445,20 @@ h1{font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-weight:700;
      font-size:2.45rem;line-height:1.05;margin:2px 0 4px;letter-spacing:.01em}
 h1 .fina{font-weight:500;color:var(--txt2)}
 .sub{color:var(--txt2);font-size:.98rem;margin-bottom:0}
-.acoes{margin:12px 0 0}
+.acoes{margin:12px 0 0;display:flex;flex-wrap:wrap;gap:6px}
 button{background:transparent;color:var(--txt);border:1px solid var(--borda);
        border-radius:8px;padding:8px 16px;font-size:.92rem;cursor:pointer;
-       margin:0 6px 0 0;font-family:inherit;transition:background .15s}
+       margin:0;font-family:inherit;transition:background .15s}
 button:hover{background:rgba(127,160,190,.16)}
 button:focus-visible{outline:2px solid var(--cisc);outline-offset:2px}
+/* Link para a íntegra do Plano: mesma forma dos botões vizinhos, porque faz
+   parte da mesma barra de ações — só que leva para fora da página. */
+.btn-link{display:inline-flex;align-items:center;gap:7px;background:transparent;
+       color:var(--txt);border:1px solid var(--borda);border-radius:8px;
+       padding:8px 16px;font-size:.92rem;font-family:inherit;
+       text-decoration:none;transition:background .15s}
+.btn-link:hover{background:rgba(127,160,190,.16)}
+.btn-link:focus-visible{outline:2px solid var(--cisc);outline-offset:2px}
 /* Trilho de estágios — a progressão em chevrons do item 5.1 do Plano */
 .trilho-estagios{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
 .passo{flex:1 1 0;min-width:110px;position:relative;padding:9px 8px 9px 20px;
@@ -1423,7 +1477,9 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
               margin-bottom:12px;font-size:.88rem;text-align:center}
 .banner{border-radius:14px;margin-bottom:18px;background:var(--cartao);
       border:2px solid;box-shadow:0 4px 18px var(--sombra);overflow:hidden}
-.faixa-estagio{color:#fff;padding:16px 20px 14px}
+.faixa-estagio{color:#fff;padding:16px 20px 14px;display:flex;
+      align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.faixa-texto{flex:1 1 420px;min-width:0}
 .banner .linha-arvore{border:none;background:transparent;margin:0;padding:12px}
 .nota-piso{font-size:.82rem;color:var(--txt2);padding:0 12px 12px}
 .banner h2{margin:0 0 3px;font-size:2.5rem;letter-spacing:.03em;
@@ -1452,28 +1508,34 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
       font-family:"Barlow Condensed",sans-serif;font-weight:700;
       letter-spacing:.04em;text-transform:uppercase}
 /* ── Botão de notificação de evento ────────────────────────────────
-   Fica junto do risco por região porque é ali que o operador compara o
-   que o painel mostra com o que ele viu na rua. Segue o eixo central do
-   título e o raio de canto dos tiles — pílula solta à esquerda brigava
-   com a grade. Azul próprio: nenhuma das cinco cores de estágio, para
-   não ser lido como classificação. */
+   Subiu para dentro da faixa do estágio, ao lado do título. É a única
+   ação da página — o que o operador faz DEPOIS de ler o estágio — e no
+   rodapé da grade de regiões ficava a duas rolagens de distância.
+   A cor vem do estágio vigente, escurecida (_tom_escuro): mantém a
+   leitura "amarelo = MOBILIZAÇÃO" e ainda assim se destaca da faixa. */
 .acao-notificar{display:flex;flex-direction:column;align-items:center;
-  gap:7px;margin:14px 0 18px}
+  gap:6px;margin:14px 0 18px}
+.acao-banner{flex:0 0 auto;margin:0;max-width:300px}
 .btn-notificar{display:inline-flex;align-items:center;gap:9px;
-  padding:10px 24px;border-radius:10px;text-decoration:none;
-  background:#1D4E89;color:#fff;border:1px solid rgba(255,255,255,.16);
+  padding:12px 26px;border-radius:10px;text-decoration:none;
+  background:#1D4E89;color:#fff;border:2px solid rgba(255,255,255,.35);
   font-family:"Barlow Condensed",sans-serif;font-weight:700;
-  font-size:1.02rem;letter-spacing:.07em;text-transform:uppercase;
-  line-height:1.2;box-shadow:0 3px 12px rgba(16,42,74,.38);
-  transition:background .15s,box-shadow .15s,transform .15s}
+  font-size:1.14rem;letter-spacing:.07em;text-transform:uppercase;
+  line-height:1.2;box-shadow:0 3px 14px rgba(0,0,0,.32);
+  transition:filter .15s,box-shadow .15s,transform .15s}
 .btn-notificar::before{content:"⚑";font-size:1.1em;letter-spacing:0;
-  opacity:.85}
-.btn-notificar:hover{background:#22609F;transform:translateY(-1px);
-  box-shadow:0 5px 16px rgba(16,42,74,.46)}
+  opacity:.9}
+.btn-notificar:hover{filter:brightness(1.22);transform:translateY(-1px);
+  box-shadow:0 5px 18px rgba(0,0,0,.4)}
 .btn-notificar:active{transform:translateY(0)}
-.btn-notificar:focus-visible{outline:3px solid #8FB8E8;outline-offset:3px}
+.btn-notificar:focus-visible{outline:3px solid #FFFFFF;outline-offset:3px}
 .dica-notificar{color:var(--txt2);font-size:.78rem;text-align:center;
   max-width:460px;line-height:1.4}
+/* Dentro da faixa colorida a dica herda a tinta do estágio — var(--txt2)
+   é calculada para o fundo do cartão e ali sumiria. */
+.acao-banner .dica-notificar{color:inherit;opacity:.9;max-width:280px}
+@media(max-width:820px){.faixa-estagio{justify-content:center}
+  .acao-banner{max-width:none;width:100%}}
 @media(max-width:560px){.btn-notificar{width:100%;justify-content:center}}
 .regioes{margin-bottom:22px}
 .linha-regioes{display:flex;gap:8px;justify-content:center;margin-bottom:8px}
