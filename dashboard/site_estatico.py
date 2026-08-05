@@ -1477,9 +1477,14 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
               margin-bottom:12px;font-size:.88rem;text-align:center}
 .banner{border-radius:14px;margin-bottom:18px;background:var(--cartao);
       border:2px solid;box-shadow:0 4px 18px var(--sombra);overflow:hidden}
-.faixa-estagio{color:#fff;padding:16px 20px 14px;display:flex;
-      align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
-.faixa-texto{flex:1 1 420px;min-width:0}
+/* Três colunas: vazia · texto · botão. O texto vive na coluna do meio, que
+   fica centrada na faixa inteira porque as duas laterais são 1fr iguais —
+   é o que `justify-content:space-between` no flex NÃO dava: ali o título
+   ficava colado à esquerda e o centro da faixa caía no vão entre os dois.
+   O botão segue encostado na direita (justify-self:end). */
+.faixa-estagio{color:#fff;padding:16px 20px 14px;display:grid;
+      grid-template-columns:1fr auto 1fr;align-items:center;gap:18px}
+.faixa-texto{grid-column:2;min-width:0;text-align:center}
 .banner .linha-arvore{border:none;background:transparent;margin:0;padding:12px}
 .nota-piso{font-size:.82rem;color:var(--txt2);padding:0 12px 12px}
 .banner h2{margin:0 0 3px;font-size:2.5rem;letter-spacing:.03em;
@@ -1515,7 +1520,7 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
    leitura "amarelo = MOBILIZAÇÃO" e ainda assim se destaca da faixa. */
 .acao-notificar{display:flex;flex-direction:column;align-items:center;
   gap:6px;margin:14px 0 18px}
-.acao-banner{flex:0 0 auto;margin:0;max-width:300px}
+.acao-banner{grid-column:3;justify-self:end;margin:0;max-width:300px}
 .btn-notificar{display:inline-flex;align-items:center;gap:9px;
   padding:12px 26px;border-radius:10px;text-decoration:none;
   background:#1D4E89;color:#fff;border:2px solid rgba(255,255,255,.35);
@@ -1534,8 +1539,9 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 /* Dentro da faixa colorida a dica herda a tinta do estágio — var(--txt2)
    é calculada para o fundo do cartão e ali sumiria. */
 .acao-banner .dica-notificar{color:inherit;opacity:.9;max-width:280px}
-@media(max-width:820px){.faixa-estagio{justify-content:center}
-  .acao-banner{max-width:none;width:100%}}
+@media(max-width:960px){.faixa-estagio{grid-template-columns:1fr}
+  .faixa-texto{grid-column:1}
+  .acao-banner{grid-column:1;justify-self:center;max-width:none;width:100%}}
 @media(max-width:560px){.btn-notificar{width:100%;justify-content:center}}
 .regioes{margin-bottom:22px}
 .linha-regioes{display:flex;gap:8px;justify-content:center;margin-bottom:8px}
