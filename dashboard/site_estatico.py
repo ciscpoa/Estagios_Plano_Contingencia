@@ -1680,17 +1680,27 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
 /* Só existem no papel (ver bloco de impressão): selo textual do grau,
    marca da etapa atual, carimbo do cabeçalho e a legenda final. */
 .selo,.marca-atual,.carimbo-print,.legenda-print{display:none}
-.rodape{margin-top:30px;padding-top:18px;border-top:1px solid var(--borda-fina)}
+.rodape{margin-top:30px;padding-top:18px;border-top:1px solid var(--borda-fina);
+      text-align:center}
 /* Faixa institucional: o arquivo é JPEG com fundo branco, então ganha um
    cartão branco próprio. Sem isso, no tema escuro, ele aparece como um
-   retângulo branco solto no meio do rodapé. */
-.logos-inst{margin:16px auto 0;max-width:560px;background:#FFFFFF;
-      border-radius:10px;padding:12px 18px;box-shadow:0 2px 10px var(--sombra)}
+   retângulo branco solto no meio do rodapé. Em ~1/3 da largura antiga: é
+   crédito institucional, não conteúdo — e vinha competindo em peso com os
+   dados que estão logo acima. */
+.logos-inst{margin:14px auto 0;max-width:196px;background:#FFFFFF;
+      border-radius:7px;padding:6px 9px;box-shadow:0 2px 10px var(--sombra)}
 .logos-inst img{display:block;width:100%;height:auto}
-@media(max-width:620px){.logos-inst{max-width:92%;padding:10px 12px}}
-.logo-rodape{height:46px;width:40px;opacity:.9;margin:0 auto 6px}
-.cisc{font-weight:700;margin-bottom:6px;font-family:"Barlow Condensed",sans-serif;
-  font-size:1.05rem;letter-spacing:.03em}
+@media(max-width:620px){.logos-inst{max-width:60%;padding:6px 9px}}
+/* Assinatura: última linha da página, discreta. O logo do CISC saiu daqui —
+   ele já abre o painel, e repetir a marca no fim só empurrava o texto útil
+   para baixo. */
+.assinatura{margin:16px auto 0;color:var(--txt2);font-size:.82rem;
+  font-family:"Barlow Condensed",sans-serif;letter-spacing:.04em}
+.assinatura .feito{text-transform:uppercase;font-size:.72rem;
+  letter-spacing:.16em;opacity:.75}
+.assinatura b{color:var(--txt);font-weight:700;letter-spacing:.05em}
+.assinatura .extenso{display:block;font-size:.76rem;opacity:.8;
+  letter-spacing:.02em;margin-top:1px}
 .mini{color:var(--txt2);font-size:.8rem;max-width:900px;margin:0 auto}
 @media(max-width:600px){.graficos{grid-template-columns:1fr}}
 
@@ -1956,9 +1966,10 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
   .cartao-chuva{box-shadow:none;margin-top:8px}
   .valor-chuva{font-size:1.7rem}
   .rodape{margin-top:10px;padding-top:8px;border-top:1pt solid var(--borda-fina)}
-  .logo-rodape{height:34px;width:29px}
-  .logos-inst{max-width:118mm;padding:3px 8px;margin-top:7px;
+  .logos-inst{max-width:42mm;padding:2px 4px;margin-top:6px;
       box-shadow:none;background:#fff}
+  .assinatura{margin-top:8px;font-size:.68rem}
+  .assinatura .extenso{font-size:.62rem}
   .mini{font-size:.66rem}
 }
 """
@@ -2060,8 +2071,8 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
 <style>{_CSS}</style>
 <style>{acoes_estagio.CSS}</style>
 <style>
-  /* logo embutido uma única vez e reaproveitado nos dois lugares */
-  .logo,.logo-rodape{{background-image:url("{_ativo_b64('cisc_logo.png','image/png')}");
+  /* logo do CISC — só no cabeçalho (saiu do rodapé) */
+  .logo{{background-image:url("{_ativo_b64('cisc_logo.png','image/png')}");
      background-size:contain;background-repeat:no-repeat;background-position:center}}
   body::before{{background-image:linear-gradient(180deg,
       rgba(10,20,28,.42) 0%, var(--fundo) 78%), url("{_ativo_b64('guaiba.webp','image/webp')}")}}
@@ -2082,8 +2093,6 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
   {_legenda_impressao(snapshot)}
   {_JS_FRESCOR}
   <div class="rodape">
-    <div class="logo-rodape" role="img" aria-label="CISC Porto Alegre"></div>
-    <div class="cisc">CISC Porto Alegre — Centro de Informações em Saúde e Clima</div>
     <div class="mini">Cotas de referência do Guaíba no Cais Mauá: atenção
       {config.COTA_ATENCAO_GUAIBA} m · alerta {config.COTA_ALERTA_GUAIBA} m ·
       inundação {config.COTA_INUNDACAO_GUAIBA} m (fonte: Poaclima/Defesa Civil
@@ -2092,6 +2101,9 @@ def gerar_site(snapshot: dict, destino: str | Path = "site/index.html",
       Ferramenta de apoio à decisão — não substitui os canais oficiais da
       Defesa Civil.</div>
     {faixa_logos}
+    <div class="assinatura"><span class="feito">Construído por</span>
+      <b>CISC Porto Alegre</b>
+      <span class="extenso">Centro de Informações em Saúde e Clima</span></div>
   </div>
 </div>
 <script>{_JS}</script>
