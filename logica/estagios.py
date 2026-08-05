@@ -142,25 +142,61 @@ ROTULO_COTA = {"atencao": "atenção", "alerta": "alerta",
                "inundacao": "inundação"}
 
 
-def _cota_atingida(refs: dict, nivel: float | None) -> tuple[str, float] | None:
+# Frações da cota de INUNDAÇÃO usadas quando a régua não tem atenção/alerta
+# publicadas. São exatamente as faixas que os cards do painel já usavam para
+# pintar a barra (85% = laranja, 65% = amarelo) — antes só a cor obedecia a
+# elas, e a lógica não. Se mudarem aqui, mudar também em
+# `dashboard/site_estatico.py::_cor_por_cota`.
+FRACAO_ALERTA_SEM_COTA = 0.85
+FRACAO_ATENCAO_SEM_COTA = 0.65
+
+
+def _refs_completas(refs: dict) -> tuple[dict, set]:
+    """
+    Completa as cotas ausentes por fração da cota de inundação.
+
+    Devolve (cotas, derivadas), em que `derivadas` diz quais foram estimadas
+    — a frase do painel precisa dizer isso em voz alta, porque cota estimada
+    não é cota oficial.
+    """
+    saida = dict(refs or {})
+    derivadas = set()
+    inundacao = saida.get("inundacao")
+    if inundacao:
+        if saida.get("alerta") is None:
+            saida["alerta"] = round(inundacao * FRACAO_ALERTA_SEM_COTA, 2)
+            derivadas.add("alerta")
+        if saida.get("atencao") is None:
+            saida["atencao"] = round(inundacao * FRACAO_ATENCAO_SEM_COTA, 2)
+            derivadas.add("atencao")
+    return saida, derivadas
+
+
+def _cota_atingida(refs: dict,
+                   nivel: float | None) -> tuple[str, float, bool] | None:
     """
     A cota MAIS GRAVE que aquela régua já ultrapassou — ou None.
+    Devolve (chave_da_cota, valor, estimada).
 
     Nem toda estação tem as três cotas publicadas: o Gravataí não tem cota de
-    atenção, e o Jacuí em Triunfo só tem a de inundação. Antes, a checagem
-    procurava a chave "atencao" e, não encontrando, ignorava a estação: o
-    Gravataí a 4,68 m (acima da própria cota de ALERTA, 4,25 m) simplesmente
-    não aparecia na lista de rios em cota de atenção. Um rio acima da cota de
-    alerta está, por definição, acima da de atenção — a ausência da cota
-    intermediária não pode apagar o rio da lista.
+    atenção, e o Jacuí (Triunfo e Cachoeira do Sul) só tem a de inundação.
+    Antes, a estação sem a cota simplesmente não entrava na lista — o Jacuí
+    em Passo São Lourenço a 8,47 m ficava de fora do bloco de rios em cota,
+    enquanto o card ao lado o pintava de laranja por estar a 94% da cota de
+    inundação. Duas leituras do mesmo dado na mesma página, discordando.
+
+    Agora, faltando a cota, ela é ESTIMADA por fração da de inundação — o
+    mesmo critério que já colore o card — e a frase avisa que é estimada.
     """
     if nivel is None:
         return None
+    cotas, derivadas = _refs_completas(refs)
     achada = None
     for chave in ORDEM_COTAS:
-        ref = (refs or {}).get(chave)
+        ref = cotas.get(chave)
         if ref is not None and nivel >= ref:
-            achada = (chave, ref)      # fica com a última (mais grave)
+            # fica com a última (mais grave)
+            achada = (chave, ref, chave in derivadas)
     return achada
 
 
@@ -180,10 +216,24 @@ def _refs_riacho() -> dict:
             "inundacao": getattr(config, "COTA_INUNDACAO_RIACHO_IPIRANGA", None)}
 
 
-def _frase_cota(rotulo: str, nivel: float, atingida: tuple[str, float]) -> str:
-    """'Gravataí 4,68 m (≥ alerta 4,25 m)' — sempre dizendo QUAL cota é."""
-    chave, ref = atingida
-    return f"{rotulo} {nivel:.2f} m (≥ {ROTULO_COTA[chave]} {ref:.2f} m)"
+def _frase_cota(rotulo: str, nivel: float,
+                atingida: tuple[str, float, bool], refs: dict) -> str:
+    """
+    'Gravataí 4,68 m (≥ alerta 4,25 m)' — sempre dizendo QUAL cota é.
+
+    Quando a cota foi estimada por falta de referência oficial, a frase diz
+    isso e mostra a porcentagem da cota de inundação, que é o número
+    verificável: 'Jacuí (Cachoeira do Sul) 8,47 m — 94% da cota de inundação
+    (9,00 m); alerta estimado em 7,65 m, régua sem cota oficial publicada'.
+    """
+    chave, ref, estimada = atingida
+    if not estimada:
+        return f"{rotulo} {nivel:.2f} m (≥ {ROTULO_COTA[chave]} {ref:.2f} m)"
+    inundacao = (refs or {}).get("inundacao")
+    pct = (f" — {nivel / inundacao * 100:.0f}% da cota de inundação "
+           f"({inundacao:.2f} m)" if inundacao else "")
+    return (f"{rotulo} {nivel:.2f} m{pct}; cota de {ROTULO_COTA[chave]} "
+            f"estimada em {ref:.2f} m — régua sem cota oficial publicada")
 
 
 def _rios_em_cota(ind: IndicadoresNumericos, nivel_guaiba: float | None,
@@ -202,7 +252,7 @@ def _rios_em_cota(ind: IndicadoresNumericos, nivel_guaiba: float | None,
     for rotulo, refs, nivel in pares:
         atingida = _cota_atingida(refs, nivel)
         if atingida and ORDEM_COTAS.index(atingida[0]) >= piso:
-            frases.append(_frase_cota(rotulo, nivel, atingida))
+            frases.append(_frase_cota(rotulo, nivel, atingida, refs))
     return frases
 
 
