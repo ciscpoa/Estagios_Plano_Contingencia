@@ -251,9 +251,10 @@ def _botao_notificar(cor_estagio: str, classe_extra: str = "") -> str:
     """
     Botão público de notificação de ocorrência, tingido pelo estágio.
 
-    Rótulo: "Notificar SMS". O "/DC" saiu — o formulário é da Secretaria
-    Municipal de Saúde, e a barra fazia o leitor supor que a Defesa Civil
-    também recebe o registro por este canal.
+    Rótulo: "Notificar DVS" — a Diretoria de Vigilância em Saúde é quem
+    recebe e trata a ocorrência. Antes dizia "SMS" (a Secretaria inteira),
+    o que era vago demais para quem vai clicar, e antes disso "SMS/DC", que
+    fazia o leitor supor que a Defesa Civil também recebe por este canal.
     """
     fundo = _tom_escuro(cor_estagio)
     tinta = _tinta_sobre(fundo)
@@ -262,7 +263,7 @@ def _botao_notificar(cor_estagio: str, classe_extra: str = "") -> str:
         f"<a class='btn-notificar' href='{URL_FORMULARIO_NOTIFICACAO}' "
         f"target='_blank' rel='noopener' "
         f"style='background:{fundo};color:{tinta};"
-        f"border-color:{_tom_suave(cor_estagio, .25)}'>Notificar SMS</a>"
+        f"border-color:{_tom_suave(cor_estagio, .25)}'>Notificar DVS</a>"
         f"<span class='dica-notificar'>Viu em campo o que o painel não vê? "
         f"Registre a ocorrência.</span></div>")
 
@@ -622,8 +623,6 @@ def _bloco_regioes(snapshot: dict) -> str:
                    f"região {num}, {nome}'>"
                    f"<div class='mapa-legenda'>Região {num} · {nome} — "
                    f"infraestrutura de saúde e vulnerabilidades territoriais"
-                   f"<span class='mapa-fonte'>Base cartográfica: "
-                   f"OpenStreetMap</span>"
                    f"</div></div>")
         # Faixa cheia só no topo: o corpo pastel mantém a leitura confortável
         # e a tarja devolve a cor forte do risco, que é o que se enxerga de
@@ -1415,14 +1414,22 @@ _JS_FRESCOR = """
     if (!iso) return;
     var min = (Date.now() - new Date(iso).getTime()) / 60000;
     el.className = "frescor";
-    if (min >= 120) {
-      el.classList.add("parado");
-      el.textContent = "PARADO há " + Math.floor(min / 60) + "h";
-    } else if (min >= 60) {
-      el.classList.add("velho");
-      el.textContent = "desatualizado há " + Math.round(min) + " min";
+    /* Sempre no positivo: "atualizado há X". "PARADO" e "desatualizado"
+       alarmavam o leitor por algo que quase sempre é atraso de minutos na
+       fila do GitHub, e escondiam a informação útil (a idade real) nas
+       horas em que estava tudo bem. A cor continua avisando: neutro até
+       1 h, âmbar a partir de 1 h, vermelho a partir de 2 h. */
+    if (min >= 120)     el.classList.add("parado");
+    else if (min >= 60) el.classList.add("velho");
+    else                el.classList.add("ok");
+
+    if (min < 2) {
+      el.textContent = "atualizado agora";
+    } else if (min < 60) {
+      el.textContent = "atualizado há " + Math.round(min) + " min";
     } else {
-      el.textContent = "";
+      var h = Math.floor(min / 60), m = Math.round(min % 60);
+      el.textContent = "atualizado há " + h + "h" + (m ? " " + m + " min" : "");
     }
   }
 
@@ -1639,7 +1646,6 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
   background:#FFFFFF}
 .mapa-legenda{color:var(--txt2);font-size:.76rem;text-align:center;
   margin-top:7px;line-height:1.35}
-.mapa-fonte{display:block;margin-top:3px;font-size:.68rem;opacity:.8}
 .fechar-mapa{position:absolute;top:16px;right:18px;z-index:2;
   width:32px;height:32px;line-height:1;font-size:1.35rem;font-weight:700;
   border:1px solid var(--borda);border-radius:50%;cursor:pointer;
@@ -1759,6 +1765,8 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 .just{line-height:1.5}
 .frescor{display:none;margin-left:8px;padding:2px 8px;border-radius:999px;
   font-size:.72rem;font-weight:700;vertical-align:middle}
+.frescor.ok{display:inline-block;background:transparent;color:inherit;
+  opacity:.72;font-weight:600;padding-left:0}
 .frescor.velho{display:inline-block;background:#FFD166;color:#3A2E00}
 .frescor.parado{display:inline-block;background:#D62828;color:#fff}
 .graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px}
