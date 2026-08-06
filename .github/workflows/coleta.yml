@@ -13,11 +13,16 @@
 #   1) Settings → Secrets and variables → Actions → New repository secret:
 #        ANA_IDENTIFICADOR  e  ANA_SENHA  (obrigatórios)
 #        INMET_TOKEN (opcional — chuva observada da estação do INMET)
-#   2) Settings → Pages → Source: "GitHub Actions"
-#      ↑ ISTO É CRÍTICO. Se a fonte estiver em "Deploy from a branch", o
-#        passo `deploy-pages` fica eternamente em "deployment_queued" e o
-#        painel congela mesmo com a coleta funcionando. O job `publicar`
-#        agora confere isso sozinho e avisa no log.
+#   2) Settings → Pages → Source: "Deploy from a branch"
+#                          Branch: gh-pages   /  (root)
+#      ↑ MUDOU EM 06/08/2026. Antes era "GitHub Actions", com o job
+#        `publicar` usando actions/deploy-pages. Em 06/08 o ambiente
+#        github-pages travou: a partir da execução #411, TODA implantação
+#        ficava em "deployment_queued" até o timeout e a última marcada
+#        como "Active" era uma que havia falhado. A fila é do lado do
+#        GitHub e não há ajuste de YAML que a destrave.
+#        A publicação por branch não usa API de deployment nem ambiente:
+#        é um `git push` do conteúdo de `site/` para `gh-pages`.
 # ==========================================================================
 name: Coleta e publicação do painel
 
@@ -174,12 +179,31 @@ jobs:
         if: always()
         run: python -m dashboard.site_estatico
 
-      # A página é publicada ANTES do commit: assim um problema no git
-      # nunca impede a atualização do painel.
-      - uses: actions/upload-pages-artifact@v3
+      # A página é publicada ANTES do commit dos dados: assim um problema
+      # no git do `main` nunca impede a atualização do painel.
+      #
+      # Push direto na `gh-pages`, sem actions/deploy-pages. Cada rodada
+      # regrava a branch inteira (histórico órfão): o painel é sempre o
+      # estado atual, não interessa guardar as versões antigas do HTML, e
+      # com --force o repositório não incha com 2,4 MB a cada 30 minutos.
+      # O .nojekyll impede o Jekyll de ignorar arquivos iniciados por "_".
+      - name: Publicar o painel na branch gh-pages
         if: always()
-        with:
-          path: site
+        run: |
+          test -f site/index.html || { echo "site/index.html não existe"; exit 1; }
+          touch site/.nojekyll
+          cd site
+          git init -q
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b gh-pages
+          git add -A
+          git commit -qm "Painel · $(TZ=America/Sao_Paulo date +'%d/%m/%Y %H:%M')"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" \
+            gh-pages
+          echo "Publicado em https://ciscpoa.github.io/${{ github.repository }}/" \
+            | sed 's#ciscpoa/##2'
 
       # Commit dos dados coletados. Sem rebase (que dava CONFLITO no
       # ultimo_snapshot.json): pegamos o estado do remoto e regravamos os
@@ -239,62 +263,3 @@ jobs:
         run: |
           echo "::warning::O pipeline falhou; o painel foi publicado com o "\
                "último snapshot disponível. Veja o log acima."
-
-  publicar:
-    needs: coletar
-    if: always() && needs.coletar.result != 'cancelled' && needs.coletar.result != 'skipped'
-    runs-on: ubuntu-latest
-    # 25 min, não 10. O teto do JOB precisa ser MAIOR que o tempo de espera
-    # da própria action, senão acontece o que aconteceu em 06/08: a action
-    # esperava a fila do Pages por 10 min (seu padrão) e o job era morto
-    # exatamente no mesmo instante — o log terminava em "The operation was
-    # canceled" sem nunca dizer o motivo real da fila, e a execução inteira
-    # aparecia como "Cancelled". Com folga, a action chega a reportar o erro.
-    timeout-minutes: 25
-    # Aqui, ao contrário da coleta, quem chega DEPOIS é quem tem o dado mais
-    # novo — então a implantação em andamento é cancelada e a nova assume.
-    # Sem isso, duas implantações simultâneas se anulavam: uma ficava em
-    # `deployment_queued` até o timeout e a outra levava
-    # `Error: Deployment cancelled` em segundos, que é exatamente o que o
-    # log da execução #102 mostrou.
-    concurrency:
-      group: painel-pages
-      cancel-in-progress: true
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      # Diagnóstico barato que responde a pergunta que o log não respondia:
-      # a fonte do Pages ainda é "GitHub Actions"? Se alguém (ou o próprio
-      # GitHub) tiver mudado para "Deploy from a branch", TODA implantação
-      # feita por este fluxo fica em deployment_queued para sempre.
-      - name: Conferir a fonte do GitHub Pages
-        continue-on-error: true
-        run: |
-          resp=$(curl -s -H "Authorization: Bearer ${{ github.token }}" \
-                      -H "Accept: application/vnd.github+json" \
-                      "https://api.github.com/repos/${{ github.repository }}/pages")
-          tipo=$(echo "$resp" | python -c "import json,sys; print(json.load(sys.stdin).get('build_type','desconhecido'))" 2>/dev/null || echo "erro")
-          echo "Fonte do Pages: $tipo"
-          if [ "$tipo" != "workflow" ]; then
-            echo "::error::A fonte do Pages está em '$tipo'. Vá em Settings → Pages → Source e escolha 'GitHub Actions'. Enquanto estiver diferente disso, a publicação fica presa em deployment_queued."
-          fi
-
-      - id: deploy
-        uses: actions/deploy-pages@v4
-        continue-on-error: true    # a 2ª tentativa abaixo é quem decide
-        with:
-          timeout: 600000          # teto da action (10 min); acima disso ela corta
-          error_count: 20
-          reporting_interval: 15000
-
-      # A fila do Pages engasga sozinha de vez em quando. Uma segunda
-      # tentativa curta resolve na maioria das vezes e custa nada; sem ela,
-      # um engasgo de 30 segundos custava uma atualização inteira do painel.
-      - name: Segunda tentativa de publicação
-        if: steps.deploy.outcome == 'failure'
-        uses: actions/deploy-pages@v4
-        with:
-          timeout: 480000          # 8 min
-          error_count: 20
-          reporting_interval: 15000
