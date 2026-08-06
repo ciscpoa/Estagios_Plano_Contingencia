@@ -60,7 +60,11 @@ def gauge_estagio(classificacao: dict, tema: str = "dark",
     ]
     fig = go.Figure(go.Indicator(
         mode="gauge",
-        value=indice + 0.5,
+        # A barra vai até o FIM da faixa do estágio vigente, não até o meio
+        # dela: o velocímetro responde "em que estágio a cidade está", e uma
+        # barra parando no miolo do amarelo sugeria uma posição dentro da
+        # faixa que o Plano não define — não existe "meia MOBILIZAÇÃO".
+        value=indice + 1,
         gauge={
             "axis": {
                 "range": [0, 5],
@@ -71,11 +75,10 @@ def gauge_estagio(classificacao: dict, tema: str = "dark",
             },
             "bar": {"color": "rgba(255,255,255,0.85)", "thickness": 0.22},
             "steps": faixas,
-            "threshold": {
-                "line": {"color": "white", "width": 4},
-                "thickness": 0.9,
-                "value": indice + 0.5,
-            },
+            # Sem `threshold`: a linha branca perpendicular marcava o mesmo
+            # valor que a ponta da barra já marca. Duas marcas para um
+            # número só, e a perpendicular ainda cortava a faixa colorida,
+            # dando a impressão de um limite próprio.
         },
         title={"text": "<b>ESTÁGIO OPERACIONAL</b>",
                "font": {"size": 14 if compacto else 20,
