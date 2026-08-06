@@ -529,6 +529,34 @@ def _bloco_cards(snapshot: dict) -> str:
         f"<section class='cards'>{''.join(cards)}</section>")
 
 
+def _mapa_regiao_b64(num: int) -> str:
+    """
+    Mapa de risco hidrogeológico da região `num`, como data URI — ou "".
+
+    Os arquivos ficam em `assets/mapas_regioes/regiao_01…regiao_17` e são
+    procurados por extensão, na ordem webp → png → jpg. WebP primeiro
+    porque estes mapas têm texto fino de legenda: em WebP a 900 px eles
+    ficam legíveis com ~70 kB, contra ~350 kB do PNG equivalente.
+
+    Vale a mesma regra do `_ativo_b64` (página autocontida), mas com uma
+    diferença que importa: SÓ o mapa das regiões que estão em atenção ou
+    risco maior é embutido. Embutir os dezessete engordaria o index.html em
+    alguns MB a cada coleta, quase sempre para carregar mapa que ninguém
+    vai abrir — em dia calmo o arquivo não cresce nada.
+    """
+    for ext, mime in (("webp", "image/webp"), ("png", "image/png"),
+                      ("jpg", "image/jpeg"), ("jpeg", "image/jpeg")):
+        caminho = _RAIZ / "assets" / "mapas_regioes" / f"regiao_{num:02d}.{ext}"
+        if caminho.exists():
+            try:
+                import base64
+                return (f"data:{mime};base64,"
+                        + base64.b64encode(caminho.read_bytes()).decode("ascii"))
+            except Exception:
+                return ""
+    return ""
+
+
 def _bloco_regioes(snapshot: dict) -> str:
     alertas = (snapshot.get("indicadores") or {}).get("alertas_regionais") or []
     # Distinção que faltava: região sem MARCADOR no mapa não é região sem
@@ -560,7 +588,7 @@ def _bloco_regioes(snapshot: dict) -> str:
 
     ordem = ["sem risco", "atenção", "alto", "muito alto", "extremo"]
 
-    def tile(num: int) -> str:
+    def tile(num: int, com_mapa: bool = True) -> str:
         al = por_regiao.get(num)
         nome = (al or {}).get("regiao_nome") or config.REGIOES_POACLIMA.get(num, "")
         g = 0 if al is None else grau(al.get("risco"))
@@ -574,15 +602,34 @@ def _bloco_regioes(snapshot: dict) -> str:
             partes = [p for p in (al.get("tipo"),
                                   f"até {al.get('fim')}" if al.get("fim") else None) if p]
             detalhe = " · ".join(partes)
+        # Mapa de risco da região: só quando ela está em ATENÇÃO ou pior
+        # (g >= 1). Numa região "sem risco" o mapa não muda decisão nenhuma
+        # e o pop-up só atrapalharia quem varre a grade com o mouse.
+        mapa = _mapa_regiao_b64(num) if (com_mapa and g >= 1) else ""
+        pop = selo = classe_mapa = foco = ""
+        if mapa:
+            classe_mapa = " com-mapa"
+            # tabindex torna o quadrinho focável: no celular não existe
+            # hover, e o :focus-within do CSS faz o toque abrir o mapa.
+            foco = " tabindex='0'"
+            selo = "<div class='selo-mapa'>🗺 mapa de risco</div>"
+            pop = (f"<div class='mapa-pop' aria-hidden='true'>"
+                   f"<img src='{mapa}' alt='Mapa de risco hidrogeológico — "
+                   f"região {num}, {nome}'>"
+                   f"<div class='mapa-legenda'>Região {num} · {nome} — "
+                   f"infraestrutura de saúde e vulnerabilidades territoriais"
+                   f"</div></div>")
         # Faixa cheia só no topo: o corpo pastel mantém a leitura confortável
         # e a tarja devolve a cor forte do risco, que é o que se enxerga de
         # longe ao bater o olho na grade das 17 regiões.
-        return (f"<div class='tile r{g}' style='background:{_tom_suave(cor)};"
+        return (f"<div class='tile r{g}{classe_mapa}'{foco} "
+                f"style='background:{_tom_suave(cor)};"
                 f"border:1px solid {cor};border-top:6px solid {cor};"
                 f"color:{_TINTA_ESCURA}'>"
                 f"<div class='num'>{num}</div><div class='nome'>{nome}</div>"
                 f"<div class='status'>{status}</div>"
-                f"<div class='detalhe'>{detalhe}</div></div>")
+                f"<div class='detalhe'>{detalhe}</div>"
+                f"{selo}{pop}</div>")
 
     # Tela: triângulo 8 / 6 / 3
     # Impressão: 9 / 8. Eram três fileiras de seis, que ocupavam meia folha
@@ -590,13 +637,17 @@ def _bloco_regioes(snapshot: dict) -> str:
     # para a página seguinte — o PDF ficava com uma página quase inteira em
     # branco. Com nove por fileira o bloco cabe em duas linhas rasas e sobra
     # espaço útil embaixo.
-    def grade(faixas):
+    def grade(faixas, com_mapa: bool = True):
         return "".join(
-            f"<div class='linha-regioes'>{''.join(tile(n) for n in faixa)}</div>"
+            f"<div class='linha-regioes'>"
+            f"{''.join(tile(n, com_mapa) for n in faixa)}</div>"
             for faixa in faixas)
 
+    # A grade de IMPRESSÃO recebe com_mapa=False: ela é uma segunda cópia
+    # dos mesmos dezessete quadrinhos, e embutir o base64 de novo dobraria o
+    # peso do index.html para exibir um pop-up que o papel nem tem.
     html_linhas = (f"<div class='regioes-tela'>{grade([range(1, 9), range(9, 15), range(15, 18)])}</div>"
-                   f"<div class='regioes-print'>{grade([range(1, 10), range(10, 18)])}</div>")
+                   f"<div class='regioes-print'>{grade([range(1, 10), range(10, 18)], False)}</div>")
 
     return f"""
     <section class="bloco-regioes">
@@ -1549,11 +1600,41 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
 @media(max-width:900px){.linha-regioes{flex-wrap:wrap}
   .linha-regioes .tile{flex:0 0 calc(25% - 8px)}}
 @media(max-width:560px){.linha-regioes .tile{flex:0 0 calc(50% - 8px)}}
-.tile{border-radius:10px;padding:8px 6px;min-height:74px}
+.tile{border-radius:10px;padding:8px 6px;min-height:74px;position:relative}
 .tile .num{font-weight:700;font-size:.85rem;opacity:.9}
 .tile .nome{font-weight:700;font-size:.82rem;line-height:1.15}
 .tile .status{font-size:.78rem}
 .tile .detalhe{font-size:.68rem;opacity:.85}
+/* ── Mapa de risco da região, em pop-up ──────────────────────────────
+   Só existe nos quadrinhos em atenção ou risco maior (ver _bloco_regioes).
+   O pop-up é POSICIONADO NA TELA (position:fixed), não abaixo do
+   quadrinho: a grade tem oito colunas e, ancorado no tile, o mapa das
+   pontas saía cortado pela borda da janela. Centralizado, todo mundo lê
+   o mesmo mapa do mesmo jeito, e ainda cabe em 900 px de largura, que é
+   o tamanho em que a legenda do mapa continua legível.
+   Abre no hover (mouse) e no foco (toque/teclado, via tabindex). */
+.tile.com-mapa{cursor:zoom-in}
+.selo-mapa{margin-top:4px;font-size:.62rem;font-weight:700;opacity:.75;
+  letter-spacing:.02em}
+.mapa-pop{position:fixed;left:50%;top:50%;
+  transform:translate(-50%,-50%) scale(.97);
+  width:min(720px,92vw);max-height:92vh;overflow:auto;
+  background:var(--cartao);border:1px solid var(--borda);border-radius:14px;
+  padding:10px;box-shadow:0 18px 60px rgba(0,0,0,.55);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .15s ease,transform .15s ease;z-index:90}
+/* véu escuro atrás do mapa, para o painel não competir com ele */
+.mapa-pop::before{content:"";position:fixed;inset:0;z-index:-1;
+  background:rgba(0,0,0,.5)}
+.mapa-pop img{display:block;width:100%;height:auto;border-radius:10px;
+  background:#FFFFFF}
+.mapa-legenda{color:var(--txt2);font-size:.76rem;text-align:center;
+  margin-top:7px;line-height:1.35}
+.tile.com-mapa:hover .mapa-pop,
+.tile.com-mapa:focus .mapa-pop,
+.tile.com-mapa:focus-within .mapa-pop{opacity:1;visibility:visible;
+  transform:translate(-50%,-50%) scale(1)}
+.tile.com-mapa:focus-visible{outline:3px solid var(--txt);outline-offset:2px}
 .avisos-inmet{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:10px 14px;margin-bottom:16px;text-align:left}
 .avisos-inmet.sem-aviso{border-color:#2E9E44}
@@ -1900,6 +1981,7 @@ body.claro .fig-dark{position:absolute;left:-30000px;top:0;width:1040px;
      Sem alerta = célula vazia de trama. Quanto maior o risco, mais densa
      a hachura — a mesma leitura do mapa, sem depender do tom de cinza. */
   .regioes-tela{display:none !important}
+  .mapa-pop,.selo-mapa{display:none !important}
   .regioes-print{display:block !important}
   .regioes{margin-bottom:8px}
   .linha-regioes{gap:5px;margin-bottom:5px}
