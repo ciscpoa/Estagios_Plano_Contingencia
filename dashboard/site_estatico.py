@@ -622,6 +622,8 @@ def _bloco_regioes(snapshot: dict) -> str:
                    f"região {num}, {nome}'>"
                    f"<div class='mapa-legenda'>Região {num} · {nome} — "
                    f"infraestrutura de saúde e vulnerabilidades territoriais"
+                   f"<span class='mapa-fonte'>Base cartográfica: "
+                   f"OpenStreetMap</span>"
                    f"</div></div>")
         # Faixa cheia só no topo: o corpo pastel mantém a leitura confortável
         # e a tarja devolve a cor forte do risco, que é o que se enxerga de
@@ -1637,6 +1639,7 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
   background:#FFFFFF}
 .mapa-legenda{color:var(--txt2);font-size:.76rem;text-align:center;
   margin-top:7px;line-height:1.35}
+.mapa-fonte{display:block;margin-top:3px;font-size:.68rem;opacity:.8}
 .fechar-mapa{position:absolute;top:16px;right:18px;z-index:2;
   width:32px;height:32px;line-height:1;font-size:1.35rem;font-weight:700;
   border:1px solid var(--borda);border-radius:50%;cursor:pointer;
