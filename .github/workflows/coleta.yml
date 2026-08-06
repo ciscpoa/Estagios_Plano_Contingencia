@@ -285,20 +285,40 @@ jobs:
             echo "::error::A fonte do Pages está em '$tipo'. Vá em Settings → Pages → Source e escolha 'GitHub Actions'."
           fi
 
+      # Padrão observado em 06/08/2026, três execuções seguidas: a PRIMEIRA
+      # implantação fica parada em `deployment_queued` até o timeout, e a
+      # SEGUNDA — criada logo em seguida, para o mesmo commit — entra em
+      # `deployment_in_progress` e publica em ~3 min. Criar a segunda é o
+      # que destrava a fila.
+      #
+      # Por isso a primeira tentativa é curta: 3 minutos. Quando a fila está
+      # boa, publica dentro desse prazo e acabou. Quando está emperrada,
+      # perdemos 3 minutos em vez de 10 antes de partir para a tentativa que
+      # de fato funciona. O ciclo cai de ~14 min para ~6 min.
       - id: deploy
         uses: actions/deploy-pages@v4
-        continue-on-error: true    # a 2ª tentativa abaixo é quem decide
+        continue-on-error: true
         with:
-          timeout: 600000          # teto da action (10 min); acima disso ela corta
+          timeout: 180000          # 3 min
+          error_count: 20
+          reporting_interval: 10000
+
+      - id: deploy2
+        name: Segunda tentativa de publicação
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+        with:
+          timeout: 420000          # 7 min
           error_count: 20
           reporting_interval: 15000
 
-      # A fila do Pages engasga sozinha de vez em quando. Uma segunda
-      # tentativa curta resolve na maioria das vezes e custa nada.
-      - name: Segunda tentativa de publicação
-        if: steps.deploy.outcome == 'failure'
+      # Rede de segurança: se nem a segunda passar, uma terceira. Custa
+      # apenas o tempo dela e evita perder a atualização inteira.
+      - name: Terceira tentativa de publicação
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: actions/deploy-pages@v4
         with:
-          timeout: 480000          # 8 min
+          timeout: 420000          # 7 min
           error_count: 20
           reporting_interval: 15000
