@@ -59,6 +59,12 @@ on:
 permissions:
   contents: read
 
+# Impede que dois gatilhos externos (retry do cron-job.org, ou um clique
+# manual em cima de um agendado) rodem em paralelo.
+concurrency:
+  group: painel-gatilho-externo
+  cancel-in-progress: false
+
 jobs:
   decidir:
     # Se o painel acabou de ser atualizado pelo cron interno, não faz sentido

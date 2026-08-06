@@ -96,6 +96,16 @@ jobs:
     needs: checar
     if: always() && (github.event_name != 'schedule' || needs.checar.outputs.precisa == 'true')
     runs-on: ubuntu-latest
+    # Trava NO NÍVEL DO JOB, não só no topo do arquivo. O `concurrency:` do
+    # topo não vale quando este fluxo é chamado por `workflow_call` (o
+    # gatilho-externo.yml): ali quem manda é o contexto do chamador, e o
+    # grupo `coleta-painel` era simplesmente ignorado. Resultado: a execução
+    # do cron e a do gatilho externo rodavam juntas e disputavam a fila do
+    # Pages, que aceita UMA implantação por vez. Grupo de job é global no
+    # repositório, então segura os dois casos.
+    concurrency:
+      group: painel-coleta
+      cancel-in-progress: false
     timeout-minutes: 30          # 1ª execução pode baixar 1 ano de histórico
     steps:
       - uses: actions/checkout@v4
@@ -241,6 +251,15 @@ jobs:
     # canceled" sem nunca dizer o motivo real da fila, e a execução inteira
     # aparecia como "Cancelled". Com folga, a action chega a reportar o erro.
     timeout-minutes: 25
+    # Aqui, ao contrário da coleta, quem chega DEPOIS é quem tem o dado mais
+    # novo — então a implantação em andamento é cancelada e a nova assume.
+    # Sem isso, duas implantações simultâneas se anulavam: uma ficava em
+    # `deployment_queued` até o timeout e a outra levava
+    # `Error: Deployment cancelled` em segundos, que é exatamente o que o
+    # log da execução #102 mostrou.
+    concurrency:
+      group: painel-pages
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -265,7 +284,7 @@ jobs:
         uses: actions/deploy-pages@v4
         continue-on-error: true    # a 2ª tentativa abaixo é quem decide
         with:
-          timeout: 900000          # 15 min de espera pela fila do Pages
+          timeout: 600000          # teto da action (10 min); acima disso ela corta
           error_count: 20
           reporting_interval: 15000
 
