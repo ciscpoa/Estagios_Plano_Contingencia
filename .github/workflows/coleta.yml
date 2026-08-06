@@ -14,17 +14,22 @@
 #        ANA_IDENTIFICADOR  e  ANA_SENHA  (obrigatórios)
 #        INMET_TOKEN (opcional — chuva observada da estação do INMET)
 #   2) Settings → Pages → Source: "GitHub Actions"
+#      ↑ ISTO É CRÍTICO. Se a fonte estiver em "Deploy from a branch", o
+#        passo `deploy-pages` fica eternamente em "deployment_queued" e o
+#        painel congela mesmo com a coleta funcionando. O job `publicar`
+#        agora confere isso sozinho e avisa no log.
 # ==========================================================================
 name: Coleta e publicação do painel
 
 on:
   schedule:
-    # Três execuções por hora, em minutos "quebrados" (:00 e :30 são os mais
+    # Duas execuções por hora, em minutos "quebrados" (:00 e :30 são os mais
     # disputados do agendador do GitHub e os que mais sofrem descarte).
-    # Com 3 tentativas/hora, mesmo perdendo 2 o painel fica dentro de 60 min.
-    # O espaçamento de 20 min é maior que o teto de 18 min do job, então uma
-    # execução nunca atropela a seguinte.
-    - cron: "4,24,44 * * * *"
+    # Eram três; com o gatilho externo de 30 em 30 min, cinco tentativas por
+    # hora só serviam para empilhar implantações na fila do Pages — que
+    # aceita UMA por vez. Duas aqui + duas de fora, com a trava de idade
+    # abaixo, mantêm o painel dentro dos 60 min sem congestionar.
+    - cron: "14,44 * * * *"
   workflow_dispatch:             # permite rodar na hora, pelo botão "Run workflow"
   workflow_call:                 # permite ser chamado pelo gatilho-externo.yml
   push:
@@ -48,7 +53,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ── Trava de idade do cron interno ────────────────────────────────────
+  # O gatilho externo (cron-job.org) já faz esta checagem antes de chamar
+  # este fluxo. O cron daqui não fazia nenhuma: rodava de qualquer jeito,
+  # inclusive dez minutos depois de uma coleta externa, e cada rodada gera
+  # uma implantação nova no Pages. Só o `schedule` passa por aqui — o botão
+  # "Run workflow", o push e a chamada externa continuam rodando sempre.
+  checar:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      precisa: ${{ steps.idade.outputs.precisa }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: idade
+        env:
+          TZ: America/Sao_Paulo   # o snapshot é gravado em horário de Brasília
+        run: |
+          python - <<'FIM' >> $GITHUB_OUTPUT
+          import json, datetime, os, pathlib, sys
+          limite = 20
+          idade = 999.0
+          arq = pathlib.Path("dados/ultimo_snapshot.json")
+          if arq.exists():
+              try:
+                  iso = json.loads(arq.read_text())["timestamp_iso"]
+                  idade = (datetime.datetime.now()
+                           - datetime.datetime.fromisoformat(iso)).total_seconds() / 60
+              except Exception:
+                  pass
+          precisa = idade >= limite
+          print(f"precisa={'true' if precisa else 'false'}")
+          resumo = (f"Painel com {idade:.0f} min. "
+                    + ("Coletando." if precisa else f"Ainda fresco (< {limite} min); pulando."))
+          print(resumo, file=sys.stderr)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write(resumo + "\n")
+          FIM
+
   coletar:
+    needs: checar
+    if: always() && (github.event_name != 'schedule' || needs.checar.outputs.precisa == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30          # 1ª execução pode baixar 1 ano de histórico
     steps:
@@ -186,12 +232,50 @@ jobs:
 
   publicar:
     needs: coletar
-    if: always() && needs.coletar.result != 'cancelled'
+    if: always() && needs.coletar.result != 'cancelled' && needs.coletar.result != 'skipped'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 25 min, não 10. O teto do JOB precisa ser MAIOR que o tempo de espera
+    # da própria action, senão acontece o que aconteceu em 06/08: a action
+    # esperava a fila do Pages por 10 min (seu padrão) e o job era morto
+    # exatamente no mesmo instante — o log terminava em "The operation was
+    # canceled" sem nunca dizer o motivo real da fila, e a execução inteira
+    # aparecia como "Cancelled". Com folga, a action chega a reportar o erro.
+    timeout-minutes: 25
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      # Diagnóstico barato que responde a pergunta que o log não respondia:
+      # a fonte do Pages ainda é "GitHub Actions"? Se alguém (ou o próprio
+      # GitHub) tiver mudado para "Deploy from a branch", TODA implantação
+      # feita por este fluxo fica em deployment_queued para sempre.
+      - name: Conferir a fonte do GitHub Pages
+        continue-on-error: true
+        run: |
+          resp=$(curl -s -H "Authorization: Bearer ${{ github.token }}" \
+                      -H "Accept: application/vnd.github+json" \
+                      "https://api.github.com/repos/${{ github.repository }}/pages")
+          tipo=$(echo "$resp" | python -c "import json,sys; print(json.load(sys.stdin).get('build_type','desconhecido'))" 2>/dev/null || echo "erro")
+          echo "Fonte do Pages: $tipo"
+          if [ "$tipo" != "workflow" ]; then
+            echo "::error::A fonte do Pages está em '$tipo'. Vá em Settings → Pages → Source e escolha 'GitHub Actions'. Enquanto estiver diferente disso, a publicação fica presa em deployment_queued."
+          fi
+
       - id: deploy
         uses: actions/deploy-pages@v4
+        continue-on-error: true    # a 2ª tentativa abaixo é quem decide
+        with:
+          timeout: 900000          # 15 min de espera pela fila do Pages
+          error_count: 20
+          reporting_interval: 15000
+
+      # A fila do Pages engasga sozinha de vez em quando. Uma segunda
+      # tentativa curta resolve na maioria das vezes e custa nada; sem ela,
+      # um engasgo de 30 segundos custava uma atualização inteira do painel.
+      - name: Segunda tentativa de publicação
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          timeout: 480000          # 8 min
+          error_count: 20
+          reporting_interval: 15000
