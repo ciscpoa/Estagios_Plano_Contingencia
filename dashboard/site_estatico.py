@@ -609,11 +609,15 @@ def _bloco_regioes(snapshot: dict) -> str:
         pop = selo = classe_mapa = foco = ""
         if mapa:
             classe_mapa = " com-mapa"
-            # tabindex torna o quadrinho focável: no celular não existe
-            # hover, e o :focus-within do CSS faz o toque abrir o mapa.
-            foco = " tabindex='0'"
-            selo = "<div class='selo-mapa'>🗺 mapa de risco</div>"
+            # O mapa abre no CLIQUE (antes abria no hover, e ele saltava na
+            # tela de quem só estava varrendo a grade com o mouse). tabindex
+            # + role/aria-expanded mantêm o quadrinho acessível por teclado
+            # e por toque, que é como o celular "clica".
+            foco = " tabindex='0' role='button' aria-expanded='false'"
+            selo = "<div class='selo-mapa'>🗺 clique para ampliar</div>"
             pop = (f"<div class='mapa-pop' aria-hidden='true'>"
+                   f"<button type='button' class='fechar-mapa' "
+                   f"aria-label='Fechar o mapa'>×</button>"
                    f"<img src='{mapa}' alt='Mapa de risco hidrogeológico — "
                    f"região {num}, {nome}'>"
                    f"<div class='mapa-legenda'>Região {num} · {nome} — "
@@ -1612,8 +1616,11 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
    pontas saía cortado pela borda da janela. Centralizado, todo mundo lê
    o mesmo mapa do mesmo jeito, e ainda cabe em 900 px de largura, que é
    o tamanho em que a legenda do mapa continua legível.
-   Abre no hover (mouse) e no foco (toque/teclado, via tabindex). */
+   ABRE NO CLIQUE (classe .aberto posta pelo JS), não no hover: com dezessete
+   quadrinhos lado a lado, passar o mouse pela grade fazia o mapa piscar de
+   um lado para o outro. Fecha no X, no véu, no Esc ou clicando de novo. */
 .tile.com-mapa{cursor:zoom-in}
+.tile.com-mapa.aberto{cursor:zoom-out}
 .selo-mapa{margin-top:4px;font-size:.62rem;font-weight:700;opacity:.75;
   letter-spacing:.02em}
 .mapa-pop{position:fixed;left:50%;top:50%;
@@ -1630,10 +1637,13 @@ body.claro .passo.antes,body.claro .passo.depois{color:var(--c);
   background:#FFFFFF}
 .mapa-legenda{color:var(--txt2);font-size:.76rem;text-align:center;
   margin-top:7px;line-height:1.35}
-.tile.com-mapa:hover .mapa-pop,
-.tile.com-mapa:focus .mapa-pop,
-.tile.com-mapa:focus-within .mapa-pop{opacity:1;visibility:visible;
-  transform:translate(-50%,-50%) scale(1)}
+.fechar-mapa{position:absolute;top:16px;right:18px;z-index:2;
+  width:32px;height:32px;line-height:1;font-size:1.35rem;font-weight:700;
+  border:1px solid var(--borda);border-radius:50%;cursor:pointer;
+  background:var(--cartao);color:var(--txt);padding:0}
+.fechar-mapa:hover{filter:brightness(1.3)}
+.tile.com-mapa.aberto .mapa-pop{opacity:1;visibility:visible;
+  pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
 .tile.com-mapa:focus-visible{outline:3px solid var(--txt);outline-offset:2px}
 .avisos-inmet{background:var(--cartao);border:1px solid var(--borda);
   border-radius:12px;padding:10px 14px;margin-bottom:16px;text-align:left}
@@ -2115,6 +2125,42 @@ window.addEventListener('load', function(){setTimeout(ajustarGraficos, 120);
 window.addEventListener('resize', ajustarGraficos);
 
 document.getElementById('btn-print').onclick=()=>{ window.print(); };
+
+/* ── Mapa de risco da região: abre no clique ────────────────────────────
+   Um mapa aberto por vez. Fecha no X, no véu escuro, no Esc, ou clicando
+   outra vez no mesmo quadrinho. */
+(function(){
+  function fechar(){
+    document.querySelectorAll('.tile.com-mapa.aberto').forEach(function(t){
+      t.classList.remove('aberto');
+      t.setAttribute('aria-expanded','false');
+    });
+  }
+  document.querySelectorAll('.tile.com-mapa').forEach(function(tile){
+    tile.addEventListener('click', function(ev){
+      if (ev.target.closest('.fechar-mapa')) { fechar(); return; }
+      var dentro = ev.target.closest('.mapa-pop');
+      if (dentro){
+        /* clique no véu (o ::before pertence ao .mapa-pop) fecha;
+           clique na imagem ou na legenda não fecha, para dar zoom/rolar */
+        if (ev.target === dentro) fechar();
+        return;
+      }
+      var jaAberto = tile.classList.contains('aberto');
+      fechar();
+      if (!jaAberto){
+        tile.classList.add('aberto');
+        tile.setAttribute('aria-expanded','true');
+      }
+    });
+    tile.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); tile.click(); }
+    });
+  });
+  document.addEventListener('keydown', function(ev){
+    if (ev.key === 'Escape') fechar();
+  });
+})();
 """
 
 
