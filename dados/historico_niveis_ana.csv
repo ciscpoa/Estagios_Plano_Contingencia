@@ -7497,8 +7497,8 @@ Guaiba_PortoAlegre_CaisMaua,2026-08-10 15:45:00,1.95
 Guaiba_PortoAlegre_CaisMaua,2026-08-10 16:00:00,1.95
 Guaiba_PortoAlegre_CaisMaua,2026-08-10 16:15:00,1.95
 Guaiba_PortoAlegre_CaisMaua,2026-08-10 16:30:00,1.94
-Rio_Cai,2025-08-03 17:15:00,4.23
-Rio_Cai,2025-08-03 17:30:00,4.27
+Guaiba_PortoAlegre_CaisMaua,2026-08-10 17:00:00,1.95
+Guaiba_PortoAlegre_CaisMaua,2026-08-10 17:15:00,1.93
 Rio_Cai,2025-08-03 17:45:00,4.3
 Rio_Cai,2025-08-03 18:00:00,4.33
 Rio_Cai,2025-08-03 18:15:00,4.36
@@ -77766,8 +77766,7 @@ Rio_Cai_Montenegro,2026-08-10 16:30:00,2.27
 Rio_Cai_Montenegro,2026-08-10 16:45:00,2.27
 Rio_Cai_Montenegro,2026-08-10 17:00:00,2.27
 Rio_Cai_Montenegro,2026-08-10 17:15:00,2.27
-Rio_Gravatai,2025-08-03 17:15:00,4.05
-Rio_Gravatai,2025-08-03 17:30:00,4.05
+Rio_Cai_Montenegro,2026-08-10 17:30:00,2.27
 Rio_Gravatai,2025-08-03 17:45:00,4.05
 Rio_Gravatai,2025-08-03 18:00:00,4.05
 Rio_Gravatai,2025-08-03 18:15:00,4.05
@@ -147632,8 +147631,6 @@ Rio_Jacui_CachoeiraDoSul,2026-08-04 14:15:00,9.34
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:30:00,9.32
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:45:00,9.33
 Rio_Jacui_CachoeiraDoSul,2026-08-04 15:00:00,9.32
-Rio_Jacui_Triunfo,2025-08-03 17:15:00,7.27
-Rio_Jacui_Triunfo,2025-08-03 17:30:00,7.28
 Rio_Jacui_Triunfo,2025-08-03 17:45:00,7.29
 Rio_Jacui_Triunfo,2025-08-03 18:00:00,7.29
 Rio_Jacui_Triunfo,2025-08-03 18:15:00,7.28
@@ -266208,8 +266205,10 @@ Rio_Taquari_Taquari,2026-08-10 16:00:00,4.33
 Rio_Taquari_Taquari,2026-08-10 16:15:00,4.33
 Rio_Taquari_Taquari,2026-08-10 16:30:00,4.34
 Rio_Taquari_Taquari,2026-08-10 16:45:00,4.34
-Rio_dos_Sinos_SaoLeopoldo,2025-08-03 17:15:00,3.79
-Rio_dos_Sinos_SaoLeopoldo,2025-08-03 17:30:00,3.79
+Rio_Taquari_Taquari,2026-08-10 17:00:00,4.34
+Rio_Taquari_Taquari,2026-08-10 17:15:00,4.34
+Rio_Taquari_Taquari,2026-08-10 17:30:00,4.33
+Rio_Taquari_Taquari,2026-08-10 17:45:00,4.33
 Rio_dos_Sinos_SaoLeopoldo,2025-08-03 17:45:00,3.79
 Rio_dos_Sinos_SaoLeopoldo,2025-08-03 18:00:00,3.79
 Rio_dos_Sinos_SaoLeopoldo,2025-08-03 18:15:00,3.79
