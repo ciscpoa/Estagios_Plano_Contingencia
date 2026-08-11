@@ -172,6 +172,26 @@ def _refs_afluente(nome: str) -> dict:
     return config.COTAS_AFLUENTES.get(nome) or {}
 
 
+def _afluentes_logica(ind: IndicadoresNumericos) -> dict:
+    """
+    Os afluentes que PODEM acionar estágio.
+
+    `ind.afluentes` traz TODAS as réguas coletadas, porque é dele que os
+    cards do painel tiram o número de cada estação. A classificação, porém,
+    usa um subconjunto: as réguas listadas em
+    `config.RIOS_FORA_DA_LOGICA_OPERACIONAL` continuam medidas e exibidas,
+    mas não entram em nenhum gatilho (ver o comentário no config para o
+    critério — hoje é o caso do Taquari, cuja água só chega a Porto Alegre
+    pelo Jacuí, que já é monitorado por Triunfo e Cachoeira do Sul).
+
+    Filtrar AQUI, e não na montagem dos indicadores, é o que mantém as duas
+    coisas separadas: o painel segue mostrando o Taquari em cota de atenção;
+    o estágio é que deixa de subir por causa dele.
+    """
+    fora = getattr(config, "RIOS_FORA_DA_LOGICA_OPERACIONAL", set()) or set()
+    return {n: d for n, d in (ind.afluentes or {}).items() if n not in fora}
+
+
 def _refs_guaiba() -> dict:
     return {"atencao": config.COTA_ATENCAO_GUAIBA,
             "alerta": config.COTA_ALERTA_GUAIBA,
@@ -211,7 +231,7 @@ def _rios_em_cota(ind: IndicadoresNumericos, nivel_guaiba: float | None,
     pares = [("Guaíba", _refs_guaiba(), nivel_guaiba),
              ("Ipiranga", _refs_riacho(), ind.poaclima_riacho_ipiranga_m)]
     pares += [(_nome(nome), _refs_afluente(nome), _nivel_de(dados))
-              for nome, dados in ind.afluentes.items()]
+              for nome, dados in _afluentes_logica(ind).items()]
     for rotulo, refs, nivel in pares:
         atingida = _cota_atingida(refs, nivel)
         if atingida and ORDEM_COTAS.index(atingida[0]) >= piso:
@@ -233,7 +253,7 @@ def _rios_subindo(ind: IndicadoresNumericos,
     frases = []
     if tend_guaiba is not None and tend_guaiba >= limiar:
         frases.append(f"Guaíba +{tend_guaiba:.2f} m/48h")
-    for nome, dados in ind.afluentes.items():
+    for nome, dados in _afluentes_logica(ind).items():
         t = dados.get("tendencia_48h_m")
         if t is not None and t >= limiar:
             frases.append(f"{_nome(nome)} +{t:.2f} m/48h")
@@ -243,7 +263,7 @@ def _rios_subindo(ind: IndicadoresNumericos,
 def _afluente_atingiu(ind: IndicadoresNumericos, cota: str) -> bool:
     """True se algum afluente atingiu PELO MENOS a cota pedida."""
     piso = ORDEM_COTAS.index(cota)
-    for nome, dados in ind.afluentes.items():
+    for nome, dados in _afluentes_logica(ind).items():
         atingida = _cota_atingida(_refs_afluente(nome), _nivel_de(dados))
         if atingida and ORDEM_COTAS.index(atingida[0]) >= piso:
             return True
@@ -252,7 +272,7 @@ def _afluente_atingiu(ind: IndicadoresNumericos, cota: str) -> bool:
 
 def _afluente_subindo(ind: IndicadoresNumericos) -> bool:
     """True se algum afluente apresenta tendência de subida relevante."""
-    for dados in ind.afluentes.values():
+    for dados in _afluentes_logica(ind).values():
         t = dados.get("tendencia_48h_m")
         if t is not None and t >= config.TENDENCIA_SUBIDA_RELEVANTE_M:
             return True
@@ -740,8 +760,9 @@ def _avaliar_regras(
         motivos.append("Elevação das bacias próximas não configura risco ou ameaça")
     # Sem NENHUM dado de nível de rio não é possível afirmar que "a elevação
     # das águas não configura risco" (exigência da coluna NORMALIDADE).
-    sem_dados_rios = (not ind.afluentes) and nivel is None
-    hidro_incompleta = (not ind.afluentes) or nivel is None
+    afl_logica = _afluentes_logica(ind)
+    sem_dados_rios = (not afl_logica) and nivel is None
+    hidro_incompleta = (not afl_logica) or nivel is None
     if hidro_incompleta:
         motivos.insert(0,
             "⚠ Dados de nível dos rios incompletos nesta coleta — "
