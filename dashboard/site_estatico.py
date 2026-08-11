@@ -255,7 +255,13 @@ def _botao_notificar(cor_estagio: str, classe_extra: str = "") -> str:
     recebe e trata a ocorrência. Antes dizia "SMS" (a Secretaria inteira),
     o que era vago demais para quem vai clicar, e antes disso "SMS/DC", que
     fazia o leitor supor que a Defesa Civil também recebe por este canal.
+
+    Fica atrás de `config.BOTAO_NOTIFICAR_DVS_ATIVO`: com a flag em False a
+    função devolve string vazia e o bloco inteiro (botão + dica) some do
+    HTML, sem deixar container vazio no meio da faixa do estágio.
     """
+    if not getattr(config, "BOTAO_NOTIFICAR_DVS_ATIVO", True):
+        return ""
     fundo = _tom_escuro(cor_estagio)
     tinta = _tinta_sobre(fundo)
     return (
