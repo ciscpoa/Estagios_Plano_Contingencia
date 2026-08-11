@@ -254,6 +254,25 @@ COTAS_AFLUENTES = {
     "Rio_Taquari_Taquari":   {"atencao": 4.00, "alerta": 6.50, "inundacao": 8.50},
 }
 
+# ── Réguas MONITORADAS, porém FORA da classificação de estágio ──────────
+# Estas estações continuam sendo coletadas, continuam aparecendo nos cards
+# de "Estações de monitoramento" com a cota da sua própria régua e seguem
+# nos gráficos — o que NÃO fazem é acionar gatilho de estágio operacional.
+#
+# Por que o Taquari saiu da lógica: a bacia do Taquari não desagua no
+# Guaíba, e sim no Jacuí, muito a montante (Muçum fica ~250 km acima do
+# Delta). Uma cheia no Taquari só chega a Porto Alegre depois de passar
+# pelo Jacuí — e o Jacuí JÁ é monitorado na lógica por Triunfo (última
+# régua antes do Delta) e por Cachoeira do Sul. Manter o Taquari também
+# como gatilho fazia o mesmo volume de água contar duas vezes e subia o
+# estágio da cidade por um rio que ainda não é o rio de Porto Alegre.
+# O valor do Taquari é de ANTECEDÊNCIA — por isso ele fica visível nos
+# cards, para leitura humana, e não como gatilho automático.
+RIOS_FORA_DA_LOGICA_OPERACIONAL = {
+    "Rio_Taquari_Taquari",
+    "Rio_Taquari_Mucum",
+}
+
 # ── Referências p/ os CARDS do dashboard: Nível × Cota de Inundação ──────
 # rotulo / municipio / estacao — AJUSTE as cotas de inundação conforme as
 # réguas oficiais da Defesa Civil de cada município.
@@ -469,6 +488,13 @@ GATILHOS_TXT = Path(os.environ.get(
 # bloco 3 do ALERTA, os blocos 2/3/4 da EMERGÊNCIA e os 2/3/4/5 da CRISE) —
 # só perderam o poder de decidir o estágio sozinhos.
 PISO_POR_GATILHO_MANUAL = False
+
+# ── Botão público "Notificar DVS" (link para o Formulário Google) ────────
+# Com False o botão simplesmente não é escrito no HTML. O formulário, a
+# planilha e a automação de e-mail continuam existindo e funcionando: quem
+# tiver o link segue conseguindo registrar ocorrência — o que sai é apenas
+# a porta de entrada pública no painel. Para religar, basta True.
+BOTAO_NOTIFICAR_DVS_ATIVO = False
 
 ROTULOS_GATILHOS = {
     # coluna ALERTA
