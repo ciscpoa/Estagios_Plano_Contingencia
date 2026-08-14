@@ -7506,8 +7506,6 @@ Guaiba_PortoAlegre_CaisMaua,2026-08-13 02:00:00,1.74
 Guaiba_PortoAlegre_CaisMaua,2026-08-13 03:00:00,1.75
 Guaiba_PortoAlegre_CaisMaua,2026-08-13 04:00:00,1.76
 Guaiba_PortoAlegre_CaisMaua,2026-08-13 05:00:00,1.77
-Rio_Cai,2025-08-07 08:15:00,5.34
-Rio_Cai,2025-08-07 08:30:00,5.33
 Rio_Cai,2025-08-07 08:45:00,5.31
 Rio_Cai,2025-08-07 09:00:00,5.3
 Rio_Cai,2025-08-07 09:15:00,5.29
@@ -42069,8 +42067,6 @@ Rio_Cai,2026-08-04 14:30:00,4.25
 Rio_Cai,2026-08-04 14:45:00,4.24
 Rio_Cai,2026-08-04 15:00:00,4.24
 Rio_Cai,2026-08-04 15:15:00,4.23
-Rio_Cai_Montenegro,2025-08-07 08:15:00,3.66
-Rio_Cai_Montenegro,2025-08-07 08:30:00,3.65
 Rio_Cai_Montenegro,2025-08-07 08:45:00,3.64
 Rio_Cai_Montenegro,2025-08-07 09:00:00,3.63
 Rio_Cai_Montenegro,2025-08-07 09:15:00,3.62
@@ -77521,8 +77517,8 @@ Rio_Cai_Montenegro,2026-08-14 07:30:00,5.75
 Rio_Cai_Montenegro,2026-08-14 07:45:00,5.74
 Rio_Cai_Montenegro,2026-08-14 08:00:00,5.76
 Rio_Cai_Montenegro,2026-08-14 08:15:00,5.77
-Rio_Gravatai,2025-08-07 08:15:00,4.36
-Rio_Gravatai,2025-08-07 08:30:00,4.36
+Rio_Cai_Montenegro,2026-08-14 08:30:00,5.77
+Rio_Cai_Montenegro,2026-08-14 08:45:00,5.77
 Rio_Gravatai,2025-08-07 08:45:00,4.36
 Rio_Gravatai,2025-08-07 09:00:00,4.36
 Rio_Gravatai,2025-08-07 09:15:00,4.35
@@ -113132,8 +113128,6 @@ Rio_Gravatai,2026-08-14 07:30:00,3.76
 Rio_Gravatai,2026-08-14 07:45:00,3.77
 Rio_Gravatai,2026-08-14 08:00:00,3.77
 Rio_Gravatai,2026-08-14 08:15:00,3.77
-Rio_Jacui_CachoeiraDoSul,2025-08-07 08:15:00,7.98
-Rio_Jacui_CachoeiraDoSul,2025-08-07 08:30:00,7.98
 Rio_Jacui_CachoeiraDoSul,2025-08-07 08:45:00,7.98
 Rio_Jacui_CachoeiraDoSul,2025-08-07 09:00:00,7.98
 Rio_Jacui_CachoeiraDoSul,2025-08-07 09:15:00,7.98
@@ -147129,8 +147123,6 @@ Rio_Jacui_CachoeiraDoSul,2026-08-04 14:15:00,9.34
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:30:00,9.32
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:45:00,9.33
 Rio_Jacui_CachoeiraDoSul,2026-08-04 15:00:00,9.32
-Rio_Jacui_Triunfo,2025-08-07 08:15:00,8.81
-Rio_Jacui_Triunfo,2025-08-07 08:30:00,8.81
 Rio_Jacui_Triunfo,2025-08-07 08:45:00,8.82
 Rio_Jacui_Triunfo,2025-08-07 09:00:00,2.89
 Rio_Jacui_Triunfo,2025-08-07 09:15:00,8.83
@@ -160499,8 +160491,6 @@ Rio_Jacui_Triunfo,2026-08-13 05:00:00,2.71
 Rio_Jacui_Triunfo,2026-08-13 13:00:00,3.15
 Rio_Jacui_Triunfo,2026-08-13 18:00:00,3.46
 Rio_Jacui_Triunfo,2026-08-14 04:00:00,3.82
-Rio_Taquari_Encantado,2025-08-07 08:15:00,2.58
-Rio_Taquari_Encantado,2025-08-07 08:30:00,2.58
 Rio_Taquari_Encantado,2025-08-07 08:45:00,2.57
 Rio_Taquari_Encantado,2025-08-07 09:00:00,2.57
 Rio_Taquari_Encantado,2025-08-07 09:15:00,2.56
@@ -195015,8 +195005,6 @@ Rio_Taquari_Encantado,2026-08-04 13:00:00,2.28
 Rio_Taquari_Encantado,2026-08-04 13:15:00,2.27
 Rio_Taquari_Encantado,2026-08-04 13:30:00,2.26
 Rio_Taquari_Encantado,2026-08-04 13:45:00,2.25
-Rio_Taquari_Mucum,2025-08-07 08:15:00,4.44
-Rio_Taquari_Mucum,2025-08-07 08:30:00,4.43
 Rio_Taquari_Mucum,2025-08-07 08:45:00,4.42
 Rio_Taquari_Mucum,2025-08-07 09:00:00,4.43
 Rio_Taquari_Mucum,2025-08-07 09:15:00,4.41
@@ -229537,8 +229525,6 @@ Rio_Taquari_Mucum,2026-08-04 14:30:00,3.82
 Rio_Taquari_Mucum,2026-08-04 14:45:00,3.77
 Rio_Taquari_Mucum,2026-08-04 15:00:00,3.72
 Rio_Taquari_Mucum,2026-08-04 15:15:00,3.66
-Rio_Taquari_Taquari,2025-08-07 08:15:00,4.42
-Rio_Taquari_Taquari,2025-08-07 08:30:00,4.42
 Rio_Taquari_Taquari,2025-08-07 08:45:00,4.42
 Rio_Taquari_Taquari,2025-08-07 09:00:00,4.42
 Rio_Taquari_Taquari,2025-08-07 09:15:00,4.42
@@ -265007,8 +264993,10 @@ Rio_Taquari_Taquari,2026-08-14 07:00:00,6.57
 Rio_Taquari_Taquari,2026-08-14 07:15:00,6.58
 Rio_Taquari_Taquari,2026-08-14 07:30:00,6.59
 Rio_Taquari_Taquari,2026-08-14 07:45:00,6.6
-Rio_dos_Sinos_SaoLeopoldo,2025-08-07 08:15:00,3.9
-Rio_dos_Sinos_SaoLeopoldo,2025-08-07 08:30:00,3.9
+Rio_Taquari_Taquari,2026-08-14 08:00:00,6.6
+Rio_Taquari_Taquari,2026-08-14 08:15:00,6.61
+Rio_Taquari_Taquari,2026-08-14 08:30:00,6.62
+Rio_Taquari_Taquari,2026-08-14 08:45:00,6.62
 Rio_dos_Sinos_SaoLeopoldo,2025-08-07 08:45:00,3.9
 Rio_dos_Sinos_SaoLeopoldo,2025-08-07 09:00:00,3.9
 Rio_dos_Sinos_SaoLeopoldo,2025-08-07 09:15:00,3.9
