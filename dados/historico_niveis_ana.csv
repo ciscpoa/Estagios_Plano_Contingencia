@@ -7415,8 +7415,6 @@ Guaiba_PortoAlegre_CaisMaua,2026-08-19 03:00:00,1.79
 Guaiba_PortoAlegre_CaisMaua,2026-08-19 06:00:00,1.79
 Guaiba_PortoAlegre_CaisMaua,2026-08-19 12:00:00,1.81
 Guaiba_PortoAlegre_CaisMaua,2026-08-19 15:00:00,1.82
-Rio_Cai,2025-08-12 16:15:00,3.65
-Rio_Cai,2025-08-12 16:30:00,3.65
 Rio_Cai,2025-08-12 16:45:00,3.64
 Rio_Cai,2025-08-12 17:00:00,3.64
 Rio_Cai,2025-08-12 17:15:00,3.63
@@ -41466,8 +41464,6 @@ Rio_Cai,2026-08-04 14:30:00,4.25
 Rio_Cai,2026-08-04 14:45:00,4.24
 Rio_Cai,2026-08-04 15:00:00,4.24
 Rio_Cai,2026-08-04 15:15:00,4.23
-Rio_Cai_Montenegro,2025-08-12 16:15:00,2.26
-Rio_Cai_Montenegro,2025-08-12 16:30:00,2.25
 Rio_Cai_Montenegro,2025-08-12 16:45:00,2.25
 Rio_Cai_Montenegro,2025-08-12 17:00:00,2.25
 Rio_Cai_Montenegro,2025-08-12 17:15:00,2.24
@@ -76918,8 +76914,8 @@ Rio_Cai_Montenegro,2026-08-19 15:30:00,2.35
 Rio_Cai_Montenegro,2026-08-19 15:45:00,2.35
 Rio_Cai_Montenegro,2026-08-19 16:00:00,2.35
 Rio_Cai_Montenegro,2026-08-19 16:15:00,2.35
-Rio_Gravatai,2025-08-12 16:15:00,4.02
-Rio_Gravatai,2025-08-12 16:30:00,4.02
+Rio_Cai_Montenegro,2026-08-19 16:30:00,2.35
+Rio_Cai_Montenegro,2026-08-19 16:45:00,2.35
 Rio_Gravatai,2025-08-12 16:45:00,4.02
 Rio_Gravatai,2025-08-12 17:00:00,4.02
 Rio_Gravatai,2025-08-12 17:15:00,4.02
@@ -112529,8 +112525,6 @@ Rio_Gravatai,2026-08-19 15:30:00,4.22
 Rio_Gravatai,2026-08-19 15:45:00,4.22
 Rio_Gravatai,2026-08-19 16:00:00,4.22
 Rio_Gravatai,2026-08-19 16:15:00,4.22
-Rio_Jacui_CachoeiraDoSul,2025-08-12 16:15:00,4.81
-Rio_Jacui_CachoeiraDoSul,2025-08-12 16:30:00,4.8
 Rio_Jacui_CachoeiraDoSul,2025-08-12 16:45:00,4.8
 Rio_Jacui_CachoeiraDoSul,2025-08-12 17:00:00,4.79
 Rio_Jacui_CachoeiraDoSul,2025-08-12 17:15:00,4.78
@@ -146014,8 +146008,6 @@ Rio_Jacui_CachoeiraDoSul,2026-08-04 14:15:00,9.34
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:30:00,9.32
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:45:00,9.33
 Rio_Jacui_CachoeiraDoSul,2026-08-04 15:00:00,9.32
-Rio_Jacui_Triunfo,2025-08-12 16:15:00,7.7
-Rio_Jacui_Triunfo,2025-08-12 16:30:00,7.69
 Rio_Jacui_Triunfo,2025-08-12 16:45:00,7.68
 Rio_Jacui_Triunfo,2025-08-12 17:00:00,2.55
 Rio_Jacui_Triunfo,2025-08-12 17:15:00,7.67
@@ -158910,8 +158902,6 @@ Rio_Jacui_Triunfo,2026-08-19 03:00:00,2.81
 Rio_Jacui_Triunfo,2026-08-19 05:00:00,2.81
 Rio_Jacui_Triunfo,2026-08-19 06:00:00,2.81
 Rio_Jacui_Triunfo,2026-08-19 10:00:00,2.82
-Rio_Taquari_Encantado,2025-08-12 16:15:00,1.81
-Rio_Taquari_Encantado,2025-08-12 16:30:00,1.81
 Rio_Taquari_Encantado,2025-08-12 16:45:00,1.8
 Rio_Taquari_Encantado,2025-08-12 17:00:00,1.8
 Rio_Taquari_Encantado,2025-08-12 17:15:00,1.79
@@ -192915,8 +192905,6 @@ Rio_Taquari_Encantado,2026-08-04 13:00:00,2.28
 Rio_Taquari_Encantado,2026-08-04 13:15:00,2.27
 Rio_Taquari_Encantado,2026-08-04 13:30:00,2.26
 Rio_Taquari_Encantado,2026-08-04 13:45:00,2.25
-Rio_Taquari_Mucum,2025-08-12 16:15:00,3.53
-Rio_Taquari_Mucum,2025-08-12 16:30:00,3.52
 Rio_Taquari_Mucum,2025-08-12 16:45:00,3.52
 Rio_Taquari_Mucum,2025-08-12 17:00:00,3.49
 Rio_Taquari_Mucum,2025-08-12 17:15:00,3.47
@@ -226925,8 +226913,6 @@ Rio_Taquari_Mucum,2026-08-04 14:30:00,3.82
 Rio_Taquari_Mucum,2026-08-04 14:45:00,3.77
 Rio_Taquari_Mucum,2026-08-04 15:00:00,3.72
 Rio_Taquari_Mucum,2026-08-04 15:15:00,3.66
-Rio_Taquari_Taquari,2025-08-12 16:15:00,3.97
-Rio_Taquari_Taquari,2025-08-12 16:30:00,3.97
 Rio_Taquari_Taquari,2025-08-12 16:45:00,3.97
 Rio_Taquari_Taquari,2025-08-12 17:00:00,3.97
 Rio_Taquari_Taquari,2025-08-12 17:15:00,3.96
@@ -262395,8 +262381,10 @@ Rio_Taquari_Taquari,2026-08-19 15:00:00,4.27
 Rio_Taquari_Taquari,2026-08-19 15:15:00,4.26
 Rio_Taquari_Taquari,2026-08-19 15:30:00,4.26
 Rio_Taquari_Taquari,2026-08-19 15:45:00,4.25
-Rio_dos_Sinos_SaoLeopoldo,2025-08-12 16:15:00,3.72
-Rio_dos_Sinos_SaoLeopoldo,2025-08-12 16:30:00,3.73
+Rio_Taquari_Taquari,2026-08-19 16:00:00,4.25
+Rio_Taquari_Taquari,2026-08-19 16:15:00,4.25
+Rio_Taquari_Taquari,2026-08-19 16:30:00,4.25
+Rio_Taquari_Taquari,2026-08-19 16:45:00,4.24
 Rio_dos_Sinos_SaoLeopoldo,2025-08-12 16:45:00,3.73
 Rio_dos_Sinos_SaoLeopoldo,2025-08-12 17:00:00,3.73
 Rio_dos_Sinos_SaoLeopoldo,2025-08-12 17:15:00,3.73
