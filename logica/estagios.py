@@ -20,7 +20,21 @@ Estratégia (conforme nota do projeto):
     preenchíveis manualmente ou por integrações futuras.
   * Blocos "E" qualitativos sem input manual são tratados por PROXY:
     quando os sinais numéricos são fortes o suficiente, o bloco conta
-    como satisfeito (comportamento configurável em `modo_estrito`).
+    como satisfeito (comportamento configurável em `modo_estrito`) —
+    EXCETO o bloco 3 do ALERTA, que desde set/2026 só fecha com um
+    gatilho manual confirmado em campo (regra interna CISC/SMS).
+
+Regras internas CISC/SMS vigentes (set/2026), além do texto do Plano:
+  * MOBILIZAÇÃO tem um 3º bloco obrigatório: pelo menos UMA região
+    (subprefeitura) da cidade em atenção ou alerta no mapa do Poaclima
+    (Defesa Civil). Previsão de chuva + rio em atenção, sozinhos, viram
+    apenas observação de monitoramento na NORMALIDADE.
+  * ALERTA exige ao menos UM gatilho manual ativo (gatilhos_manuais.txt
+    ou variável GATILHOS_ATIVOS) no bloco 3 — sem confirmação humana em
+    campo, o painel não sobe para ALERTA.
+  * O aviso do INMET é EXIBIDO no painel quando existe, mas NÃO entra em
+    nenhuma regra de estágio — é informação complementar, a título de
+    curiosidade, e não gatilho.
 
 A avaliação é feita de cima para baixo (CRISE → NORMALIDADE) e retorna o
 estágio mais grave cujos gatilhos foram atendidos, junto com a lista de
@@ -349,7 +363,12 @@ def _perfil_chuva(ind: IndicadoresNumericos) -> dict:
       A) Já choveu MUITO  +  previsão de continuidade (mesmo moderada).
       B) Já choveu MÉDIO  +  previsão FORTE para os próximos dias.
       C) Previsão MUITO FORTE isolada (evento a caminho, ainda sem chuva).
-      D) Aviso VERMELHO do INMET (grande perigo) — dispensa aritmética.
+
+    Até set/2026 havia um caminho D (aviso VERMELHO do INMET, dispensando
+    aritmética) e o aviso do INMET também somava na previsão forte/contínua.
+    Por decisão do CISC/SMS, o aviso do INMET NÃO influencia mais o estágio:
+    segue coletado em `ind.inmet_max_severidade` e EXIBIDO no painel, mas
+    apenas como informação complementar — nunca como gatilho.
 
     Devolve as categorias e (ativo, motivo) já formatados para a árvore.
     """
@@ -358,7 +377,6 @@ def _perfil_chuva(ind: IndicadoresNumericos) -> dict:
     obs72 = ind.acumulado_obs_72h_mm or 0.0
     prev48 = ind.previsto_48h_mm or 0.0
     prev5d = max(ind.previsto_5d_mm or 0.0, ind.previsto_72h_mm or 0.0, prev48)
-    aviso = ind.inmet_max_severidade
 
     # ── categorias da chuva JÁ OCORRIDA ──────────────────────
     ja_muito = (obs24 >= L["acumulado_24h_intensa"]
@@ -370,14 +388,15 @@ def _perfil_chuva(ind: IndicadoresNumericos) -> dict:
                 or ind.dias_com_chuva_obs_5d >= 2)
 
     # ── categorias da chuva PREVISTA ─────────────────────────
+    # Só números de previsão entram aqui: o aviso do INMET foi retirado
+    # das regras (ver o docstring desta função) — quem quiser vê-lo olha
+    # o aviso exibido no painel, não a árvore de estágios.
     prev_forte = (prev48 >= L["previsao_48h_alerta"]
-                  or prev5d >= L["previsao_5d_alerta"]
-                  or aviso in ("Laranja", "Vermelho"))
+                  or prev5d >= L["previsao_5d_alerta"])
     prev_continua = (prev_forte
                      or prev48 >= L["previsao_48h_mobilizacao"]
                      or prev5d >= L["previsao_5d_continuidade"]
-                     or ind.dias_previsao_chuva >= L["dias_previsao_continuidade"]
-                     or aviso is not None)
+                     or ind.dias_previsao_chuva >= L["dias_previsao_continuidade"])
 
     def _obs_txt() -> str:
         """Uma linha só: acumulado de 96h (convenção) + fonte curta."""
@@ -394,8 +413,6 @@ def _perfil_chuva(ind: IndicadoresNumericos) -> dict:
             linhas.append(f"{prev5d:.0f} mm em 5 dias")
         if ind.dias_previsao_chuva:
             linhas.append(f"chuva prevista em {ind.dias_previsao_chuva} dos próximos 5 dias")
-        if aviso:
-            linhas.append(f"aviso do INMET vigente: {aviso}")
         return linhas or ["sem chuva relevante prevista"]
 
     def _bloco_prev(titulo: str) -> str:
@@ -403,11 +420,7 @@ def _perfil_chuva(ind: IndicadoresNumericos) -> dict:
         return f"{titulo} (fonte: {fonte}):\n{_lista(_prev_linhas())}"
 
     ativo, caminho, motivo = False, None, ""
-    if aviso == "Vermelho":
-        ativo, caminho = True, "D"
-        motivo = ("Aviso VERMELHO do INMET — grande perigo de chuvas intensas.\n"
-                  f"Chuva registrada: {_obs_txt()}")
-    elif ja_muito and prev_continua:
+    if ja_muito and prev_continua:
         ativo, caminho = True, "A"
         motivo = (f"Choveu intensamente por horas/dias: {_obs_txt()}\n\n"
                   + _bloco_prev("Além disso, a previsão indica continuidade"))
@@ -439,9 +452,8 @@ def _perfil_chuva(ind: IndicadoresNumericos) -> dict:
         "alerta_ativo": ativo, "alerta_caminho": caminho,
         "alerta_motivo": motivo,
         "obs_txt": _obs_txt(), "prev_txt": " · ".join(_prev_linhas()),
-        # A lista crua serve a quem precisa remover um item específico antes
-        # de montar o texto — hoje, o aviso do INMET na MOBILIZAÇÃO, que já
-        # aparece como fator próprio e vinha repetido aqui dentro.
+        # A lista crua serve a quem precisa montar o texto da previsão item
+        # a item (hoje, o bloco 1 da MOBILIZAÇÃO).
         "prev_linhas": _prev_linhas(),
     }
 
@@ -463,7 +475,9 @@ def _avaliar_regras(
       }
 
     modo_estrito=False (padrão): blocos qualitativos sem input manual
-    podem ser satisfeitos por PROXY numérico (recomendado p/ automação).
+    podem ser satisfeitos por PROXY numérico (recomendado p/ automação),
+    EXCETO o bloco 3 do ALERTA, que sempre exige um gatilho manual ativo
+    (regra interna CISC/SMS, set/2026).
     modo_estrito=True: exige os booleanos explicitamente.
     """
     infra = infra or InputsInfraestrutura()
@@ -630,11 +644,17 @@ def _avaliar_regras(
             + "; ".join(reg["regioes_inundacao"]))
     if partes_b2:
         motivos.append("\n".join(partes_b2))
-    # Bloco 3 (E): famílias/abrigos/vias/saúde (OU entre eles) — proxy: b1 E b2 fortes
+    # Bloco 3 (E): famílias/abrigos/vias/saúde (OU entre eles).
+    # REGRA INTERNA CISC/SMS (set/2026): este bloco NÃO tem mais proxy
+    # numérico. O ALERTA só fecha quando ao menos UM dos cinco gatilhos
+    # de campo está CONFIRMADO — alguém marca no gatilhos_manuais.txt
+    # (ex.: "abrigos_temporarios_instalados = ok") ou ativa pela variável
+    # GATILHOS_ATIVOS. Chuva forte e rios em alerta, sozinhos, não sobem
+    # o painel para ALERTA: a trava existe para que o estágio que muda a
+    # rotina da rede tenha sempre um olho humano confirmando o evento.
     b3 = (infra.familias_deixando_casas or infra.aumento_demanda_abrigo
           or infra.abrigos_temporarios_instalados or infra.bloqueio_vias_principais
-          or infra.aumento_demanda_saude_clima
-          or (not modo_estrito and b1 and b2))
+          or infra.aumento_demanda_saude_clima)
     disparou_alerta = b1 and b2 and b3
     motivo_b2 = "\n".join(partes_b2) if b2 and partes_b2 else \
         ("Nenhum rio atingiu cota de alerta e a Defesa Civil não tem "
@@ -645,8 +665,10 @@ def _avaliar_regras(
               "aumento_demanda_saude_clima") if getattr(infra, c, False)]
     motivo_b3 = ("Confirmado em campo pela Defesa Civil/SMS:\n"
                  + _lista(_conf) if _conf
-                 else ("Satisfeito por proxy: blocos 1 e 2 ativos." if b3
-                       else "Nenhum gatilho de campo confirmado."))
+                 else ("Nenhum gatilho de campo confirmado — sem ao menos um "
+                       "gatilho manual ativo (gatilhos_manuais.txt ou "
+                       "GATILHOS_ATIVOS), o ALERTA não fecha, mesmo com os "
+                       "blocos 1 e 2 ativos."))
     detalhes["ALERTA"] = {"disparou": disparou_alerta, "motivos": motivos,
         "blocos": [
             {"n": 1, "titulo": "Chuva intensa por horas/dias com previsão de continuidade",
@@ -654,40 +676,28 @@ def _avaliar_regras(
              "caminho": chuva["alerta_caminho"]},
             {"n": 2, "titulo": "Guaíba em cota de alerta OU afluentes/córregos subindo OU risco de inundação",
              "ativo": bool(b2), "motivo": motivo_b2},
-            {"n": 3, "titulo": "Famílias deixando casas OU demanda por abrigo OU bloqueio de vias OU demanda na saúde",
+            {"n": 3, "titulo": "Gatilho manual OBRIGATÓRIO: famílias deixando casas OU demanda por abrigo OU abrigos instalados OU bloqueio de vias OU demanda na saúde",
              "ativo": bool(b3), "motivo": motivo_b3}]}
     if disparou_alerta:
         return _montar_saida("ALERTA", motivos, detalhes)
 
     # ══════════════════════════════════════ 2) MOBILIZAÇÃO (amarelo)
     motivos = []
-    # Bloco 1: previsão de chuvas mais intensas / avisos vigentes
+    # Bloco 1: previsão de chuvas mais intensas OU aviso vigente da Defesa
+    # Civil (Poaclima). O aviso do INMET foi retirado daqui (set/2026): ele
+    # é exibido no painel como informação, mas não conta mais para estágio.
+    # Os alertas por REGIÃO também saíram deste bloco — viraram o bloco 3,
+    # obrigatório e separado.
     b1 = (chuva["prev_continua"] or chuva["ja_muito"]
-          or ind.inmet_max_severidade is not None
-          or ind.poaclima_alerta is not None
-          or reg["n_total"] >= 1)
+          or ind.poaclima_alerta is not None)
     if b1:
         fatores = []
-        # O aviso do INMET tem fator próprio logo abaixo. Se ele também
-        # ficasse na lista da previsão, a mesma informação apareceria duas
-        # vezes no mesmo bloco — uma como item, outra como subitem.
-        prev_itens = [l for l in chuva.get("prev_linhas", [])
-                      if not l.lower().startswith("aviso do inmet")]
+        prev_itens = list(chuva.get("prev_linhas", []))
         if chuva["prev_continua"] and prev_itens:
             fatores.append("previsão de chuvas mais intensas ("
                            + " · ".join(prev_itens) + ")")
         if chuva["ja_muito"]:
             fatores.append(f"chuva forte já registrada ({chuva['obs_txt']})")
-        if ind.inmet_max_severidade:
-            fatores.append(f"aviso INMET vigente ({ind.inmet_max_severidade})")
-        if reg["n_total"]:
-            # Só a CONTAGEM. A lista de regiões cabia em cinco nomes e a
-            # cidade tem dezessete: o bloco ficava com uma enumeração
-            # truncada, que engorda a caixa e ainda induz a ler "só essas".
-            # Quais regiões estão sob alerta é o que a grade do Poaclima,
-            # logo abaixo, mostra inteira e com o grau de cada uma.
-            fatores.append(f"{reg['n_total']} alerta(s) vigente(s) da Defesa "
-                           f"Civil (ver grade por região)")
         if not fatores and ind.poaclima_alerta:
             fatores.append(f"alerta Poaclima vigente ({ind.poaclima_alerta})")
         motivos.append("Avisos/previsão em vigor: " + "; ".join(fatores))
@@ -725,17 +735,34 @@ def _avaliar_regras(
     motivo_b2 = "\n".join(partes_b2)
     if partes_b2:
         motivos.append(motivo_b2)
-    disparou_mob = b1 and b2
+    # Bloco 3 (NOVO — regra interna CISC/SMS, set/2026): pelo menos UMA
+    # região (subprefeitura) da cidade em ATENÇÃO ou ALERTA no mapa do
+    # Poaclima (Defesa Civil) — o mesmo webscraping que alimenta a grade
+    # de regiões do painel. Sem esse sinal de que o evento já preocupa
+    # dentro da cidade, previsão de chuva e rio em cota de atenção ficam
+    # como monitoramento, e o painel permanece em NORMALIDADE.
+    b3 = reg["n_total"] >= 1
+    motivo_b3 = (
+        (f"{reg['n_total']} região(ões) da cidade em atenção ou alerta no "
+         "mapa do Poaclima (Defesa Civil): " + "; ".join(reg["regioes_todas"]))
+        if b3 else
+        "Nenhuma região (subprefeitura) da cidade em atenção ou alerta no "
+        "mapa do Poaclima (Defesa Civil) nesta coleta.")
+    if b3:
+        motivos.append(motivo_b3)
+    disparou_mob = b1 and b2 and b3
     detalhes["MOBILIZAÇÃO"] = {"disparou": disparou_mob, "motivos": motivos,
         "blocos": [
-            {"n": 1, "titulo": "Previsão de chuvas mais intensas OU avisos meteorológicos vigentes",
+            {"n": 1, "titulo": "Previsão de chuvas mais intensas OU aviso vigente da Defesa Civil (Poaclima)",
              "ativo": bool(b1),
              "motivo": (motivos[0] if b1 and motivos
                         else f"sem previsão relevante ({chuva['prev_txt']})")},
             {"n": 2, "titulo": "Rios em cota de atenção OU em elevação OU região da RM já em alerta",
              "ativo": bool(b2),
              "motivo": (motivo_b2 if b2 and motivo_b2
-                        else "rios abaixo da cota de atenção e sem tendência de subida")}]}
+                        else "rios abaixo da cota de atenção e sem tendência de subida")},
+            {"n": 3, "titulo": "Pelo menos 1 região (subprefeitura) da cidade em atenção ou alerta no Poaclima",
+             "ativo": bool(b3), "motivo": motivo_b3}]}
     if disparou_mob:
         return _montar_saida("MOBILIZAÇÃO", motivos, detalhes)
 
@@ -751,11 +778,22 @@ def _avaliar_regras(
         quase.append("rio(s) em elevação (48 h): " + "; ".join(rios_subindo))
 
     if quase:
+        # Diz POR QUE a MOBILIZAÇÃO não fechou, bloco a bloco. Desde
+        # set/2026 ela tem TRÊS blocos: a justificativa antiga ("sem
+        # previsão de chuvas intensas...") ficava falsa no caso em que a
+        # previsão existe mas nenhuma região da cidade está em alerta no
+        # Poaclima — que é justamente o cenário que o 3º bloco veio cobrir.
+        faltam = []
+        if not b1:
+            faltam.append("sem previsão de chuvas intensas "
+                          f"({ind.previsto_48h_mm:.0f} mm/48h)")
+        if not b3:
+            faltam.append("nenhuma região (subprefeitura) da cidade em "
+                          "atenção ou alerta no mapa do Poaclima")
         motivos.append(
             "OBSERVAÇÃO — monitorar: " + "; ".join(quase[:4]) +
-            ". Sem previsão de chuvas intensas "
-            f"({ind.previsto_48h_mm:.0f} mm/48h), o gatilho de MOBILIZAÇÃO "
-            "(bloco de previsão) não fecha.")
+            (". A MOBILIZAÇÃO não fecha porque " + " e ".join(faltam) + "."
+             if faltam else "."))
     else:
         motivos.append("Elevação das bacias próximas não configura risco ou ameaça")
     # Sem NENHUM dado de nível de rio não é possível afirmar que "a elevação
