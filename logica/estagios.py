@@ -21,8 +21,10 @@ Estratégia (conforme nota do projeto):
   * Blocos "E" qualitativos sem input manual são tratados por PROXY:
     quando os sinais numéricos são fortes o suficiente, o bloco conta
     como satisfeito (comportamento configurável em `modo_estrito`) —
-    EXCETO o bloco 3 do ALERTA, que desde set/2026 só fecha com um
-    gatilho manual confirmado em campo (regra interna CISC/SMS).
+    EXCETO o bloco 3 do ALERTA e a SITUAÇÃO DE EMERGÊNCIA inteira, que
+    desde set/2026 só fecham com gatilhos manuais confirmados em campo
+    (regra interna CISC/SMS; na EMERGÊNCIA resta apenas a perna de chuva
+    intensa persistente no bloco 1, que o próprio Plano escreve).
 
 Regras internas CISC/SMS vigentes (set/2026), além do texto do Plano:
   * MOBILIZAÇÃO tem um 3º bloco obrigatório: pelo menos UMA região
@@ -32,6 +34,11 @@ Regras internas CISC/SMS vigentes (set/2026), além do texto do Plano:
   * ALERTA exige ao menos UM gatilho manual ativo (gatilhos_manuais.txt
     ou variável GATILHOS_ATIVOS) no bloco 3 — sem confirmação humana em
     campo, o painel não sobe para ALERTA.
+  * SITUAÇÃO DE EMERGÊNCIA não tem mais proxies numéricos: os 4 blocos
+    exigem confirmação de campo — nem Guaíba acima de 3,00 m (cota de
+    inundação) nem regiões em risco no Poaclima sobem o painel sozinhos.
+    O bloco 2 passa a aceitar também "bloqueio de vias", como no texto
+    do Plano ("danificadas e/ou bloqueadas").
   * O aviso do INMET é EXIBIDO no painel quando existe, mas NÃO entra em
     nenhuma regra de estágio — é informação complementar, a título de
     curiosidade, e não gatilho.
@@ -476,8 +483,9 @@ def _avaliar_regras(
 
     modo_estrito=False (padrão): blocos qualitativos sem input manual
     podem ser satisfeitos por PROXY numérico (recomendado p/ automação),
-    EXCETO o bloco 3 do ALERTA, que sempre exige um gatilho manual ativo
-    (regra interna CISC/SMS, set/2026).
+    EXCETO o bloco 3 do ALERTA e os blocos da SITUAÇÃO DE EMERGÊNCIA, que
+    sempre exigem gatilhos manuais ativos (regra interna CISC/SMS,
+    set/2026) — na prática, o modo_estrito hoje só diferencia a CRISE.
     modo_estrito=True: exige os booleanos explicitamente.
     """
     infra = infra or InputsInfraestrutura()
@@ -534,78 +542,84 @@ def _avaliar_regras(
         return _montar_saida("CRISE", motivos, detalhes)
 
     # ══════════════════════════════════════ 4) SITUAÇÃO DE EMERGÊNCIA (vermelho)
+    # REGRA INTERNA CISC/SMS (set/2026): a coluna NÃO tem mais proxies
+    # numéricos. Os 4 blocos só fecham com gatilhos de campo CONFIRMADOS
+    # (gatilhos_manuais.txt ou GATILHOS_ATIVOS) — nem Guaíba acima de
+    # 3,00 m (cota de inundação) nem regiões em risco no Poaclima sobem o
+    # painel para EMERGÊNCIA sozinhos. A única perna automática que resta
+    # é a de chuva no bloco 1, porque o próprio Plano a escreve ("Chuvas
+    # intensas persistentes, causando inundações graves e/ou deslizamentos
+    # de terra") — e porque ela impede o painel de virar EMERGÊNCIA por
+    # erro de preenchimento do txt num dia sem chuva.
     motivos = []
-    # Bloco 1 (E): chuvas intensas persistentes causando inundações/deslizamentos
-    varias_regioes_inundacao = (
-        reg["n_inundacao_risco_elevado"] >= config.N_REGIOES_INUNDACAO_EMERGENCIA)
-    b1 = (chuva_persistente and
-          (infra.inundacoes_graves_ou_deslizamentos
-           or (not modo_estrito and nivel is not None and nivel >= config.COTA_INUNDACAO_GUAIBA)
-           or (not modo_estrito and varias_regioes_inundacao)))
+    # Bloco 1 (E): chuvas intensas persistentes (automático) E inundações
+    # graves e/ou deslizamentos de terra (confirmados em campo).
+    b1 = chuva_persistente and infra.inundacoes_graves_ou_deslizamentos
     if b1:
-        if varias_regioes_inundacao and not infra.inundacoes_graves_ou_deslizamentos:
-            motivos.append(
-                f"Defesa Civil com {reg['n_inundacao_risco_elevado']} regiões em risco "
-                f"elevado de Inundação ({', '.join(reg['regioes_inundacao'][:5])}) "
-                f"sob chuva persistente ({ind.acumulado_obs_72h_mm:.0f} mm/72h)")
-        else:
-            motivos.append(
-                f"Chuvas intensas persistentes ({ind.acumulado_obs_72h_mm:.0f} mm/72h) "
-                f"causando inundações (Guaíba {nivel:.2f} m ≥ cota de inundação)"
-                if nivel is not None else "Chuvas intensas persistentes com inundações graves")
-    # Bloco 2 (E): vias/infra DANIFICADAS OU interrupção parcial de serviços.
-    # ATENÇÃO: "bloqueio de vias principais" NÃO entra aqui. No Plano ele é
-    # gatilho da coluna ALERTA ("há bloqueio de vias principais e/ou
-    # estratégicas"); a coluna EMERGÊNCIA exige DANO à infraestrutura
-    # ("pontes e estradas podem estar danificadas"). Misturar os dois fazia
-    # o painel marcar "vias ou pontes danificadas" com o Guaíba longe da
-    # cota de inundação e sem nenhum dano registrado em campo.
-    b2 = (infra.vias_ou_pontes_danificadas
-          or infra.interrupcao_parcial_servicos_essenciais
-          or (not modo_estrito and nivel is not None
-              and nivel >= config.COTA_INUNDACAO_GUAIBA))
-    if infra.vias_ou_pontes_danificadas or infra.interrupcao_parcial_servicos_essenciais:
-        motivo_e2 = "Dano em vias/infraestrutura OU interrupção de serviços essenciais (confirmado em campo)"
-        motivos.append(motivo_e2)
-    elif b2:
-        motivo_e2 = (f"proxy: Guaíba a {nivel:.2f} m, acima da cota de inundação "
-                     f"({config.COTA_INUNDACAO_GUAIBA} m)")
+        motivo_e1 = (f"Chuvas intensas persistentes "
+                     f"({(ind.acumulado_obs_72h_mm or 0.0):.0f} mm/72h) causando "
+                     "inundações graves e/ou deslizamentos (confirmado em campo)")
+        motivos.append(motivo_e1)
+    elif not chuva_persistente:
+        motivo_e1 = (f"Sem chuva intensa persistente ({chuva['obs_txt']}) — "
+                     "o plano exige chuva persistente como pano de fundo da "
+                     "EMERGÊNCIA, mesmo com gatilhos de campo confirmados.")
     else:
-        motivo_e2 = ("sem dano de infraestrutura confirmado e Guaíba abaixo da "
-                     "cota de inundação")
-    # Bloco 3 (E): desabrigados OU óbitos — proxy: transbordamento
-    b3 = (infra.aumento_significativo_desabrigados or infra.obitos_pelo_evento
-          or (not modo_estrito and nivel is not None
-              and nivel >= config.COTA_INUNDACAO_GUAIBA))
-    # Bloco 4 (E): saúde acometida OU risco de desabastecimento — proxy idem
-    b4 = (infra.servicos_saude_interrompidos or infra.risco_alto_desabastecimento
-          or (not modo_estrito and nivel is not None
-              and nivel >= config.COTA_INUNDACAO_GUAIBA))
+        motivo_e1 = ("Chove intensamente de forma persistente, mas não há "
+                     "confirmação de inundações graves ou deslizamentos em "
+                     "campo (gatilho 'inundacoes_graves_ou_deslizamentos' "
+                     "inativo no gatilhos_manuais.txt).")
+    # Bloco 2 (E): vias/infra danificadas OU bloqueadas OU interrupção
+    # parcial de serviços essenciais — só confirmação de campo. O
+    # "bloqueadas" entra aqui porque o próprio texto da coluna EMERGÊNCIA
+    # do Plano o inclui ("pontes e estradas podem estar danificadas e/ou
+    # bloqueadas"); o mesmo gatilho também serve ao bloco 3 do ALERTA,
+    # onde o Plano o escreve na sua coluna.
+    b2 = (infra.vias_ou_pontes_danificadas
+          or infra.bloqueio_vias_principais
+          or infra.interrupcao_parcial_servicos_essenciais)
+    _conf2 = [config.ROTULOS_GATILHOS[c] for c in
+              ("vias_ou_pontes_danificadas", "bloqueio_vias_principais",
+               "interrupcao_parcial_servicos_essenciais")
+              if getattr(infra, c, False)]
+    motivo_e2 = ("Confirmado em campo pela Defesa Civil/SMS:\n" + _lista(_conf2)
+                 if _conf2 else
+                 ("Nenhum dano/bloqueio de vias ou interrupção de serviços "
+                  "essenciais confirmado em campo (gatilhos_manuais.txt)."))
+    if b2:
+        motivos.append(motivo_e2)
+    # Bloco 3 (E): desabrigados/desalojados OU óbitos — só confirmação de campo.
+    b3 = infra.aumento_significativo_desabrigados or infra.obitos_pelo_evento
+    _conf3 = [config.ROTULOS_GATILHOS[c] for c in
+              ("aumento_significativo_desabrigados", "obitos_pelo_evento")
+              if getattr(infra, c, False)]
+    motivo_e3 = ("Confirmado em campo pela Defesa Civil/SMS:\n" + _lista(_conf3)
+                 if _conf3 else
+                 "Nenhum aumento de desabrigados/desalojados ou óbito confirmado.")
+    if b3:
+        motivos.append(motivo_e3)
+    # Bloco 4 (E): saúde acometida OU risco alto de desabastecimento — idem.
+    b4 = infra.servicos_saude_interrompidos or infra.risco_alto_desabastecimento
+    _conf4 = [config.ROTULOS_GATILHOS[c] for c in
+              ("servicos_saude_interrompidos", "risco_alto_desabastecimento")
+              if getattr(infra, c, False)]
+    motivo_e4 = ("Confirmado em campo pela Defesa Civil/SMS:\n" + _lista(_conf4)
+                 if _conf4 else
+                 "Nenhuma interrupção de serviços de saúde ou risco alto de "
+                 "desabastecimento confirmado.")
+    if b4:
+        motivos.append(motivo_e4)
     disparou_emerg = b1 and b2 and b3 and b4
-    if disparou_emerg and len(motivos) == 1:
-        motivos.append("Gatilhos de infraestrutura satisfeitos por proxy (transbordamento do Guaíba)")
     detalhes["SITUAÇÃO DE EMERGÊNCIA"] = {"disparou": disparou_emerg, "motivos": motivos,
         "blocos": [
-            {"n": 1, "titulo": "Chuvas intensas persistentes causando inundações graves OU deslizamentos",
-             "ativo": bool(b1),
-             "motivo": (motivos[0] if b1 and motivos else
-                        (f"Chuva persistente: {'sim' if chuva_persistente else 'não'}"
-                         f" — {chuva['obs_txt']}\n"
-                         "Nenhuma inundação grave ou deslizamento registrado."))},
-            {"n": 2, "titulo": "Vias ou pontes danificadas OU interrupção parcial de serviços essenciais",
+            {"n": 1, "titulo": "Chuvas intensas persistentes E inundações graves ou deslizamentos (gatilho manual)",
+             "ativo": bool(b1), "motivo": motivo_e1},
+            {"n": 2, "titulo": "Vias/pontes danificadas OU bloqueadas OU interrupção parcial de serviços essenciais (gatilho manual)",
              "ativo": bool(b2), "motivo": motivo_e2},
-            {"n": 3, "titulo": "Aumento de desabrigados/desalojados OU óbitos pelo evento",
-             "ativo": bool(b3),
-             "motivo": ("confirmado em campo" if (infra.aumento_significativo_desabrigados
-                                                  or infra.obitos_pelo_evento)
-                        else ("proxy: Guaíba acima da cota de inundação" if b3
-                              else "nenhum registro confirmado"))},
-            {"n": 4, "titulo": "Serviços de saúde interrompidos OU risco alto de desabastecimento",
-             "ativo": bool(b4),
-             "motivo": ("confirmado em campo" if (infra.servicos_saude_interrompidos
-                                                  or infra.risco_alto_desabastecimento)
-                        else ("proxy: Guaíba acima da cota de inundação" if b4
-                              else "nenhum registro confirmado"))}]}
+            {"n": 3, "titulo": "Aumento de desabrigados/desalojados OU óbitos pelo evento (gatilho manual)",
+             "ativo": bool(b3), "motivo": motivo_e3},
+            {"n": 4, "titulo": "Serviços de saúde interrompidos OU risco alto de desabastecimento (gatilho manual)",
+             "ativo": bool(b4), "motivo": motivo_e4}]}
     if disparou_emerg:
         return _montar_saida("SITUAÇÃO DE EMERGÊNCIA", motivos, detalhes)
 
@@ -833,7 +847,7 @@ def classificar_estagio(
 
     Os gatilhos confirmados em campo NÃO elevam o estágio por si sós. Eles
     já entram nas regras onde o Plano os escreve — bloco 3 do ALERTA,
-    blocos 2/3/4 da EMERGÊNCIA, blocos 2/4/5 da CRISE — sempre ligados por
+    blocos 1/2/3/4 da EMERGÊNCIA, blocos 2/4/5 da CRISE — sempre ligados por
     E aos blocos de chuva e de nível dos rios. Se esses outros blocos não
     fecham, a coluna não fecha, e o estágio é o mais grave que realmente
     fechou: o painel desce sozinho quando o evento passa.
