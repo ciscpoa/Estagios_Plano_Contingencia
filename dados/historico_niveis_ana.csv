@@ -7160,8 +7160,6 @@ Guaiba_PortoAlegre_CaisMaua,2026-09-20 22:00:00,1.24
 Guaiba_PortoAlegre_CaisMaua,2026-09-20 23:00:00,1.22
 Guaiba_PortoAlegre_CaisMaua,2026-09-21 00:00:00,1.22
 Guaiba_PortoAlegre_CaisMaua,2026-09-21 01:00:00,1.2
-Rio_Cai,2025-09-14 02:15:00,3.52
-Rio_Cai,2025-09-14 02:30:00,3.52
 Rio_Cai,2025-09-14 02:45:00,3.52
 Rio_Cai,2025-09-14 03:00:00,3.51
 Rio_Cai,2025-09-14 03:15:00,3.51
@@ -38106,8 +38104,6 @@ Rio_Cai,2026-08-04 14:30:00,4.25
 Rio_Cai,2026-08-04 14:45:00,4.24
 Rio_Cai,2026-08-04 15:00:00,4.24
 Rio_Cai,2026-08-04 15:15:00,4.23
-Rio_Cai_Montenegro,2025-09-14 02:15:00,2.17
-Rio_Cai_Montenegro,2025-09-14 02:30:00,2.17
 Rio_Cai_Montenegro,2025-09-14 02:45:00,2.17
 Rio_Cai_Montenegro,2025-09-14 03:00:00,2.16
 Rio_Cai_Montenegro,2025-09-14 03:15:00,2.16
@@ -73559,8 +73555,8 @@ Rio_Cai_Montenegro,2026-09-21 01:15:00,2.5
 Rio_Cai_Montenegro,2026-09-21 01:30:00,2.5
 Rio_Cai_Montenegro,2026-09-21 01:45:00,2.51
 Rio_Cai_Montenegro,2026-09-21 02:00:00,2.51
-Rio_Gravatai,2025-09-14 02:15:00,4.26
-Rio_Gravatai,2025-09-14 02:30:00,4.26
+Rio_Cai_Montenegro,2026-09-21 02:15:00,2.51
+Rio_Cai_Montenegro,2026-09-21 02:30:00,2.51
 Rio_Gravatai,2025-09-14 02:45:00,4.26
 Rio_Gravatai,2025-09-14 03:00:00,4.26
 Rio_Gravatai,2025-09-14 03:15:00,4.26
@@ -109174,8 +109170,6 @@ Rio_Gravatai,2026-09-21 01:30:00,2.86
 Rio_Gravatai,2026-09-21 01:45:00,2.87
 Rio_Gravatai,2026-09-21 02:00:00,2.87
 Rio_Gravatai,2026-09-21 02:15:00,2.87
-Rio_Jacui_CachoeiraDoSul,2025-09-14 02:15:00,4.97
-Rio_Jacui_CachoeiraDoSul,2025-09-14 02:30:00,4.95
 Rio_Jacui_CachoeiraDoSul,2025-09-14 02:45:00,4.94
 Rio_Jacui_CachoeiraDoSul,2025-09-14 03:00:00,4.93
 Rio_Jacui_CachoeiraDoSul,2025-09-14 03:15:00,4.91
@@ -139547,8 +139541,6 @@ Rio_Jacui_CachoeiraDoSul,2026-08-04 14:15:00,9.34
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:30:00,9.32
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:45:00,9.33
 Rio_Jacui_CachoeiraDoSul,2026-08-04 15:00:00,9.32
-Rio_Jacui_Triunfo,2025-09-14 02:15:00,7.18
-Rio_Jacui_Triunfo,2025-09-14 02:30:00,7.19
 Rio_Jacui_Triunfo,2025-09-14 02:45:00,7.18
 Rio_Jacui_Triunfo,2025-09-14 03:00:00,2.46
 Rio_Jacui_Triunfo,2025-09-14 03:15:00,7.18
@@ -149756,8 +149748,6 @@ Rio_Jacui_Triunfo,2026-09-20 22:00:00,1.79
 Rio_Jacui_Triunfo,2026-09-20 23:00:00,1.79
 Rio_Jacui_Triunfo,2026-09-21 00:00:00,1.78
 Rio_Jacui_Triunfo,2026-09-21 02:00:00,1.78
-Rio_Taquari_Encantado,2025-09-14 02:15:00,1.75
-Rio_Taquari_Encantado,2025-09-14 02:30:00,1.78
 Rio_Taquari_Encantado,2025-09-14 02:45:00,1.82
 Rio_Taquari_Encantado,2025-09-14 03:00:00,1.84
 Rio_Taquari_Encantado,2025-09-14 03:15:00,1.87
@@ -180660,8 +180650,6 @@ Rio_Taquari_Encantado,2026-08-04 13:00:00,2.28
 Rio_Taquari_Encantado,2026-08-04 13:15:00,2.27
 Rio_Taquari_Encantado,2026-08-04 13:30:00,2.26
 Rio_Taquari_Encantado,2026-08-04 13:45:00,2.25
-Rio_Taquari_Mucum,2025-09-14 02:15:00,3.72
-Rio_Taquari_Mucum,2025-09-14 02:30:00,3.71
 Rio_Taquari_Mucum,2025-09-14 02:45:00,3.71
 Rio_Taquari_Mucum,2025-09-14 03:00:00,3.72
 Rio_Taquari_Mucum,2025-09-14 03:15:00,3.71
@@ -211567,8 +211555,6 @@ Rio_Taquari_Mucum,2026-08-04 14:30:00,3.82
 Rio_Taquari_Mucum,2026-08-04 14:45:00,3.77
 Rio_Taquari_Mucum,2026-08-04 15:00:00,3.72
 Rio_Taquari_Mucum,2026-08-04 15:15:00,3.66
-Rio_Taquari_Taquari,2025-09-14 02:15:00,3.88
-Rio_Taquari_Taquari,2025-09-14 02:30:00,3.87
 Rio_Taquari_Taquari,2025-09-14 02:45:00,3.86
 Rio_Taquari_Taquari,2025-09-14 03:00:00,3.86
 Rio_Taquari_Taquari,2025-09-14 03:15:00,3.85
@@ -247021,8 +247007,10 @@ Rio_Taquari_Taquari,2026-09-21 01:00:00,3.1
 Rio_Taquari_Taquari,2026-09-21 01:15:00,3.1
 Rio_Taquari_Taquari,2026-09-21 01:30:00,3.1
 Rio_Taquari_Taquari,2026-09-21 01:45:00,3.1
-Rio_dos_Sinos_SaoLeopoldo,2025-09-14 02:15:00,3.7
-Rio_dos_Sinos_SaoLeopoldo,2025-09-14 02:30:00,3.7
+Rio_Taquari_Taquari,2026-09-21 02:00:00,3.09
+Rio_Taquari_Taquari,2026-09-21 02:15:00,3.09
+Rio_Taquari_Taquari,2026-09-21 02:30:00,3.08
+Rio_Taquari_Taquari,2026-09-21 02:45:00,3.08
 Rio_dos_Sinos_SaoLeopoldo,2025-09-14 02:45:00,3.7
 Rio_dos_Sinos_SaoLeopoldo,2025-09-14 03:00:00,3.7
 Rio_dos_Sinos_SaoLeopoldo,2025-09-14 03:15:00,3.7
