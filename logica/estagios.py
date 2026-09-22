@@ -30,7 +30,10 @@ Regras internas CISC/SMS vigentes (set/2026), além do texto do Plano:
   * MOBILIZAÇÃO tem um 3º bloco obrigatório: pelo menos UMA região
     (subprefeitura) da cidade em atenção ou alerta no mapa do Poaclima
     (Defesa Civil). Previsão de chuva + rio em atenção, sozinhos, viram
-    apenas observação de monitoramento na NORMALIDADE.
+    apenas observação de monitoramento na NORMALIDADE. Tudo que é Defesa
+    Civil concentra-se nesse bloco: o bloco 1 ficou só com chuva
+    (prevista OU acumulada) — o aviso municipal do Poaclima saiu dele
+    por redundância.
   * O bloco 1 da MOBILIZAÇÃO fecha também com acumulado de chuva ≥ 50 mm
     nos últimos 5 dias, em OU com a previsão de chuvas mais intensas —
     cobre a chuva constante que não dispara os limiares de 24h/72h mas
@@ -702,20 +705,19 @@ def _avaliar_regras(
     # ══════════════════════════════════════ 2) MOBILIZAÇÃO (amarelo)
     motivos = []
     # Bloco 1: previsão de chuvas mais intensas OU chuva acumulada nos
-    # últimos dias OU aviso vigente da Defesa Civil (Poaclima). O aviso do
-    # INMET foi retirado daqui (set/2026): ele é exibido no painel como
-    # informação, mas não conta mais para estágio. Os alertas por REGIÃO
-    # também saíram deste bloco — viraram o bloco 3, obrigatório e
-    # separado.
-    # Perna nova (regra interna CISC/SMS, set/2026): acumulado de chuva
-    # nos últimos 5 dias ≥ 50 mm, em OU com a previsão — cobre a chuva
+    # últimos dias. O aviso do INMET foi retirado daqui (set/2026): ele é
+    # exibido no painel como informação, mas não conta mais para estágio.
+    # Tudo que é Defesa Civil saiu deste bloco (set/2026): os alertas por
+    # REGIÃO e o aviso municipal do Poaclima viraram bloco 3, obrigatório
+    # e separado — manter o aviso da DC aqui também era redundância.
+    # Perna de acumulado (regra interna CISC/SMS, set/2026): chuva nos
+    # últimos 5 dias ≥ 50 mm, em OU com a previsão — cobre a chuva
     # constante que não dispara os limiares de 24h/72h mas já encharcou o
     # solo. Limiar padrão 50 mm; se um dia for cadastrado em
     # config.LIMIARES_CHUVA["acumulado_5d_mobilizacao"], vale o de lá.
     limiar_acum5d = L.get("acumulado_5d_mobilizacao", 50.0)
     acum5d_relevante = (ind.acumulado_obs_5d_mm or 0.0) >= limiar_acum5d
-    b1 = (chuva["prev_continua"] or chuva["ja_muito"] or acum5d_relevante
-          or ind.poaclima_alerta is not None)
+    b1 = chuva["prev_continua"] or chuva["ja_muito"] or acum5d_relevante
     if b1:
         fatores = []
         prev_itens = list(chuva.get("prev_linhas", []))
@@ -728,9 +730,7 @@ def _avaliar_regras(
             fatores.append(
                 f"chuva acumulada nos últimos 5 dias "
                 f"({(ind.acumulado_obs_5d_mm or 0.0):.0f} mm ≥ {limiar_acum5d:.0f} mm)")
-        if not fatores and ind.poaclima_alerta:
-            fatores.append(f"alerta Poaclima vigente ({ind.poaclima_alerta})")
-        motivos.append("Avisos/previsão em vigor: " + "; ".join(fatores))
+        motivos.append("Chuva em vigor: " + "; ".join(fatores))
     # Bloco 2: tendência de aumento dos rios / cota de ATENÇÃO  OU  RM em alerta
     cond_riacho_atencao = bool(_cota_atingida(_refs_riacho(),
                                               ind.poaclima_riacho_ipiranga_m))
@@ -784,8 +784,7 @@ def _avaliar_regras(
     detalhes["MOBILIZAÇÃO"] = {"disparou": disparou_mob, "motivos": motivos,
         "blocos": [
             {"n": 1, "titulo": (f"Previsão de chuvas mais intensas OU chuva acumulada "
-                                f"≥ {limiar_acum5d:.0f} mm/5 dias OU aviso vigente da "
-                                "Defesa Civil (Poaclima)"),
+                                f"≥ {limiar_acum5d:.0f} mm/5 dias"),
              "ativo": bool(b1),
              "motivo": (motivos[0] if b1 and motivos
                         else (f"sem previsão relevante ({chuva['prev_txt']}) e acumulado "
