@@ -31,6 +31,10 @@ Regras internas CISC/SMS vigentes (set/2026), além do texto do Plano:
     (subprefeitura) da cidade em atenção ou alerta no mapa do Poaclima
     (Defesa Civil). Previsão de chuva + rio em atenção, sozinhos, viram
     apenas observação de monitoramento na NORMALIDADE.
+  * O bloco 1 da MOBILIZAÇÃO fecha também com acumulado de chuva ≥ 50 mm
+    nos últimos 5 dias, em OU com a previsão de chuvas mais intensas —
+    cobre a chuva constante que não dispara os limiares de 24h/72h mas
+    já encharcou o solo.
   * ALERTA exige ao menos UM gatilho manual ativo (gatilhos_manuais.txt
     ou variável GATILHOS_ATIVOS) no bloco 3 — sem confirmação humana em
     campo, o painel não sobe para ALERTA.
@@ -697,12 +701,20 @@ def _avaliar_regras(
 
     # ══════════════════════════════════════ 2) MOBILIZAÇÃO (amarelo)
     motivos = []
-    # Bloco 1: previsão de chuvas mais intensas OU aviso vigente da Defesa
-    # Civil (Poaclima). O aviso do INMET foi retirado daqui (set/2026): ele
-    # é exibido no painel como informação, mas não conta mais para estágio.
-    # Os alertas por REGIÃO também saíram deste bloco — viraram o bloco 3,
-    # obrigatório e separado.
-    b1 = (chuva["prev_continua"] or chuva["ja_muito"]
+    # Bloco 1: previsão de chuvas mais intensas OU chuva acumulada nos
+    # últimos dias OU aviso vigente da Defesa Civil (Poaclima). O aviso do
+    # INMET foi retirado daqui (set/2026): ele é exibido no painel como
+    # informação, mas não conta mais para estágio. Os alertas por REGIÃO
+    # também saíram deste bloco — viraram o bloco 3, obrigatório e
+    # separado.
+    # Perna nova (regra interna CISC/SMS, set/2026): acumulado de chuva
+    # nos últimos 5 dias ≥ 50 mm, em OU com a previsão — cobre a chuva
+    # constante que não dispara os limiares de 24h/72h mas já encharcou o
+    # solo. Limiar padrão 50 mm; se um dia for cadastrado em
+    # config.LIMIARES_CHUVA["acumulado_5d_mobilizacao"], vale o de lá.
+    limiar_acum5d = L.get("acumulado_5d_mobilizacao", 50.0)
+    acum5d_relevante = (ind.acumulado_obs_5d_mm or 0.0) >= limiar_acum5d
+    b1 = (chuva["prev_continua"] or chuva["ja_muito"] or acum5d_relevante
           or ind.poaclima_alerta is not None)
     if b1:
         fatores = []
@@ -712,6 +724,10 @@ def _avaliar_regras(
                            + " · ".join(prev_itens) + ")")
         if chuva["ja_muito"]:
             fatores.append(f"chuva forte já registrada ({chuva['obs_txt']})")
+        if acum5d_relevante:
+            fatores.append(
+                f"chuva acumulada nos últimos 5 dias "
+                f"({(ind.acumulado_obs_5d_mm or 0.0):.0f} mm ≥ {limiar_acum5d:.0f} mm)")
         if not fatores and ind.poaclima_alerta:
             fatores.append(f"alerta Poaclima vigente ({ind.poaclima_alerta})")
         motivos.append("Avisos/previsão em vigor: " + "; ".join(fatores))
@@ -767,10 +783,14 @@ def _avaliar_regras(
     disparou_mob = b1 and b2 and b3
     detalhes["MOBILIZAÇÃO"] = {"disparou": disparou_mob, "motivos": motivos,
         "blocos": [
-            {"n": 1, "titulo": "Previsão de chuvas mais intensas OU aviso vigente da Defesa Civil (Poaclima)",
+            {"n": 1, "titulo": (f"Previsão de chuvas mais intensas OU chuva acumulada "
+                                f"≥ {limiar_acum5d:.0f} mm/5 dias OU aviso vigente da "
+                                "Defesa Civil (Poaclima)"),
              "ativo": bool(b1),
              "motivo": (motivos[0] if b1 and motivos
-                        else f"sem previsão relevante ({chuva['prev_txt']})")},
+                        else (f"sem previsão relevante ({chuva['prev_txt']}) e acumulado "
+                              f"de 5 dias abaixo de {limiar_acum5d:.0f} mm "
+                              f"({(ind.acumulado_obs_5d_mm or 0.0):.0f} mm)"))},
             {"n": 2, "titulo": "Rios em cota de atenção OU em elevação OU região da RM já em alerta",
              "ativo": bool(b2),
              "motivo": (motivo_b2 if b2 and motivo_b2
@@ -800,7 +820,9 @@ def _avaliar_regras(
         faltam = []
         if not b1:
             faltam.append("sem previsão de chuvas intensas "
-                          f"({ind.previsto_48h_mm:.0f} mm/48h)")
+                          f"({ind.previsto_48h_mm:.0f} mm/48h) nem acumulado "
+                          f"de 5 dias ≥ {limiar_acum5d:.0f} mm "
+                          f"({(ind.acumulado_obs_5d_mm or 0.0):.0f} mm)")
         if not b3:
             faltam.append("nenhuma região (subprefeitura) da cidade em "
                           "atenção ou alerta no mapa do Poaclima")
