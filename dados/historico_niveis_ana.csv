@@ -7155,8 +7155,6 @@ Guaiba_PortoAlegre_CaisMaua,2026-09-22 03:00:00,1.57
 Guaiba_PortoAlegre_CaisMaua,2026-09-22 05:00:00,1.71
 Guaiba_PortoAlegre_CaisMaua,2026-09-22 06:00:00,1.76
 Guaiba_PortoAlegre_CaisMaua,2026-09-22 07:00:00,1.82
-Rio_Cai,2025-09-15 08:15:00,3.09
-Rio_Cai,2025-09-15 08:30:00,3.09
 Rio_Cai,2025-09-15 08:45:00,3.09
 Rio_Cai,2025-09-15 09:00:00,3.09
 Rio_Cai,2025-09-15 09:15:00,3.08
@@ -37985,8 +37983,6 @@ Rio_Cai,2026-08-04 14:30:00,4.25
 Rio_Cai,2026-08-04 14:45:00,4.24
 Rio_Cai,2026-08-04 15:00:00,4.24
 Rio_Cai,2026-08-04 15:15:00,4.23
-Rio_Cai_Montenegro,2025-09-15 08:15:00,1.82
-Rio_Cai_Montenegro,2025-09-15 08:30:00,1.82
 Rio_Cai_Montenegro,2025-09-15 08:45:00,1.81
 Rio_Cai_Montenegro,2025-09-15 09:00:00,1.81
 Rio_Cai_Montenegro,2025-09-15 09:15:00,1.81
@@ -73440,8 +73436,8 @@ Rio_Cai_Montenegro,2026-09-22 07:15:00,7.17
 Rio_Cai_Montenegro,2026-09-22 07:30:00,7.21
 Rio_Cai_Montenegro,2026-09-22 07:45:00,7.25
 Rio_Cai_Montenegro,2026-09-22 08:00:00,7.25
-Rio_Gravatai,2025-09-15 08:15:00,4.13
-Rio_Gravatai,2025-09-15 08:30:00,4.13
+Rio_Cai_Montenegro,2026-09-22 08:15:00,7.28
+Rio_Cai_Montenegro,2026-09-22 08:30:00,7.31
 Rio_Gravatai,2025-09-15 08:45:00,4.13
 Rio_Gravatai,2025-09-15 09:00:00,4.13
 Rio_Gravatai,2025-09-15 09:15:00,4.12
@@ -109055,8 +109051,6 @@ Rio_Gravatai,2026-09-22 07:30:00,3.48
 Rio_Gravatai,2026-09-22 07:45:00,3.49
 Rio_Gravatai,2026-09-22 08:00:00,3.49
 Rio_Gravatai,2026-09-22 08:15:00,3.5
-Rio_Jacui_CachoeiraDoSul,2025-09-15 08:15:00,3.9
-Rio_Jacui_CachoeiraDoSul,2025-09-15 08:30:00,3.9
 Rio_Jacui_CachoeiraDoSul,2025-09-15 08:45:00,3.9
 Rio_Jacui_CachoeiraDoSul,2025-09-15 09:00:00,3.9
 Rio_Jacui_CachoeiraDoSul,2025-09-15 09:15:00,3.91
@@ -139316,8 +139310,6 @@ Rio_Jacui_CachoeiraDoSul,2026-08-04 14:15:00,9.34
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:30:00,9.32
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:45:00,9.33
 Rio_Jacui_CachoeiraDoSul,2026-08-04 15:00:00,9.32
-Rio_Jacui_Triunfo,2025-09-15 08:15:00,6.45
-Rio_Jacui_Triunfo,2025-09-15 08:30:00,6.44
 Rio_Jacui_Triunfo,2025-09-15 08:45:00,6.44
 Rio_Jacui_Triunfo,2025-09-15 09:00:00,2.12
 Rio_Jacui_Triunfo,2025-09-15 09:15:00,6.43
@@ -149431,8 +149423,6 @@ Rio_Jacui_Triunfo,2026-09-22 05:00:00,3.47
 Rio_Jacui_Triunfo,2026-09-22 06:00:00,3.55
 Rio_Jacui_Triunfo,2026-09-22 07:00:00,3.64
 Rio_Jacui_Triunfo,2026-09-22 08:00:00,3.71
-Rio_Taquari_Encantado,2025-09-15 08:15:00,1.84
-Rio_Taquari_Encantado,2025-09-15 08:30:00,1.84
 Rio_Taquari_Encantado,2025-09-15 08:45:00,1.84
 Rio_Taquari_Encantado,2025-09-15 09:00:00,1.83
 Rio_Taquari_Encantado,2025-09-15 09:15:00,1.83
@@ -180220,8 +180210,6 @@ Rio_Taquari_Encantado,2026-08-04 13:00:00,2.28
 Rio_Taquari_Encantado,2026-08-04 13:15:00,2.27
 Rio_Taquari_Encantado,2026-08-04 13:30:00,2.26
 Rio_Taquari_Encantado,2026-08-04 13:45:00,2.25
-Rio_Taquari_Mucum,2025-09-15 08:15:00,3.62
-Rio_Taquari_Mucum,2025-09-15 08:30:00,3.61
 Rio_Taquari_Mucum,2025-09-15 08:45:00,3.6
 Rio_Taquari_Mucum,2025-09-15 09:00:00,3.6
 Rio_Taquari_Mucum,2025-09-15 09:15:00,3.59
@@ -211010,8 +210998,6 @@ Rio_Taquari_Mucum,2026-08-04 14:30:00,3.82
 Rio_Taquari_Mucum,2026-08-04 14:45:00,3.77
 Rio_Taquari_Mucum,2026-08-04 15:00:00,3.72
 Rio_Taquari_Mucum,2026-08-04 15:15:00,3.66
-Rio_Taquari_Taquari,2025-09-15 08:15:00,3.48
-Rio_Taquari_Taquari,2025-09-15 08:30:00,3.48
 Rio_Taquari_Taquari,2025-09-15 08:45:00,3.48
 Rio_Taquari_Taquari,2025-09-15 09:00:00,3.48
 Rio_Taquari_Taquari,2025-09-15 09:15:00,3.48
@@ -246468,8 +246454,10 @@ Rio_Taquari_Taquari,2026-09-22 07:00:00,7.31
 Rio_Taquari_Taquari,2026-09-22 07:15:00,7.34
 Rio_Taquari_Taquari,2026-09-22 07:30:00,7.37
 Rio_Taquari_Taquari,2026-09-22 07:45:00,7.39
-Rio_dos_Sinos_SaoLeopoldo,2025-09-15 08:15:00,3.57
-Rio_dos_Sinos_SaoLeopoldo,2025-09-15 08:30:00,3.57
+Rio_Taquari_Taquari,2026-09-22 08:00:00,7.42
+Rio_Taquari_Taquari,2026-09-22 08:15:00,7.44
+Rio_Taquari_Taquari,2026-09-22 08:30:00,7.46
+Rio_Taquari_Taquari,2026-09-22 08:45:00,7.49
 Rio_dos_Sinos_SaoLeopoldo,2025-09-15 08:45:00,3.57
 Rio_dos_Sinos_SaoLeopoldo,2025-09-15 09:00:00,3.56
 Rio_dos_Sinos_SaoLeopoldo,2025-09-15 09:15:00,3.56
