@@ -1,5 +1,4 @@
 estacao,datahora,nivel_m
-Guaiba_PortoAlegre_CaisMaua,2025-09-25 19:00:00,1.65
 Guaiba_PortoAlegre_CaisMaua,2025-09-25 20:00:00,1.65
 Guaiba_PortoAlegre_CaisMaua,2025-09-25 21:00:00,1.64
 Guaiba_PortoAlegre_CaisMaua,2025-09-25 22:00:00,1.64
@@ -7116,8 +7115,6 @@ Guaiba_PortoAlegre_CaisMaua,2026-10-02 14:00:00,2.42
 Guaiba_PortoAlegre_CaisMaua,2026-10-02 16:00:00,2.4
 Guaiba_PortoAlegre_CaisMaua,2026-10-02 17:00:00,2.39
 Guaiba_PortoAlegre_CaisMaua,2026-10-02 18:00:00,2.38
-Rio_Cai,2025-09-25 18:45:00,5.73
-Rio_Cai,2025-09-25 19:00:00,5.71
 Rio_Cai,2025-09-25 19:15:00,5.69
 Rio_Cai,2025-09-25 19:30:00,5.67
 Rio_Cai,2025-09-25 19:45:00,5.66
@@ -36947,8 +36944,6 @@ Rio_Cai,2026-08-04 14:30:00,4.25
 Rio_Cai,2026-08-04 14:45:00,4.24
 Rio_Cai,2026-08-04 15:00:00,4.24
 Rio_Cai,2026-08-04 15:15:00,4.23
-Rio_Cai_Montenegro,2025-09-25 18:45:00,4.37
-Rio_Cai_Montenegro,2025-09-25 19:00:00,4.35
 Rio_Cai_Montenegro,2025-09-25 19:15:00,4.33
 Rio_Cai_Montenegro,2025-09-25 19:30:00,4.32
 Rio_Cai_Montenegro,2025-09-25 19:45:00,4.3
@@ -72404,8 +72399,8 @@ Rio_Cai_Montenegro,2026-10-02 18:00:00,4.98
 Rio_Cai_Montenegro,2026-10-02 18:15:00,4.97
 Rio_Cai_Montenegro,2026-10-02 18:30:00,4.96
 Rio_Cai_Montenegro,2026-10-02 18:45:00,4.95
-Rio_Gravatai,2025-09-25 18:45:00,4.31
-Rio_Gravatai,2025-09-25 19:00:00,4.31
+Rio_Cai_Montenegro,2026-10-02 19:00:00,4.94
+Rio_Cai_Montenegro,2026-10-02 19:15:00,4.93
 Rio_Gravatai,2025-09-25 19:15:00,4.31
 Rio_Gravatai,2025-09-25 19:30:00,4.31
 Rio_Gravatai,2025-09-25 19:45:00,4.31
@@ -108017,8 +108012,10 @@ Rio_Gravatai,2026-10-02 17:30:00,3.9
 Rio_Gravatai,2026-10-02 17:45:00,3.89
 Rio_Gravatai,2026-10-02 18:00:00,3.89
 Rio_Gravatai,2026-10-02 18:15:00,3.89
-Rio_Jacui_CachoeiraDoSul,2025-09-25 18:45:00,7.45
-Rio_Jacui_CachoeiraDoSul,2025-09-25 19:00:00,7.45
+Rio_Gravatai,2026-10-02 18:30:00,3.89
+Rio_Gravatai,2026-10-02 18:45:00,3.89
+Rio_Gravatai,2026-10-02 19:00:00,3.89
+Rio_Gravatai,2026-10-02 19:15:00,3.89
 Rio_Jacui_CachoeiraDoSul,2025-09-25 19:15:00,7.45
 Rio_Jacui_CachoeiraDoSul,2025-09-25 19:30:00,7.44
 Rio_Jacui_CachoeiraDoSul,2025-09-25 19:45:00,7.44
@@ -137276,8 +137273,6 @@ Rio_Jacui_CachoeiraDoSul,2026-08-04 14:15:00,9.34
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:30:00,9.32
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:45:00,9.33
 Rio_Jacui_CachoeiraDoSul,2026-08-04 15:00:00,9.32
-Rio_Jacui_Triunfo,2025-09-25 18:45:00,8.11
-Rio_Jacui_Triunfo,2025-09-25 19:00:00,2.83
 Rio_Jacui_Triunfo,2025-09-25 19:15:00,8.12
 Rio_Jacui_Triunfo,2025-09-25 19:30:00,8.12
 Rio_Jacui_Triunfo,2025-09-25 19:45:00,8.13
@@ -146600,8 +146595,7 @@ Rio_Jacui_Triunfo,2026-10-02 15:00:00,4.87
 Rio_Jacui_Triunfo,2026-10-02 16:00:00,4.83
 Rio_Jacui_Triunfo,2026-10-02 17:00:00,4.8
 Rio_Jacui_Triunfo,2026-10-02 18:00:00,4.77
-Rio_Taquari_Encantado,2025-09-25 18:45:00,2.13
-Rio_Taquari_Encantado,2025-09-25 19:00:00,2.11
+Rio_Jacui_Triunfo,2026-10-02 19:00:00,4.75
 Rio_Taquari_Encantado,2025-09-25 19:15:00,2.1
 Rio_Taquari_Encantado,2025-09-25 19:30:00,2.1
 Rio_Taquari_Encantado,2025-09-25 19:45:00,2.1
@@ -176388,8 +176382,6 @@ Rio_Taquari_Encantado,2026-08-04 13:00:00,2.28
 Rio_Taquari_Encantado,2026-08-04 13:15:00,2.27
 Rio_Taquari_Encantado,2026-08-04 13:30:00,2.26
 Rio_Taquari_Encantado,2026-08-04 13:45:00,2.25
-Rio_Taquari_Mucum,2025-09-25 18:45:00,3.77
-Rio_Taquari_Mucum,2025-09-25 19:00:00,3.82
 Rio_Taquari_Mucum,2025-09-25 19:15:00,3.89
 Rio_Taquari_Mucum,2025-09-25 19:30:00,3.97
 Rio_Taquari_Mucum,2025-09-25 19:45:00,4.05
@@ -206177,8 +206169,6 @@ Rio_Taquari_Mucum,2026-08-04 14:30:00,3.82
 Rio_Taquari_Mucum,2026-08-04 14:45:00,3.77
 Rio_Taquari_Mucum,2026-08-04 15:00:00,3.72
 Rio_Taquari_Mucum,2026-08-04 15:15:00,3.66
-Rio_Taquari_Taquari,2025-09-25 18:45:00,4.44
-Rio_Taquari_Taquari,2025-09-25 19:00:00,4.43
 Rio_Taquari_Taquari,2025-09-25 19:15:00,4.43
 Rio_Taquari_Taquari,2025-09-25 19:30:00,4.42
 Rio_Taquari_Taquari,2025-09-25 19:45:00,4.42
@@ -241637,8 +241627,6 @@ Rio_Taquari_Taquari,2026-10-02 18:00:00,6.52
 Rio_Taquari_Taquari,2026-10-02 18:15:00,6.51
 Rio_Taquari_Taquari,2026-10-02 18:30:00,6.5
 Rio_Taquari_Taquari,2026-10-02 18:45:00,6.5
-Rio_dos_Sinos_SaoLeopoldo,2025-09-25 18:45:00,4.1
-Rio_dos_Sinos_SaoLeopoldo,2025-09-25 19:00:00,4.11
 Rio_dos_Sinos_SaoLeopoldo,2025-09-25 19:15:00,4.11
 Rio_dos_Sinos_SaoLeopoldo,2025-09-25 19:30:00,4.11
 Rio_dos_Sinos_SaoLeopoldo,2025-09-25 19:45:00,4.11
@@ -277274,3 +277262,7 @@ Rio_dos_Sinos_SaoLeopoldo,2026-10-02 17:30:00,4.07
 Rio_dos_Sinos_SaoLeopoldo,2026-10-02 17:45:00,4.07
 Rio_dos_Sinos_SaoLeopoldo,2026-10-02 18:00:00,4.07
 Rio_dos_Sinos_SaoLeopoldo,2026-10-02 18:15:00,4.06
+Rio_dos_Sinos_SaoLeopoldo,2026-10-02 18:30:00,4.07
+Rio_dos_Sinos_SaoLeopoldo,2026-10-02 18:45:00,4.06
+Rio_dos_Sinos_SaoLeopoldo,2026-10-02 19:00:00,4.06
+Rio_dos_Sinos_SaoLeopoldo,2026-10-02 19:15:00,4.06
