@@ -7112,8 +7112,7 @@ Guaiba_PortoAlegre_CaisMaua,2026-10-03 03:00:00,2.29
 Guaiba_PortoAlegre_CaisMaua,2026-10-03 04:00:00,2.28
 Guaiba_PortoAlegre_CaisMaua,2026-10-03 07:00:00,2.24
 Guaiba_PortoAlegre_CaisMaua,2026-10-03 08:00:00,2.22
-Rio_Cai,2025-09-26 09:15:00,4.78
-Rio_Cai,2025-09-26 09:30:00,4.77
+Guaiba_PortoAlegre_CaisMaua,2026-10-03 09:00:00,2.2
 Rio_Cai,2025-09-26 09:45:00,4.76
 Rio_Cai,2025-09-26 10:00:00,4.74
 Rio_Cai,2025-09-26 10:15:00,4.73
@@ -36885,8 +36884,6 @@ Rio_Cai,2026-08-04 14:30:00,4.25
 Rio_Cai,2026-08-04 14:45:00,4.24
 Rio_Cai,2026-08-04 15:00:00,4.24
 Rio_Cai,2026-08-04 15:15:00,4.23
-Rio_Cai_Montenegro,2025-09-26 09:15:00,3.46
-Rio_Cai_Montenegro,2025-09-26 09:30:00,3.45
 Rio_Cai_Montenegro,2025-09-26 09:45:00,3.43
 Rio_Cai_Montenegro,2025-09-26 10:00:00,3.42
 Rio_Cai_Montenegro,2025-09-26 10:15:00,3.41
@@ -72342,8 +72339,7 @@ Rio_Cai_Montenegro,2026-10-03 08:30:00,4.33
 Rio_Cai_Montenegro,2026-10-03 08:45:00,4.32
 Rio_Cai_Montenegro,2026-10-03 09:00:00,4.31
 Rio_Cai_Montenegro,2026-10-03 09:15:00,4.3
-Rio_Gravatai,2025-09-26 09:15:00,4.3
-Rio_Gravatai,2025-09-26 09:30:00,4.3
+Rio_Cai_Montenegro,2026-10-03 09:30:00,4.28
 Rio_Gravatai,2025-09-26 09:45:00,4.3
 Rio_Gravatai,2025-09-26 10:00:00,4.3
 Rio_Gravatai,2025-09-26 10:15:00,4.3
@@ -107957,8 +107953,6 @@ Rio_Gravatai,2026-10-03 08:30:00,3.86
 Rio_Gravatai,2026-10-03 08:45:00,3.85
 Rio_Gravatai,2026-10-03 09:00:00,3.85
 Rio_Gravatai,2026-10-03 09:15:00,3.85
-Rio_Jacui_CachoeiraDoSul,2025-09-26 09:15:00,7.23
-Rio_Jacui_CachoeiraDoSul,2025-09-26 09:30:00,7.23
 Rio_Jacui_CachoeiraDoSul,2025-09-26 09:45:00,7.22
 Rio_Jacui_CachoeiraDoSul,2025-09-26 10:00:00,7.22
 Rio_Jacui_CachoeiraDoSul,2025-09-26 10:15:00,7.22
@@ -137158,8 +137152,6 @@ Rio_Jacui_CachoeiraDoSul,2026-08-04 14:15:00,9.34
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:30:00,9.32
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:45:00,9.33
 Rio_Jacui_CachoeiraDoSul,2026-08-04 15:00:00,9.32
-Rio_Jacui_Triunfo,2025-09-26 09:15:00,8.18
-Rio_Jacui_Triunfo,2025-09-26 09:30:00,8.19
 Rio_Jacui_Triunfo,2025-09-26 09:45:00,8.19
 Rio_Jacui_Triunfo,2025-09-26 10:00:00,2.65
 Rio_Jacui_Triunfo,2025-09-26 10:15:00,8.19
@@ -146436,8 +146428,6 @@ Rio_Jacui_Triunfo,2026-10-03 05:00:00,4.49
 Rio_Jacui_Triunfo,2026-10-03 06:00:00,4.46
 Rio_Jacui_Triunfo,2026-10-03 07:00:00,4.44
 Rio_Jacui_Triunfo,2026-10-03 08:00:00,4.41
-Rio_Taquari_Encantado,2025-09-26 09:15:00,2.52
-Rio_Taquari_Encantado,2025-09-26 09:30:00,2.5
 Rio_Taquari_Encantado,2025-09-26 09:45:00,2.49
 Rio_Taquari_Encantado,2025-09-26 10:00:00,2.48
 Rio_Taquari_Encantado,2025-09-26 10:15:00,2.47
@@ -176166,8 +176156,6 @@ Rio_Taquari_Encantado,2026-08-04 13:00:00,2.28
 Rio_Taquari_Encantado,2026-08-04 13:15:00,2.27
 Rio_Taquari_Encantado,2026-08-04 13:30:00,2.26
 Rio_Taquari_Encantado,2026-08-04 13:45:00,2.25
-Rio_Taquari_Mucum,2025-09-26 09:15:00,4.27
-Rio_Taquari_Mucum,2025-09-26 09:30:00,4.26
 Rio_Taquari_Mucum,2025-09-26 09:45:00,4.25
 Rio_Taquari_Mucum,2025-09-26 10:00:00,4.23
 Rio_Taquari_Mucum,2025-09-26 10:15:00,4.21
@@ -205897,8 +205885,6 @@ Rio_Taquari_Mucum,2026-08-04 14:30:00,3.82
 Rio_Taquari_Mucum,2026-08-04 14:45:00,3.77
 Rio_Taquari_Mucum,2026-08-04 15:00:00,3.72
 Rio_Taquari_Mucum,2026-08-04 15:15:00,3.66
-Rio_Taquari_Taquari,2025-09-26 09:15:00,4.19
-Rio_Taquari_Taquari,2025-09-26 09:30:00,4.19
 Rio_Taquari_Taquari,2025-09-26 09:45:00,4.2
 Rio_Taquari_Taquari,2025-09-26 10:00:00,4.2
 Rio_Taquari_Taquari,2025-09-26 10:15:00,4.2
@@ -241355,8 +241341,10 @@ Rio_Taquari_Taquari,2026-10-03 08:00:00,6.04
 Rio_Taquari_Taquari,2026-10-03 08:15:00,6.01
 Rio_Taquari_Taquari,2026-10-03 08:30:00,5.99
 Rio_Taquari_Taquari,2026-10-03 08:45:00,5.97
-Rio_dos_Sinos_SaoLeopoldo,2025-09-26 09:15:00,4.11
-Rio_dos_Sinos_SaoLeopoldo,2025-09-26 09:30:00,4.11
+Rio_Taquari_Taquari,2026-10-03 09:00:00,5.95
+Rio_Taquari_Taquari,2026-10-03 09:15:00,5.94
+Rio_Taquari_Taquari,2026-10-03 09:30:00,5.92
+Rio_Taquari_Taquari,2026-10-03 09:45:00,5.91
 Rio_dos_Sinos_SaoLeopoldo,2025-09-26 09:45:00,4.11
 Rio_dos_Sinos_SaoLeopoldo,2025-09-26 10:00:00,4.11
 Rio_dos_Sinos_SaoLeopoldo,2025-09-26 10:15:00,4.11
