@@ -7024,8 +7024,7 @@ Guaiba_PortoAlegre_CaisMaua,2026-10-23 13:00:00,1.45
 Guaiba_PortoAlegre_CaisMaua,2026-10-23 14:00:00,1.46
 Guaiba_PortoAlegre_CaisMaua,2026-10-23 15:00:00,1.48
 Guaiba_PortoAlegre_CaisMaua,2026-10-23 16:00:00,1.5
-Rio_Cai,2025-10-16 17:15:00,2.43
-Rio_Cai,2025-10-16 17:30:00,2.43
+Guaiba_PortoAlegre_CaisMaua,2026-10-23 17:00:00,1.49
 Rio_Cai,2025-10-16 17:45:00,2.43
 Rio_Cai,2025-10-16 18:00:00,2.43
 Rio_Cai,2025-10-16 18:15:00,2.43
@@ -34858,8 +34857,6 @@ Rio_Cai,2026-08-04 14:30:00,4.25
 Rio_Cai,2026-08-04 14:45:00,4.24
 Rio_Cai,2026-08-04 15:00:00,4.24
 Rio_Cai,2026-08-04 15:15:00,4.23
-Rio_Cai_Montenegro,2025-10-16 17:15:00,1.22
-Rio_Cai_Montenegro,2025-10-16 17:30:00,1.22
 Rio_Cai_Montenegro,2025-10-16 17:45:00,1.23
 Rio_Cai_Montenegro,2025-10-16 18:00:00,1.24
 Rio_Cai_Montenegro,2025-10-16 18:15:00,1.25
@@ -70325,8 +70322,7 @@ Rio_Cai_Montenegro,2026-10-23 16:30:00,1.64
 Rio_Cai_Montenegro,2026-10-23 16:45:00,1.64
 Rio_Cai_Montenegro,2026-10-23 17:00:00,1.64
 Rio_Cai_Montenegro,2026-10-23 17:15:00,1.64
-Rio_Gravatai,2025-10-16 17:15:00,2.91
-Rio_Gravatai,2025-10-16 17:30:00,2.91
+Rio_Cai_Montenegro,2026-10-23 17:30:00,1.64
 Rio_Gravatai,2025-10-16 17:45:00,2.9
 Rio_Gravatai,2025-10-16 18:00:00,2.9
 Rio_Gravatai,2025-10-16 18:15:00,2.9
@@ -105944,8 +105940,6 @@ Rio_Gravatai,2026-10-23 16:30:00,2.88
 Rio_Gravatai,2026-10-23 16:45:00,2.88
 Rio_Gravatai,2026-10-23 17:00:00,2.88
 Rio_Gravatai,2026-10-23 17:15:00,2.87
-Rio_Jacui_CachoeiraDoSul,2025-10-16 17:15:00,1.68
-Rio_Jacui_CachoeiraDoSul,2025-10-16 17:30:00,1.69
 Rio_Jacui_CachoeiraDoSul,2025-10-16 17:45:00,1.69
 Rio_Jacui_CachoeiraDoSul,2025-10-16 18:00:00,1.7
 Rio_Jacui_CachoeiraDoSul,2025-10-16 18:15:00,1.7
@@ -133193,8 +133187,6 @@ Rio_Jacui_CachoeiraDoSul,2026-08-04 14:15:00,9.34
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:30:00,9.32
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:45:00,9.33
 Rio_Jacui_CachoeiraDoSul,2026-08-04 15:00:00,9.32
-Rio_Jacui_Triunfo,2025-10-16 17:15:00,4.19
-Rio_Jacui_Triunfo,2025-10-16 17:30:00,4.19
 Rio_Jacui_Triunfo,2025-10-16 17:45:00,4.17
 Rio_Jacui_Triunfo,2025-10-16 18:00:00,1.9
 Rio_Jacui_Triunfo,2025-10-16 18:15:00,4.16
@@ -140952,8 +140944,6 @@ Rio_Jacui_Triunfo,2026-10-23 14:00:00,1.92
 Rio_Jacui_Triunfo,2026-10-23 15:00:00,1.95
 Rio_Jacui_Triunfo,2026-10-23 16:00:00,1.97
 Rio_Jacui_Triunfo,2026-10-23 17:00:00,2.01
-Rio_Taquari_Encantado,2025-10-16 17:15:00,1.24
-Rio_Taquari_Encantado,2025-10-16 17:30:00,1.24
 Rio_Taquari_Encantado,2025-10-16 17:45:00,1.24
 Rio_Taquari_Encantado,2025-10-16 18:00:00,1.23
 Rio_Taquari_Encantado,2025-10-16 18:15:00,1.22
@@ -168747,8 +168737,6 @@ Rio_Taquari_Encantado,2026-08-04 13:00:00,2.28
 Rio_Taquari_Encantado,2026-08-04 13:15:00,2.27
 Rio_Taquari_Encantado,2026-08-04 13:30:00,2.26
 Rio_Taquari_Encantado,2026-08-04 13:45:00,2.25
-Rio_Taquari_Mucum,2025-10-16 17:15:00,2.87
-Rio_Taquari_Mucum,2025-10-16 17:30:00,2.86
 Rio_Taquari_Mucum,2025-10-16 17:45:00,2.83
 Rio_Taquari_Mucum,2025-10-16 18:00:00,2.81
 Rio_Taquari_Mucum,2025-10-16 18:15:00,2.78
@@ -196540,8 +196528,6 @@ Rio_Taquari_Mucum,2026-08-04 14:30:00,3.82
 Rio_Taquari_Mucum,2026-08-04 14:45:00,3.77
 Rio_Taquari_Mucum,2026-08-04 15:00:00,3.72
 Rio_Taquari_Mucum,2026-08-04 15:15:00,3.66
-Rio_Taquari_Taquari,2025-10-16 17:15:00,2.85
-Rio_Taquari_Taquari,2025-10-16 17:30:00,2.86
 Rio_Taquari_Taquari,2025-10-16 17:45:00,2.86
 Rio_Taquari_Taquari,2025-10-16 18:00:00,2.87
 Rio_Taquari_Taquari,2025-10-16 18:15:00,2.88
@@ -232018,8 +232004,10 @@ Rio_Taquari_Taquari,2026-10-23 16:00:00,3.21
 Rio_Taquari_Taquari,2026-10-23 16:15:00,3.23
 Rio_Taquari_Taquari,2026-10-23 16:30:00,3.24
 Rio_Taquari_Taquari,2026-10-23 16:45:00,3.25
-Rio_dos_Sinos_SaoLeopoldo,2025-10-16 17:15:00,1.58
-Rio_dos_Sinos_SaoLeopoldo,2025-10-16 17:30:00,1.59
+Rio_Taquari_Taquari,2026-10-23 17:00:00,3.26
+Rio_Taquari_Taquari,2026-10-23 17:15:00,3.27
+Rio_Taquari_Taquari,2026-10-23 17:30:00,3.27
+Rio_Taquari_Taquari,2026-10-23 17:45:00,3.26
 Rio_dos_Sinos_SaoLeopoldo,2025-10-16 17:45:00,1.6
 Rio_dos_Sinos_SaoLeopoldo,2025-10-16 18:00:00,1.6
 Rio_dos_Sinos_SaoLeopoldo,2025-10-16 18:15:00,1.61
