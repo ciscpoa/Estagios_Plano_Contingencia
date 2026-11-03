@@ -7023,8 +7023,6 @@ Guaiba_PortoAlegre_CaisMaua,2026-11-03 06:00:00,1.19
 Guaiba_PortoAlegre_CaisMaua,2026-11-03 07:00:00,1.18
 Guaiba_PortoAlegre_CaisMaua,2026-11-03 08:00:00,1.18
 Guaiba_PortoAlegre_CaisMaua,2026-11-03 09:00:00,1.21
-Rio_Cai,2025-10-27 09:15:00,2.14
-Rio_Cai,2025-10-27 09:30:00,2.14
 Rio_Cai,2025-10-27 09:45:00,2.14
 Rio_Cai,2025-10-27 10:00:00,2.14
 Rio_Cai,2025-10-27 10:15:00,2.14
@@ -33842,8 +33840,6 @@ Rio_Cai,2026-08-04 14:30:00,4.25
 Rio_Cai,2026-08-04 14:45:00,4.24
 Rio_Cai,2026-08-04 15:00:00,4.24
 Rio_Cai,2026-08-04 15:15:00,4.23
-Rio_Cai_Montenegro,2025-10-27 09:15:00,0.93
-Rio_Cai_Montenegro,2025-10-27 09:30:00,0.93
 Rio_Cai_Montenegro,2025-10-27 09:45:00,0.93
 Rio_Cai_Montenegro,2025-10-27 10:00:00,0.93
 Rio_Cai_Montenegro,2025-10-27 10:15:00,0.93
@@ -69305,8 +69301,8 @@ Rio_Cai_Montenegro,2026-11-03 08:30:00,1.38
 Rio_Cai_Montenegro,2026-11-03 08:45:00,1.39
 Rio_Cai_Montenegro,2026-11-03 09:00:00,1.39
 Rio_Cai_Montenegro,2026-11-03 09:15:00,1.39
-Rio_Gravatai,2025-10-27 09:15:00,2.07
-Rio_Gravatai,2025-10-27 09:30:00,2.07
+Rio_Cai_Montenegro,2026-11-03 09:30:00,1.39
+Rio_Cai_Montenegro,2026-11-03 09:45:00,1.38
 Rio_Gravatai,2025-10-27 09:45:00,2.07
 Rio_Gravatai,2025-10-27 10:00:00,2.07
 Rio_Gravatai,2025-10-27 10:15:00,2.07
@@ -104920,8 +104916,6 @@ Rio_Gravatai,2026-11-03 08:30:00,2.45
 Rio_Gravatai,2026-11-03 08:45:00,2.45
 Rio_Gravatai,2026-11-03 09:00:00,2.45
 Rio_Gravatai,2026-11-03 09:15:00,2.45
-Rio_Jacui_CachoeiraDoSul,2025-10-27 09:15:00,0.7
-Rio_Jacui_CachoeiraDoSul,2025-10-27 09:30:00,0.69
 Rio_Jacui_CachoeiraDoSul,2025-10-27 09:45:00,0.68
 Rio_Jacui_CachoeiraDoSul,2025-10-27 10:00:00,0.67
 Rio_Jacui_CachoeiraDoSul,2025-10-27 10:15:00,0.66
@@ -131145,8 +131139,6 @@ Rio_Jacui_CachoeiraDoSul,2026-08-04 14:15:00,9.34
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:30:00,9.32
 Rio_Jacui_CachoeiraDoSul,2026-08-04 14:45:00,9.33
 Rio_Jacui_CachoeiraDoSul,2026-08-04 15:00:00,9.32
-Rio_Jacui_Triunfo,2025-10-27 09:15:00,2.24
-Rio_Jacui_Triunfo,2025-10-27 09:30:00,2.25
 Rio_Jacui_Triunfo,2025-10-27 09:45:00,2.25
 Rio_Jacui_Triunfo,2025-10-27 10:00:00,1.6
 Rio_Jacui_Triunfo,2025-10-27 10:15:00,2.24
@@ -138145,8 +138137,6 @@ Rio_Jacui_Triunfo,2026-11-03 06:00:00,1.57
 Rio_Jacui_Triunfo,2026-11-03 07:00:00,1.62
 Rio_Jacui_Triunfo,2026-11-03 08:00:00,1.65
 Rio_Jacui_Triunfo,2026-11-03 09:00:00,1.67
-Rio_Taquari_Encantado,2025-10-27 09:15:00,0.55
-Rio_Taquari_Encantado,2025-10-27 09:30:00,0.57
 Rio_Taquari_Encantado,2025-10-27 09:45:00,0.58
 Rio_Taquari_Encantado,2025-10-27 10:00:00,0.59
 Rio_Taquari_Encantado,2025-10-27 10:15:00,0.59
@@ -164930,8 +164920,6 @@ Rio_Taquari_Encantado,2026-08-04 13:00:00,2.28
 Rio_Taquari_Encantado,2026-08-04 13:15:00,2.27
 Rio_Taquari_Encantado,2026-08-04 13:30:00,2.26
 Rio_Taquari_Encantado,2026-08-04 13:45:00,2.25
-Rio_Taquari_Mucum,2025-10-27 09:15:00,2.12
-Rio_Taquari_Mucum,2025-10-27 09:30:00,2.11
 Rio_Taquari_Mucum,2025-10-27 09:45:00,2.1
 Rio_Taquari_Mucum,2025-10-27 10:00:00,2.08
 Rio_Taquari_Mucum,2025-10-27 10:15:00,2.07
@@ -191714,8 +191702,6 @@ Rio_Taquari_Mucum,2026-08-04 14:30:00,3.82
 Rio_Taquari_Mucum,2026-08-04 14:45:00,3.77
 Rio_Taquari_Mucum,2026-08-04 15:00:00,3.72
 Rio_Taquari_Mucum,2026-08-04 15:15:00,3.66
-Rio_Taquari_Taquari,2025-10-27 09:15:00,2.42
-Rio_Taquari_Taquari,2025-10-27 09:30:00,2.43
 Rio_Taquari_Taquari,2025-10-27 09:45:00,2.43
 Rio_Taquari_Taquari,2025-10-27 10:00:00,2.44
 Rio_Taquari_Taquari,2025-10-27 10:15:00,2.45
@@ -227176,8 +227162,10 @@ Rio_Taquari_Taquari,2026-11-03 08:00:00,2.83
 Rio_Taquari_Taquari,2026-11-03 08:15:00,2.85
 Rio_Taquari_Taquari,2026-11-03 08:30:00,2.86
 Rio_Taquari_Taquari,2026-11-03 08:45:00,2.88
-Rio_dos_Sinos_SaoLeopoldo,2025-10-27 09:15:00,1.24
-Rio_dos_Sinos_SaoLeopoldo,2025-10-27 09:30:00,1.24
+Rio_Taquari_Taquari,2026-11-03 09:00:00,2.9
+Rio_Taquari_Taquari,2026-11-03 09:15:00,2.92
+Rio_Taquari_Taquari,2026-11-03 09:30:00,2.94
+Rio_Taquari_Taquari,2026-11-03 09:45:00,2.95
 Rio_dos_Sinos_SaoLeopoldo,2025-10-27 09:45:00,1.24
 Rio_dos_Sinos_SaoLeopoldo,2025-10-27 10:00:00,1.24
 Rio_dos_Sinos_SaoLeopoldo,2025-10-27 10:15:00,1.24
