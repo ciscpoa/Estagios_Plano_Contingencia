@@ -571,66 +571,96 @@ def coletar_previsao_poaclima() -> dict:
     Abre a aba "Previsão do tempo" do Poaclima e lê a tabela de previsão
     (fonte: Catavento Meteorologia — a mesma que a Defesa Civil de POA usa).
 
+    A leitura faz até três tentativas independentes antes de liberar o uso da
+    fonte de reserva. Em cada uma, aguarda a tabela aparecer em vez de concluir
+    falha após uma espera fixa. Recriar o navegador também recupera carregamentos
+    parciais, sessões presas e respostas temporariamente vazias do frontend.
+
     Retorna {"dias": [...], "previsto_48h_mm": float|None, "fonte", "ok"}
     """
     vazio = {"dias": [], "previsto_48h_mm": None, "atualizado_em": None,
              "fonte": "Poaclima/Catavento", "ok": False}
-    try:
-        driver = criar_driver()
-    except Exception as exc:
-        print(f"[Poaclima-previsão] Selenium indisponível: {exc}")
-        return vazio
+    total_tentativas = 3
+    espera_tabela_s = 12
 
-    try:
-        driver.get(config.URL_POACLIMA)
-        WebDriverWait(driver, config.SELENIUM_TIMEOUT_S).until(
-            EC.presence_of_element_located((By.TAG_NAME, "body")))
-        _entrar_no_conteudo(driver, espera_s=20)
+    for tentativa in range(1, total_tentativas + 1):
+        driver = None
+        try:
+            print(f"[Poaclima-previsão] tentativa {tentativa}/{total_tentativas}.")
+            driver = criar_driver()
+            driver.get(config.URL_POACLIMA)
+            WebDriverWait(driver, config.SELENIUM_TIMEOUT_S).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body")))
+            _entrar_no_conteudo(driver, espera_s=20)
 
-        # clica no botão "Previsão do tempo"
-        clicou = False
-        for xp in ("//*[contains(text(),'Previsão do tempo')]",
-                   "//*[contains(text(),'Previsao do tempo')]"):
-            for el in driver.find_elements(By.XPATH, xp)[:3]:
+            texto = _corpo(driver)
+            dias = _parse_previsao(texto)
+            if not dias:
+                # clica no botão "Previsão do tempo"
+                clicou = False
+                for xp in ("//*[contains(text(),'Previsão do tempo')]",
+                           "//*[contains(text(),'Previsao do tempo')]"):
+                    for el in driver.find_elements(By.XPATH, xp)[:3]:
+                        try:
+                            driver.execute_script("arguments[0].click();", el)
+                            clicou = True
+                            break
+                        except Exception:
+                            continue
+                    if clicou:
+                        break
+                if not clicou:
+                    print("[Poaclima-previsão] botão 'Previsão do tempo' "
+                          "não encontrado nesta tentativa.")
+
+                # O conteúdo pode chegar depois do clique. Em vez de ler uma
+                # única vez após 2,5 s, observa a página por até 12 s.
+                fim_espera = time.monotonic() + espera_tabela_s
+                while not dias and time.monotonic() < fim_espera:
+                    time.sleep(1.0)
+                    texto = _corpo(driver)
+                    dias = _parse_previsao(texto)
+
+            if not dias:
+                print("[Poaclima-previsão] tabela não interpretada "
+                      f"({len(texto)} chars lidos).")
+                if tentativa < total_tentativas:
+                    time.sleep(2 * tentativa)
+                continue
+
+            hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            proximos = [d for d in dias if d["data"] >= hoje][:2]
+            previsto_48h = sum(d["precipitacao_total_mm"] for d in proximos) or 0.0
+
+            m_at = _RE_ATUALIZ_PREV.search(texto)
+            atualizado = None
+            if m_at:
+                atualizado = (m_at.group(1)
+                              + (f" {m_at.group(2)}" if m_at.group(2) else ""))
+
+            print(f"[Poaclima-previsão] {len(dias)} dia(s) lidos na tentativa "
+                  f"{tentativa} | próximas 48h: {previsto_48h:.0f} mm (Catavento)"
+                  + (f" | boletim de {atualizado}" if atualizado else ""))
+            return {"dias": dias, "previsto_48h_mm": previsto_48h,
+                    "atualizado_em": atualizado,
+                    "fonte": "Poaclima/Catavento", "ok": True}
+        except Exception as exc:
+            print(f"[Poaclima-previsão] falha na tentativa {tentativa}: {exc}")
+        finally:
+            if driver is not None:
                 try:
-                    driver.execute_script("arguments[0].click();", el)
-                    clicou = True
-                    break
+                    driver.quit()
                 except Exception:
-                    continue
-            if clicou:
-                break
-        if not clicou:
-            print("[Poaclima-previsão] botão 'Previsão do tempo' não encontrado.")
-        time.sleep(2.5)
+                    pass
 
-        texto = _corpo(driver)
-        dias = _parse_previsao(texto)
-        if not dias:
-            print("[Poaclima-previsão] tabela não interpretada "
-                  f"({len(texto)} chars lidos).")
-            return vazio
+        if tentativa < total_tentativas:
+            # Pausa curta e crescente: evita repetir imediatamente a mesma
+            # condição transitória sem alongar demais a coleta agendada.
+            time.sleep(2 * tentativa)
 
-        hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        proximos = [d for d in dias if d["data"] >= hoje][:2]
-        previsto_48h = sum(d["precipitacao_total_mm"] for d in proximos) or 0.0
-
-        m_at = _RE_ATUALIZ_PREV.search(texto)
-        atualizado = None
-        if m_at:
-            atualizado = m_at.group(1) + (f" {m_at.group(2)}" if m_at.group(2) else "")
-
-        print(f"[Poaclima-previsão] {len(dias)} dia(s) lidos | "
-              f"próximas 48h: {previsto_48h:.0f} mm (Catavento)"
-              + (f" | boletim de {atualizado}" if atualizado else ""))
-        return {"dias": dias, "previsto_48h_mm": previsto_48h,
-                "atualizado_em": atualizado,
-                "fonte": "Poaclima/Catavento", "ok": True}
-    except Exception as exc:
-        print(f"[Poaclima-previsão] falha: {exc}")
-        return vazio
-    finally:
-        driver.quit()
+    print(f"[Poaclima-previsão] sem leitura após {total_tentativas} tentativas; "
+          "a coleta seguirá com a fonte de reserva disponível.")
+    return vazio
 
 
 def coletar_nivel_guaiba_fallback() -> dict:
