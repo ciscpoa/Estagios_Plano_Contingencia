@@ -4,19 +4,13 @@ acoes_estagio.py
 ================
 Ações recomendadas para cada ESTÁGIO OPERACIONAL, em duas faixas de leitura:
 
-* SERVIDORES DA SAÚDE  — o que a rede SMS faz neste estágio
-* POPULAÇÃO EM GERAL   — o que o morador de Porto Alegre faz neste estágio
+* TRABALHADORES DA SAÚDE — o que a rede SMS faz neste estágio
+* POPULAÇÃO EM GERAL     — o que o morador de Porto Alegre faz neste estágio
 
-Fonte: Plano de Contingência para Emergências em Saúde Pública por Chuvas
-Intensas e Desastres Associados — SMS/PMPA, 2ª edição (item 5.1.1, Quadros
-5 a 9). O Plano lista as ações por SETOR e SUBSETOR, em texto longo; aqui
-elas viram tópicos curtos, porque o painel é lido em pé, no meio do evento,
-muitas vezes no celular. Quem precisa do detalhe vai ao documento — o
-painel diz o que fazer AGORA.
-
-A coluna da população não está no Plano com essas palavras: ela condensa as
-orientações de comunicação de risco à população previstas no próprio Plano
-(água segura, leptospirose, evacuação preventiva, abrigos, canais oficiais).
+Conteúdo: "Ações Recomendadas por Estágio Operacional" — SMS/Porto Alegre,
+resumo operacional do Plano de Contingência da SMS (item 5.1.1). Os textos
+deste módulo seguem esse documento; a apresentação em cartões permanece a
+mesma do painel.
 
 Para editar o conteúdo, mexa só no dicionário ACOES abaixo.
 """
@@ -30,57 +24,69 @@ ACOES: dict[str, dict[str, list[str]]] = {
 
     "NORMALIDADE": {
         "servidores": [
-            "Acompanhar diariamente avisos e alertas meteorológicos e hidrológicos",
-            "Manter o POP da equipe atualizado, com responsáveis e contatos",
-            "Conferir estoques de medicamentos, insumos, EPIs e imunobiológicos",
-            "Revisar plano de evacuação, gerador e comunicação sem internet ou energia",
+            "Acompanhar diariamente avisos e alertas meteorológicos e hidrológicos emitidos pelas autoridades competentes",
+            "Identificar unidades e serviços em área sujeita a alagamento, inundação ou deslizamento",
+            "Manter Planos e Procedimentos Operacionais Padrão de preparação e resposta das equipe atualizados. Incluir responsáveis, contatos e rotas alternativas de fuga e deslocamento.",
+            "Montar kit de emergência para necessidade e evacuação (EPIs, equipamentos eletrônicos, formulários impressos, materiais de escritório)",
+            "Identificar grupos vulneráveis e pacientes de alta complexidade nas áreas de risco (diálise, oxigênio, oncológicos, gestantes, acamados, domiciliados)",
+            "Manter ciclo de capacitação e educação permanente em Emergências em Saúde Pública",
             "Manter atualizada a lista de profissionais voluntários",
-            "Seguir com a vigilância de rotina: arboviroses, zoonoses e doenças de veiculação hídrica",
         ],
         "populacao": [
-            "Acompanhar as informações oficiais da Defesa Civil e da Prefeitura",
+            "Acompanhar as informações oficiais da Defesa Civil e da Prefeitura Municipal",
             "Manter a vacinação em dia, inclusive a do tétano",
-            "Limpar calhas e ralos; não jogar lixo em bocas de lobo e arroios",
+            "Conhecer os pontos com histórico de alagamento, inundação ou com risco de deslizamento do seu bairro",
+            "Conhecer as organizações comunitárias e os espaços seguros para se abrigar do seu bairro",
+            "Ter um kit de emergência pronto: documentos pessoais em saco plástico, água potável, remédios de uso contínuo, roupa íntima, lanterna e carregador",
+            "Limpar calhas e ralos",
+            "Não jogar lixo em bocas de lobo e arroios",
             "Eliminar criadouros do mosquito da dengue",
-            "Saber se a sua casa fica em área com histórico de alagamento",
-            "Ter um kit pronto: documentos em saco plástico, água, remédios de uso contínuo, lanterna e carregador",
         ],
     },
 
     "MOBILIZAÇÃO": {
         "servidores": [
-            "Repassar os avisos e alertas a toda a equipe pelo fluxo já definido",
-            "Verificar quais unidades e serviços ficam em área sujeita a alagamento",
-            "Avaliar remanejo preventivo de estoques, medicamentos e imunobiológicos",
-            "Identificar pacientes de alta complexidade na área de risco (diálise, oxigênio, oncológicos, gestantes, acamados)",
-            "Avaliar cancelamento de consultas e exames eletivos",
-            "Reforçar contato com Defesa Civil, Assistência Social e 1ª CRS",
-            "Testar comunicação alternativa e conferir geradores",
+            "Repassar os avisos e alertas a toda a equipe pelo fluxo definido",
+            "Acompanhar a evolução dos Estágios Operacionais do Plano de Contingência",
+            "Rever quais as unidades e serviços ficam em área sujeita a alagamento, inundação ou deslizamento",
+            "Avaliar necessidade de remanejo preventivo de estoques, medicamentos e imunobiológicos nas áreas de maior risco",
+            "Avaliar necessidade de cancelamento de consultas e exames eletivos nas áreas de maior risco",
+            "Reforçar contato com Defesa Civil, Assistência Social e a 1ª Coordenadoria Regional de Saúde",
+            "Revisar kit de emergência (EPIs, equipamentos eletrônicos, formulários impressos, materiais de escritório)",
+            "Conferir funcionamento dos geradores elétricos",
+            "Testar equipamentos e sistemas alternativos de comunicação que funcionem sem depender de redes de telefonia ou internet, como rádios comunicadores, sistemas de alto-falantes e aplicativos offline.",
         ],
         "populacao": [
-            "Acompanhar a previsão e os alertas oficiais; desconfiar de mensagens em corrente",
-            "Evitar áreas com histórico de alagamento e não atravessar pontos alagados",
-            "Em área de risco, tirar do chão documentos, remédios e eletrodomésticos",
-            "Separar remédios de uso contínuo e receitas para levar se precisar sair",
+            "Acompanhar a previsão e os alertas oficiais",
+            "Desconfiar de mensagens com títulos sensacionalistas",
+            "Evitar deslocamentos desnecessários e manter-se em local abrigado",
+            "Em área de risco de alagamento ou inundação, elevar eletrodomésticos e proteger documentos e remédios",
             "Carregar celular e baterias",
-            "Combinar com a família para onde ir caso seja preciso deixar a casa",
+            "Separar o kit de emergência pronto para levar se precisar sair: documentos pessoais em saco plástico, água potável, receitas e remédios de uso contínuo, roupa íntima, lanterna e carregador",
+            "Combinar com a família para onde ir caso seja preciso deixar sua casa",
         ],
     },
 
     "ALERTA": {
         "servidores": [
             "Acionar os protocolos de alerta e preparação da equipe",
-            "Remanejar estoques, equipes e pacientes das unidades em risco",
-            "Suspender ou reagendar eletivos e comunicar os usuários",
+            "Remanejar estoques, equipes e pacientes das unidades de saúde de maior risco",
+            "Suspender ou reagendar consultas eletivas e comunicar os usuários",
             "Apoiar Assistência Social e Defesa Civil nos abrigos abertos: condições sanitárias, vacinação e atendimento",
             "Acionar equipes volantes e Primeiros Socorros Psicológicos",
-            "Definir rotas alternativas para insumos, equipes e pacientes",
-            "Reforçar notificação de leptospirose, diarreias e acidentes ligados ao evento",
+            "Acionar rotas alternativas para insumos, equipes e pacientes",
+            "Reforçar notificação de leptospirose, diarréias, violências e acidentes ligados ao evento",
         ],
         "populacao": [
-            "Em área de risco, saia antes de a água chegar — não espere",
-            "Não entre em contato com a água da enchente; se entrar, lave-se com água limpa e sabão",
-            "Febre, dor de cabeça ou dor muscular depois do contato com a água: procure a unidade de saúde",
+            "Em área de risco, saia antes da água chegar — não espere",
+            "Acompanhar a previsão e os alertas oficiais;",
+            "Desconfiar de mensagens em corrente e com títulos sensacionalistas",
+            "Evitar deslocamentos desnecessários e manter-se em local abrigado",
+            "Pegar o kit de emergência pronto: documentos pessoais em saco plástico, água potável, remédios de uso contínuo, roupa íntima, lanterna e carregador",
+            "Se precisar sair de casa, comunique a família e informe para onde vai",
+            "Use botas de borracha e luvas impermeáveis para mexer com lama ou entulhos",
+            "Se tiver contato com a água da enchente, lave-se com água limpa e sabão",
+            "Se tiver febre, dor de cabeça ou dor muscular depois do contato com a água: procure a unidade de saúde",
             "Ao ir para abrigo, leve documentos, remédios e receitas",
             "Beba só água tratada, fervida ou clorada",
             "Defesa Civil 199 · Bombeiros 193 · SAMU 192 · Prefeitura 156",
@@ -89,43 +95,50 @@ ACOES: dict[str, dict[str, list[str]]] = {
 
     "SITUAÇÃO DE EMERGÊNCIA": {
         "servidores": [
-            "Compor e seguir o Centro de Operações de Emergência (COE)",
-            "Informar diariamente quais serviços seguem abertos e quais foram interrompidos",
+            "Compor ou acompanhar os comandos do Centro de Operações de Emergência (COE)",
+            "Informar diariamente quais serviços quais estão abertos e quais tiveram funcionamento suspenso",
             "Priorizar urgências e a continuidade do cuidado de crônicos e alta complexidade",
-            "Atuar nos abrigos: vigilância sindrômica, vacinação, saúde mental, vetores e zoonoses",
-            "Garantir água segura e distribuir hipoclorito onde o abastecimento parou",
+            "Atuar nos abrigos: prestar assistência às condições agudas, às pessoas com condições crônicas que possam descompensar, realizar ações de vacinação e de saúde mental, e identificar doenças transmissíveis relacionadas ao evento",
+            "Disponibilizar água potável e distribuir hipoclorito onde teve interrupção de abastecimento",
             "Registrar atendimentos mesmo offline, em formulário de papel",
             "Cuidar da equipe: escala, EPI, vacinação e apoio em saúde mental",
         ],
         "populacao": [
-            "Siga a orientação de evacuação e não volte para casa antes da liberação",
+            "Priorize a sua vida: Se você receber orientação para sair de casa, aceite. Leve apenas o kit de emergência pronto - documentos pessoais em saco plástico, água potável, remédios de uso contínuo, roupa íntima, lanterna e carregador",
+            "Se precisar sair de casa, comunique a família e informe para onde vai",
             "Não consuma alimento ou remédio que teve contato com a água da enchente",
             "Use apenas água potável distribuída, fervida ou tratada com hipoclorito",
-            "Na limpeza, use botas e luvas e desinfete com água sanitária",
-            "Febre, diarreia ou dor no corpo após a enchente: procure atendimento e avise do contato com a água",
-            "Atenção a fios elétricos e a animais peçonhentos trazidos pela água",
-            "Informe-se apenas por canais oficiais: 199, 193, 192 e 156",
+            "Na limpeza, use botas e luvas impermeáveis e desinfete pisos, paredes e utensílios com água sanitária",
+            "Se tiver febre, diarréia ou dor no corpo: procure atendimento",
+            "Se precisar de atendimento de saúde, informe se teve contato com a água de enchente, se comeu alimento que teve contato com a água da enchente, acidente com animal peçonhento ou mordidas, ou se está em abrigo temporário",
+            "Atenção a fios elétricos caídos na água. Mantenha distância para evitar choques elétricos.",
+            "Desconfiar de mensagens em corrente e com títulos sensacionalistas",
+            "Acione contatos de emergência: 199 (Defesa Civil), 193 (Bombeiros), 192 (SAMU) e 156 (Central de Atendimento ao Cidadão de Porto Alegre)",
         ],
     },
 
     "CRISE": {
         "servidores": [
-            "COE ativado: toda decisão e toda informação passam por ele",
+            "Centro de Operações de Emergência (COE) ativado: toda decisão e toda informação passam por este centro",
             "Operar em modo offline: registro em papel, rádio ou telefone, backup dos dados",
             "Manter apenas os serviços essenciais, postos avançados e hospitais de campanha",
-            "Solicitar apoio estadual e federal; organizar voluntários, doações e ajuda humanitária",
-            "Vacinar equipes, socorristas e abrigados (tétano, hepatite A, influenza, COVID)",
-            "Vigilância intensificada de surtos, óbitos, água, alimentos e vetores nas áreas isoladas",
+            "Organizar voluntários, doações e ajuda humanitária",
+            "Vacinar equipes, socorristas e abrigados (tétano, hepatite A, influenza, Covid-19)",
+            "Vigilância intensificada de surtos, óbitos, água, alimentos e vetores nas áreas atingidas, isoladas e abrigos",
             "Rodízio das equipes e apoio psicológico ao trabalhador da saúde",
         ],
         "populacao": [
-            "Priorize a vida: aceite a evacuação e leve apenas o essencial",
+            "Priorize a sua vida: Se você receber orientação para sair de casa, aceite. Leve apenas o kit de emergência pronto - documentos pessoais em saco plástico, água potável, remédios de uso contínuo, roupa íntima, lanterna e carregador",
             "Não entre em áreas isoladas, alagadas ou com risco de deslizamento",
-            "Se estiver ilhado, sinalize o local e informe quantas pessoas, idosos, crianças e doentes crônicos há ali",
-            "Consuma só água de fonte oficial ou tratada",
-            "Continue o tratamento de doenças crônicas: procure a equipe de saúde do abrigo para receita e medicamento",
-            "Medo, insônia e tristeza são reações esperadas — há atendimento em saúde mental",
-            "Confie apenas nos canais oficiais: 199, 193, 192 e 156",
+            "Não consuma alimento ou remédio que teve contato com a água da enchente",
+            "Use apenas água potável distribuída, fervida ou tratada com hipoclorito",
+            "Se tiver febre, diarreia ou dor no corpo: procure atendimento",
+            "Se precisar de atendimento de saúde, informe se teve contato com a água de enchente, se comeu alimento que teve contato com a água da enchente, acidente com animal peçonhento ou mordidas, ou se está em abrigo temporário",
+            "Atenção a fios elétricos caídos na água. Mantenha distância para evitar choques elétricos.",
+            "Se estiver em um abrigo temporário continue o tratamento de doenças crônicas: procure a equipe de saúde do abrigo para receita e medicamento",
+            "Medo, insônia e tristeza são reações esperadas — busque atendimento em saúde mental",
+            "Desconfiar de mensagens em corrente e com títulos sensacionalistas",
+            "Acione contatos de emergência: 199 (Defesa Civil), 193 (Bombeiros), 192 (SAMU) e 156 (Central de Atendimento ao Cidadão de Porto Alegre)",
         ],
     },
 }
@@ -136,7 +149,7 @@ ACOES: dict[str, dict[str, list[str]]] = {
 ESTAGIO_PADRAO = "MOBILIZAÇÃO"
 
 FAIXAS = [
-    ("servidores", "Servidores da saúde", "Rede SMS · equipes e serviços"),
+    ("servidores", "Trabalhadores da saúde", "Rede SMS · equipes e serviços"),
     ("populacao", "População em geral", "Moradores de Porto Alegre"),
 ]
 

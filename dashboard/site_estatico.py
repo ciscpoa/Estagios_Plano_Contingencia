@@ -78,7 +78,13 @@ def _texto_html(txt: str) -> str:
 
 def _bloco_fontes(snapshot: dict) -> str:
     fontes = snapshot.get("fontes") or {}
-    fora = [n for n, ok in fontes.items() if not ok]
+    # Open-Meteo é fonte de RESERVA e referência auxiliar de controle de
+    # qualidade, não a fonte preferencial. A indisponibilidade da reserva,
+    # sozinha, não deve aparecer como falha de fonte principal no topo. Se ele
+    # precisar substituir a previsão local, a nota discreta da seção de
+    # previsão informa a fonte efetivamente usada.
+    fora = [n for n, ok in fontes.items()
+            if not ok and n != "Open-Meteo"]
     if not fora:
         return ""
     return (
@@ -1073,13 +1079,18 @@ def _bloco_previsao(snapshot: dict, quantos: int = 5) -> str:
     dias = dias[:quantos]
 
     if not dias:
-        # Fonte fora do ar é informação, não motivo para esconder a seção:
-        # quem decide precisa saber que a previsão da Catavento faltou.
-        return ("""
+        # Mantém a procedência visível sem transformar o acionamento normal
+        # da fonte de reserva em um grande aviso de falha. Só menciona o
+        # Open-Meteo quando há série de reserva efetivamente disponível.
+        tem_reserva = bool(
+            snapshot.get("serie_precipitacao_horaria")
+            and str(snapshot.get("fonte_chuva_prev") or "").startswith("Open-Meteo"))
+        complemento = (" A chuva prevista no gráfico usa Open-Meteo como "
+                       "fonte de reserva." if tem_reserva else "")
+        return (f"""
     <h3 class="titulo-secao">Previsão do tempo — 5 dias</h3>
-    <section class="previsao-vazia">Previsão do Poaclima/Catavento
-      indisponível nesta coleta. Os gráficos de chuva seguem com a fonte
-      de reserva (Open-Meteo).</section>""")
+    <div class="fonte-prev">Os cartões do Poaclima/Catavento não foram
+      carregados nesta coleta.{complemento}</div>""")
 
     teto = max([(d.get("precipitacao_total_mm") or 0.0) for _, d in dias] + [10.0])
 
