@@ -254,7 +254,11 @@ def renderizar(snapshot, tema):
     arvore = _seguro("arvore_regras",
                      lambda: componentes.arvore_regras(cls, tema), html.Div())
     fontes = snapshot.get("fontes") or {}
-    indisponiveis = [n for n, ok in fontes.items() if not ok]
+    # A fonte de reserva não gera alerta de falha quando as fontes locais
+    # estão disponíveis. O gráfico já identifica o Open-Meteo quando ele é
+    # efetivamente usado na chuva observada ou prevista.
+    indisponiveis = [n for n, ok in fontes.items()
+                     if not ok and n != "Open-Meteo"]
     if indisponiveis:
         aviso_fontes = dbc.Alert(
             [html.B("Atenção: "),
